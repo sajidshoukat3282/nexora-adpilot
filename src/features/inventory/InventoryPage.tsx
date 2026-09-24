@@ -11,12 +11,12 @@ import { useSearchParams } from "@/lib/router";
 import type { MediaAsset, MediaType, AssetOperationalStatus } from "@/domain";
 import { MEDIA_TYPE_LABELS, mediaCategory, formatMoney, money } from "@/domain";
 
-const CITIES = ["Lahore", "Karachi", "Islamabad"];
+const DEFAULT_CITIES = ["Lahore", "Karachi", "Islamabad"];
 const ALL_MEDIA_TYPES = Object.keys(MEDIA_TYPE_LABELS) as MediaType[];
 
 export const InventoryPage: React.FC = () => {
   const [view, setView] = useState<"map" | "list">("map");
-  const [activeCity, setActiveCity] = useState(CITIES[0]);
+  const [activeCity, setActiveCity] = useState(DEFAULT_CITIES[0]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<"all" | "static" | "digital">("all");
   const [mediaType, setMediaType] = useState<MediaType | "">("");
@@ -34,14 +34,19 @@ export const InventoryPage: React.FC = () => {
     [search, category, mediaType, status]
   );
 
+  const citiesList = useMemo(() => {
+    const assetCities = (assets.data ?? []).map((a) => a.location.city);
+    return Array.from(new Set([...DEFAULT_CITIES, ...assetCities]));
+  }, [assets.data]);
+
   const cityCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const c of CITIES) counts[c] = 0;
+    for (const c of citiesList) counts[c] = 0;
     (assets.data ?? []).forEach((a) => {
       counts[a.location.city] = (counts[a.location.city] ?? 0) + 1;
     });
     return counts;
-  }, [assets.data]);
+  }, [assets.data, citiesList]);
 
   // Completes the Notifications -> Inventory deep link.
   const [linkParams, setLinkParams] = useSearchParams();
@@ -114,7 +119,7 @@ export const InventoryPage: React.FC = () => {
       {view === "map" ? (
         <div>
           <div className="flex items-center gap-1.5 mb-3">
-            {CITIES.map((c) => (
+            {citiesList.map((c) => (
               <button
                 key={c}
                 onClick={() => setActiveCity(c)}
@@ -163,7 +168,7 @@ const assetColumns: ColumnDef<MediaAsset>[] = [
   },
   {
     key: "price", header: "Rate/day", sortValue: (a) => a.pricing.baseDailyRateCents,
-    render: (a) => <span className="text-ink-100 font-semibold text-sm">{formatMoney(money(a.pricing.baseDailyRateCents))}</span>,
+    render: (a) => <span className="text-ink-100 font-semibold text-sm">{formatMoney(money(a.pricing.baseDailyRateCents, a.pricing.currency))}</span>,
   },
   {
     key: "status", header: "Status", sortValue: (a) => a.operationalStatus,
