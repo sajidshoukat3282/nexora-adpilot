@@ -168,7 +168,11 @@ const assetColumns: ColumnDef<MediaAsset>[] = [
   },
   {
     key: "price", header: "Rate/day", sortValue: (a) => a.pricing.baseDailyRateCents,
-    render: (a) => <span className="text-ink-100 font-semibold text-sm">{formatMoney(money(a.pricing.baseDailyRateCents, a.pricing.currency))}</span>,
+    render: (a) => (
+      <span className="text-ink-100 font-semibold text-sm">
+        {formatMoney(money(a.pricing.baseDailyRateCents, (a.pricing as any).currency))}
+      </span>
+    ),
   },
   {
     key: "status", header: "Status", sortValue: (a) => a.operationalStatus,
