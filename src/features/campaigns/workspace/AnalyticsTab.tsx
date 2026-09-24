@@ -5,7 +5,7 @@ import { DonutChart } from "@/components/charts/DonutChart";
 import { useAsync } from "@/hooks/useAsync";
 import { repo } from "@/repositories/demo";
 import type { Campaign } from "@/domain";
-import { formatMoney } from "@/domain";
+import { formatMoney, money } from "@/domain";
 
 export const AnalyticsTab: React.FC<{ campaign: Campaign }> = ({ campaign }) => {
   const playback = useAsync(() => repo.operations.listPlaybackForCampaign(campaign.id), [campaign.id]);
@@ -32,7 +32,10 @@ export const AnalyticsTab: React.FC<{ campaign: Campaign }> = ({ campaign }) => 
   const delivered = playback.data?.filter((p) => p.status === "delivered") ?? [];
   const failed = playback.data?.filter((p) => p.status === "failed") ?? [];
   const totalImpressions = delivered.reduce((s, p) => s + p.estimatedImpressions, 0);
-  const cpm = totalImpressions > 0 ? (campaign.budget.total.amountCents / 100 / (totalImpressions / 1000)) : 0;
+  
+  const cpmCents = totalImpressions > 0 
+    ? Math.round(campaign.budget.total.amountCents / (totalImpressions / 1000)) 
+    : 0;
 
   return (
     <div className="space-y-5">
@@ -80,7 +83,9 @@ export const AnalyticsTab: React.FC<{ campaign: Campaign }> = ({ campaign }) => 
         </div>
         <div className="stat-card">
           <span className="text-xs font-semibold uppercase tracking-wide text-ink-400">Est. CPM</span>
-          <div className="text-2xl font-bold text-ink-50 tabular-nums">${cpm.toFixed(2)}</div>
+          <div className="text-2xl font-bold text-ink-50 tabular-nums">
+            {formatMoney(money(cpmCents, campaign.budget.total.currency))}
+          </div>
         </div>
         <div className="stat-card">
           <span className="text-xs font-semibold uppercase tracking-wide text-ink-400">Total Spend</span>
