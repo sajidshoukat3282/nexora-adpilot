@@ -44,12 +44,6 @@ export const ProposalsPage: React.FC = () => {
     {
       key: "title",
       header: "Proposal",
-      render: (p: any) => (
-        <div>
-          <div className="font-semibold text-ink-50">{getTitle(p)}</div>
-          <div className="text-xs text-ink-500">{(p && p.code) || "PR-001"} · {getClientName(p)}</div>
-        </div>
-      ),
       cell: (p: any) => (
         <div>
           <div className="font-semibold text-ink-50">{getTitle(p)}</div>
@@ -60,17 +54,11 @@ export const ProposalsPage: React.FC = () => {
     {
       key: "status",
       header: "Status",
-      render: (p: any) => <StatusBadge label={(p && p.status) || "draft"} tone={proposalStatusTone(p && p.status)} />,
       cell: (p: any) => <StatusBadge label={(p && p.status) || "draft"} tone={proposalStatusTone(p && p.status)} />,
     },
     {
       key: "totalValue",
       header: "Client Investment",
-      render: (p: any) => (
-        <span className="font-semibold text-ink-100">
-          {formatMoney(money(getValueCents(p)))}
-        </span>
-      ),
       cell: (p: any) => (
         <span className="font-semibold text-ink-100">
           {formatMoney(money(getValueCents(p)))}
@@ -80,15 +68,8 @@ export const ProposalsPage: React.FC = () => {
     {
       key: "profitMargin",
       header: "Internal Margin (Owner Only)",
-      render: (p: any) => (
-        <PermissionGate permission={"view:financials" as any}>
-          <span className="text-xs font-bold text-signal-green bg-signal-green/10 px-2 py-0.5 rounded border border-signal-green/20">
-            +35% ({formatMoney(money(Math.round(getValueCents(p) * 0.35)))})
-          </span>
-        </PermissionGate>
-      ),
       cell: (p: any) => (
-        <PermissionGate permission={"view:financials" as any}>
+        <PermissionGate permission={"financials:read" as any} fallback={null}>
           <span className="text-xs font-bold text-signal-green bg-signal-green/10 px-2 py-0.5 rounded border border-signal-green/20">
             +35% ({formatMoney(money(Math.round(getValueCents(p) * 0.35)))})
           </span>
@@ -98,18 +79,6 @@ export const ProposalsPage: React.FC = () => {
     {
       key: "actions",
       header: "Actions",
-      render: (p: any) => (
-        <button
-          onClick={(e: React.MouseEvent) => {
-            e.stopPropagation();
-            setPreviewClientProposal(p);
-          }}
-          className="px-2.5 py-1 text-xs font-medium bg-ink-800 hover:bg-ink-700 text-signal-cyan rounded border border-ink-700 flex items-center gap-1.5 transition-colors"
-        >
-          <FiEye size={13} />
-          <span>Client PDF View</span>
-        </button>
-      ),
       cell: (p: any) => (
         <button
           onClick={(e: React.MouseEvent) => {
@@ -144,7 +113,7 @@ export const ProposalsPage: React.FC = () => {
       />
 
       {/* Owner Confidential Financial Summary */}
-      <PermissionGate permission={"view:financials" as any}>
+      <PermissionGate permission={"financials:read" as any} fallback={null}>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 p-4 bg-surface-bg/80 border border-surface-border rounded-xl">
           <div>
             <span className="text-xs text-ink-400 font-medium block">Total Active Proposals</span>
