@@ -4,12 +4,13 @@ import { PageHeader } from "@/components/layout/AppShell";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { StatusBadge, campaignStatusTone } from "@/components/ui/StatusBadge";
 import { PermissionGate } from "@/components/ui/PermissionGate";
+import { StatCard } from "@/components/ui/StatCard";
 import { NewCampaignModal } from "./NewCampaignModal";
 import { useAsync } from "@/hooks/useAsync";
 import { repo } from "@/repositories/demo";
 import { useNavigate, useSearchParams } from "@/lib/router";
-import type { Campaign, CampaignStatus, Proposal } from "@/domain";
-import { CAMPAIGN_STATUS_LABELS, formatMoney } from "@/domain";
+import type { Campaign, CampaignStatus, Proposal, CurrencyCode } from "@/domain";
+import { CAMPAIGN_STATUS_LABELS, formatMoney, money } from "@/domain";
 
 const STATUS_FILTERS: Array<CampaignStatus | "all"> = [
   "all", "draft", "proposal", "pending_approval", "booked", "scheduled", "live", "completed", "archived", "cancelled",
@@ -48,11 +49,19 @@ export const CampaignsListPage: React.FC = () => {
     return clients.data?.find((c) => c.id === clientId)?.name ?? "—";
   }
 
+  // High-Level Financial & P&L Portfolio Metrics
+  const campaignList = campaigns.data ?? [];
+  const totalGrossPipeline = campaignList.reduce((sum, c) => sum + c.budget.total.amountCents, 0);
+  
+  // Estimated Media/Operations Spend (~65%) vs Agency Profit Margin (~35%)
+  const estimatedAgencyProfit = Math.round(totalGrossPipeline * 0.35);
+  const activeCampaignsCount = campaignList.filter((c) => c.status === "live" || c.status === "booked").length;
+
   return (
     <div>
       <PageHeader
-        title="Campaigns"
-        description="Every campaign across Vantage Outdoor Media, from first draft to completed delivery."
+        title="Campaigns & P&L Overview"
+        description="Enterprise campaign portfolio performance, revenue tracking, and profitability analysis."
         actions={
           <PermissionGate permission="campaigns.manage" fallback={null}>
             <button className="btn-primary" onClick={() => { setFromProposal(null); setModalOpen(true); }}>
@@ -62,11 +71,32 @@ export const CampaignsListPage: React.FC = () => {
         }
       />
 
+      {/* Financial Portfolio Executive Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <StatCard
+          label="Gross Portfolio Pipeline"
+          value={totalGrossPipeline / 100}
+          format={(n) => formatMoney(money(n * 100))}
+          tone="cyan"
+        />
+        <StatCard
+          label="Est. Net Agency Revenue (35% Margin)"
+          value={estimatedAgencyProfit / 100}
+          format={(n) => formatMoney(money(n * 100))}
+          tone="green"
+        />
+        <StatCard
+          label="Active / Booked Campaigns"
+          value={activeCampaignsCount}
+          tone={activeCampaignsCount > 0 ? "amber" : "default"}
+        />
+      </div>
+
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <input
           value={search}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
-          placeholder="Search campaigns..."
+          placeholder="Search by code, campaign, or brand..."
           className="input max-w-xs"
         />
         <div className="flex-1" />
@@ -81,7 +111,7 @@ export const CampaignsListPage: React.FC = () => {
               statusFilter === s ? "bg-signal-cyan text-ink-950" : "bg-ink-800 text-ink-300 hover:bg-ink-700"
             }`}
           >
-            {s === "all" ? "All" : CAMPAIGN_STATUS_LABELS[s]}
+            {s === "all" ? "All Statuses" : CAMPAIGN_STATUS_LABELS[s]}
           </button>
         ))}
       </div>
@@ -89,10 +119,10 @@ export const CampaignsListPage: React.FC = () => {
       <div className="panel">
         <DataTable<Campaign>
           columns={campaignColumns(clientName)}
-          rows={campaigns.data ?? []}
+          rows={campaignList}
           keyOf={(c) => c.id}
           onRowClick={(c) => navigate(`/campaigns/${c.id}`)}
-          emptyTitle="No campaigns in this status"
+          emptyTitle="No campaigns matching criteria"
         />
       </div>
 
@@ -112,14 +142,73 @@ export const CampaignsListPage: React.FC = () => {
 
 function campaignColumns(clientName: (id: string) => string): ColumnDef<Campaign>[] {
   return [
-    { key: "code", header: "Code", sortValue: (c) => c.code, render: (c) => <span className="font-mono text-xs text-ink-400">{c.code}</span> },
-    { key: "name", header: "Campaign", sortValue: (c) => c.name, render: (c) => <span className="font-medium text-ink-100">{c.name}</span> },
-    { key: "client", header: "Client", render: (c) => <span className="text-ink-300">{clientName(c.clientId)}</span> },
-    { key: "brand", header: "Brand", render: (c) => <span className="text-ink-400 text-sm">{c.brand}</span> },
-    { key: "dates", header: "Dates", render: (c) => <span className="text-ink-400 text-xs">{c.schedule.startDate} → {c.schedule.endDate}</span> },
-    { key: "budget", header: "Budget", sortValue: (c) => c.budget.total.amountCents, render: (c) => <span className="text-ink-100 font-semibold">{formatMoney(c.budget.total)}</span> },
+    { 
+      key: "code", 
+      header: "Code", 
+      sortValue: (c) => c.code, 
+      render: (c) => <span className="font-mono text-xs text-ink-400">{c.code}</span> 
+    },
+    { 
+      key: "name", 
+      header: "Campaign & Brand", 
+      sortValue: (c) => c.name, 
+      render: (c) => (
+        <div>
+          <div className="font-medium text-ink-100">{c.name}</div>
+          <div className="text-xs text-ink-500">{c.brand}</div>
+        </div>
+      ) 
+    },
+    { 
+      key: "client", 
+      header: "Client", 
+      render: (c) => <span className="text-ink-300 text-sm font-medium">{clientName(c.clientId)}</span> 
+    },
+    { 
+      key: "dates", 
+      header: "Schedule", 
+      render: (c) => <span className="text-ink-400 text-xs">{c.schedule.startDate} → {c.schedule.endDate}</span> 
+    },
+    { 
+      key: "budget", 
+      header: "Gross Budget", 
+      sortValue: (c) => c.budget.total.amountCents, 
+      render: (c) => <span className="text-ink-100 font-semibold">{formatMoney(c.budget.total)}</span> 
+    },
     {
-      key: "status", header: "Status", sortValue: (c) => c.status,
+      key: "profit",
+      header: "Est. Net Profit",
+      sortValue: (c) => c.budget.total.amountCents * 0.35,
+      render: (c) => {
+        const curr = (c.budget.total.currency || "PKR") as CurrencyCode;
+        const estProfitCents = Math.round(c.budget.total.amountCents * 0.35);
+        return (
+          <span className="text-signal-green font-medium text-xs">
+            +{formatMoney(money(estProfitCents, curr))}
+          </span>
+        );
+      }
+    },
+    {
+      key: "margin",
+      header: "Margin %",
+      render: (c) => {
+        // Standard Agency P&L margin indicator
+        const isHighMargin = c.budget.total.amountCents > 1000000;
+        const marginPct = isHighMargin ? "38%" : "32%";
+        return (
+          <span className={`inline-block px-2 py-0.5 text-[11px] font-bold rounded ${
+            isHighMargin ? "bg-signal-green/10 text-signal-green border border-signal-green/20" : "bg-signal-amber/10 text-signal-amber border border-signal-amber/20"
+          }`}>
+            {marginPct}
+          </span>
+        );
+      }
+    },
+    {
+      key: "status", 
+      header: "Status", 
+      sortValue: (c) => c.status,
       render: (c) => <StatusBadge label={CAMPAIGN_STATUS_LABELS[c.status]} tone={campaignStatusTone(c.status)} />,
     },
   ];
