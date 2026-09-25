@@ -13,16 +13,19 @@ import { repo } from "@/repositories/demo";
 import { formatMoney, money } from "@/domain";
 import type { Proposal } from "@/domain";
 
-// Safe Type Extractors to prevent build issues
+// Safe Null-proof Helper Functions
 function getTitle(p: any): string {
+  if (!p) return "Commercial Proposal";
   return p.title || p.name || "Commercial Proposal";
 }
 
 function getClientName(p: any): string {
+  if (!p) return "Client";
   return p.clientName || p.client || p.brand || "Client";
 }
 
 function getValueCents(p: any): number {
+  if (!p) return 0;
   if (p.totalAmount?.amountCents) return p.totalAmount.amountCents;
   if (p.value?.amountCents) return p.value.amountCents;
   if (typeof p.value === "number") return p.value;
@@ -35,27 +38,39 @@ export const ProposalsPage: React.FC = () => {
   const [previewClientProposal, setPreviewClientProposal] = useState<Proposal | null>(null);
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
 
-  const rawList = proposals.data ?? [];
+  const rawList = Array.isArray(proposals.data) ? proposals.data : [];
 
   const columns = [
     {
       key: "title",
       header: "Proposal",
+      render: (p: any) => (
+        <div>
+          <div className="font-semibold text-ink-50">{getTitle(p)}</div>
+          <div className="text-xs text-ink-500">{(p && p.code) || "PR-001"} · {getClientName(p)}</div>
+        </div>
+      ),
       cell: (p: any) => (
         <div>
           <div className="font-semibold text-ink-50">{getTitle(p)}</div>
-          <div className="text-xs text-ink-500">{p.code || "PR-001"} · {getClientName(p)}</div>
+          <div className="text-xs text-ink-500">{(p && p.code) || "PR-001"} · {getClientName(p)}</div>
         </div>
       ),
     },
     {
       key: "status",
       header: "Status",
-      cell: (p: any) => <StatusBadge label={p.status || "draft"} tone={proposalStatusTone(p.status)} />,
+      render: (p: any) => <StatusBadge label={(p && p.status) || "draft"} tone={proposalStatusTone(p && p.status)} />,
+      cell: (p: any) => <StatusBadge label={(p && p.status) || "draft"} tone={proposalStatusTone(p && p.status)} />,
     },
     {
       key: "totalValue",
       header: "Client Investment",
+      render: (p: any) => (
+        <span className="font-semibold text-ink-100">
+          {formatMoney(money(getValueCents(p)))}
+        </span>
+      ),
       cell: (p: any) => (
         <span className="font-semibold text-ink-100">
           {formatMoney(money(getValueCents(p)))}
@@ -65,6 +80,13 @@ export const ProposalsPage: React.FC = () => {
     {
       key: "profitMargin",
       header: "Internal Margin (Owner Only)",
+      render: (p: any) => (
+        <PermissionGate permission={"view:financials" as any}>
+          <span className="text-xs font-bold text-signal-green bg-signal-green/10 px-2 py-0.5 rounded border border-signal-green/20">
+            +35% ({formatMoney(money(Math.round(getValueCents(p) * 0.35)))})
+          </span>
+        </PermissionGate>
+      ),
       cell: (p: any) => (
         <PermissionGate permission={"view:financials" as any}>
           <span className="text-xs font-bold text-signal-green bg-signal-green/10 px-2 py-0.5 rounded border border-signal-green/20">
@@ -76,6 +98,18 @@ export const ProposalsPage: React.FC = () => {
     {
       key: "actions",
       header: "Actions",
+      render: (p: any) => (
+        <button
+          onClick={(e: React.MouseEvent) => {
+            e.stopPropagation();
+            setPreviewClientProposal(p);
+          }}
+          className="px-2.5 py-1 text-xs font-medium bg-ink-800 hover:bg-ink-700 text-signal-cyan rounded border border-ink-700 flex items-center gap-1.5 transition-colors"
+        >
+          <FiEye size={13} />
+          <span>Client PDF View</span>
+        </button>
+      ),
       cell: (p: any) => (
         <button
           onClick={(e: React.MouseEvent) => {
@@ -136,17 +170,19 @@ export const ProposalsPage: React.FC = () => {
       <div className="panel p-5">
         <DataTable
           rows={rawList as any[]}
-          keyOf={(p: any) => p.id || p.code || String(Math.random())}
+          keyOf={(p: any) => (p && (p.id || p.code)) || String(Math.random())}
           columns={columns as any}
           onRowClick={(p: any) => setPreviewClientProposal(p)}
         />
       </div>
 
-      <ProposalBuilderModal 
-        open={isBuilderOpen}
-        onClose={() => setIsBuilderOpen(false)} 
-        onCreated={proposals.reload} 
-      />
+      {isBuilderOpen && (
+        <ProposalBuilderModal 
+          open={isBuilderOpen}
+          onClose={() => setIsBuilderOpen(false)} 
+          onCreated={proposals.reload} 
+        />
+      )}
 
       {/* 100% Confidential Client Presentation & PDF View Modal */}
       {previewClientProposal && (
@@ -161,6 +197,8 @@ export const ProposalsPage: React.FC = () => {
 
 /* Client Presentation & PDF View Component (All-Inclusive Pricing Only) */
 const ClientProposalPDFModal: React.FC<{ proposal: any; onClose: () => void }> = ({ proposal, onClose }) => {
+  if (!proposal) return null;
+
   const baseCents = getValueCents(proposal);
   const gstCents = Math.round(baseCents * 0.16);
   const grandTotalCents = baseCents + gstCents;
@@ -211,7 +249,7 @@ const ClientProposalPDFModal: React.FC<{ proposal: any; onClose: () => void }> =
               <span className="px-3 py-1 text-xs font-bold bg-signal-cyan/10 text-signal-cyan rounded border border-signal-cyan/20">
                 OFFICIAL QUOTATION
               </span>
-              <div className="text-xs text-ink-400 mt-2">Ref: <span className="font-mono text-ink-200">{proposal.code || "PR-001"}</span></div>
+              <div className="text-xs text-ink-400 mt-2">Ref: <span className="font-mono text-ink-200">{(proposal && proposal.code) || "PR-001"}</span></div>
               <div className="text-xs text-ink-400">Date: {new Date().toLocaleDateString()}</div>
             </div>
           </div>
