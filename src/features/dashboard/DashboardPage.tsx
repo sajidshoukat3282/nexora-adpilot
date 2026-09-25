@@ -3,6 +3,7 @@ import { FiFilm, FiRadio, FiAlertTriangle, FiTrendingUp, FiDollarSign } from "re
 import { PageHeader } from "@/components/layout/AppShell";
 import { StatCard } from "@/components/ui/StatCard";
 import { StatusBadge, campaignStatusTone, alertSeverityTone } from "@/components/ui/StatusBadge";
+import { DemoTag } from "@/components/ui/Feedback";
 import { LineChart } from "@/components/charts/LineChart";
 import { DonutChart } from "@/components/charts/DonutChart";
 import { useAsync } from "@/hooks/useAsync";
@@ -46,17 +47,13 @@ export const DashboardPage: React.FC = () => {
     <div>
       <PageHeader
         title="Command Center"
-        description="Live executive overview of campaigns, financials, delivery and operations across Vantage Outdoor Media."
+        description="Live overview of campaigns, delivery and operations across Vantage Outdoor Media."
+        actions={<DemoTag label="Illustrative metrics" />}
       />
 
-      {/* Primary KPI Cards Grid */}
+      {/* Metrics Cards Grid - Overflow Safe Container */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard 
-          label="Live Campaigns" 
-          value={liveCampaigns.length} 
-          icon={<FiFilm size={16} />} 
-          tone="green" 
-        />
+        <StatCard label="Live Campaigns" value={liveCampaigns.length} icon={<FiFilm size={16} />} tone="green" />
         <StatCard
           label="Screens Online"
           value={onlineScreens}
@@ -65,25 +62,17 @@ export const DashboardPage: React.FC = () => {
           tone="cyan"
           trend={{ direction: "up", label: `${uptimePct}% uptime` }}
         />
-        <StatCard 
-          label="Pending Approvals" 
-          value={pendingApprovals} 
-          icon={<FiAlertTriangle size={16} />} 
-          tone="amber" 
-        />
+        <StatCard label="Pending Approvals" value={pendingApprovals} icon={<FiAlertTriangle size={16} />} tone="amber" />
         
-        {/* Pipeline Value Container - Responsive Text Scaling & Text Overflow Fix */}
-        <div className="panel p-4 flex flex-col justify-between min-w-0">
-          <div className="flex items-center justify-between text-ink-400 text-xs font-semibold uppercase tracking-wider mb-1">
-            <span className="truncate">Pipeline Value</span>
-            <FiTrendingUp size={16} className="text-signal-cyan shrink-0 ml-1" />
-          </div>
-          <div className="text-xl xl:text-2xl font-bold text-ink-50 truncate tracking-tight">
-            {formatMoney(money(pipelineValue))}
-          </div>
-          <div className="text-[11px] text-signal-green font-medium mt-1 truncate">
-            +35% Est. Revenue Margin
-          </div>
+        {/* Pipeline Value Container with Text Truncation & Overflow Safety */}
+        <div className="min-w-0 overflow-hidden">
+          <StatCard
+            label="Pipeline Value"
+            value={pipelineValue / 100}
+            format={(n) => formatMoney(money(n * 100))}
+            icon={<FiTrendingUp size={16} />}
+            tone="cyan"
+          />
         </div>
       </div>
 
@@ -94,9 +83,7 @@ export const DashboardPage: React.FC = () => {
               <h3 className="font-semibold text-ink-50">Delivery Rate — Last 7 Days</h3>
               <p className="text-xs text-ink-400 mt-0.5">Scheduled vs. delivered plays across all live campaigns</p>
             </div>
-            <span className="px-2 py-0.5 text-[11px] font-bold bg-signal-cyan/10 text-signal-cyan rounded border border-signal-cyan/20">
-              95.2% Performance
-            </span>
+            <DemoTag />
           </div>
           <LineChart
             labels={deliveryLabels}
@@ -118,7 +105,7 @@ export const DashboardPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="panel p-5 lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-ink-50">Active Campaigns & Budget</h3>
+            <h3 className="font-semibold text-ink-50">Active Campaigns</h3>
             <Link to="/campaigns" className="text-xs text-signal-cyan font-semibold hover:underline">
               View all →
             </Link>
@@ -150,7 +137,7 @@ export const DashboardPage: React.FC = () => {
 
         <div className="panel p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-ink-50">Network Alerts</h3>
+            <h3 className="font-semibold text-ink-50">Alerts</h3>
             <Link to="/operations" className="text-xs text-signal-cyan font-semibold hover:underline">
               View all →
             </Link>
@@ -172,23 +159,20 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Enterprise Financial Receivables Panel */}
       <div className="mt-6 panel p-5 border border-signal-amber/20 bg-surface-bg/80">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
           <div className="flex items-center gap-2">
             <FiDollarSign size={18} className="text-signal-amber" />
             <h3 className="font-semibold text-ink-50">Outstanding Receivables (AR)</h3>
           </div>
-          <span className="px-2 py-0.5 text-[11px] font-bold bg-signal-amber/10 text-signal-amber rounded border border-signal-amber/20">
-            Net 30 Payment Terms
-          </span>
+          <DemoTag />
         </div>
-        <p className="text-sm text-ink-400 mb-3">Across all pending, partially paid, and overdue invoices requiring collection.</p>
+        <p className="text-sm text-ink-400 mb-3">Across all sent, partially paid, and overdue invoices.</p>
         <div className="text-2xl sm:text-3xl font-bold text-signal-amber tabular-nums tracking-tight">
           {formatMoney(money(outstanding))}
         </div>
-        <Link to="/finance" className="text-xs text-signal-cyan font-semibold hover:underline mt-3 inline-block">
-          Manage Accounts Receivable (AR) →
+        <Link to="/finance" className="text-xs text-signal-cyan font-semibold hover:underline mt-2 inline-block">
+          Go to Finance →
         </Link>
       </div>
     </div>
