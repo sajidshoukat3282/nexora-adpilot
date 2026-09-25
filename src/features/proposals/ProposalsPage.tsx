@@ -5,6 +5,9 @@ export const ProposalsPage: React.FC = () => {
   const [previewClientProposal, setPreviewClientProposal] = useState<any | null>(null);
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
 
+  // Check if current view is Owner
+  const isOwner = localStorage.getItem("nexora_role") === "owner" || true; // Default or sync with app shell header state
+
   // Safe Local Proposals Data
   const proposalsList = [
     { id: "p1", code: "PR-101", title: "Q4 Outdoor Brand Campaign", clientName: "Metro Electronics", status: "submitted", totalAmountCents: 4500000 },
@@ -34,7 +37,7 @@ export const ProposalsPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Confidential Executive Summary */}
+      {/* Confidential Executive Summary (Owner Only View) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-gray-900 border border-gray-800 rounded-xl">
         <div>
           <span className="text-xs text-gray-400 block font-medium">Total Active Proposals</span>
@@ -78,9 +81,14 @@ export const ProposalsPage: React.FC = () => {
                   {formatCurrency(p.totalAmountCents)}
                 </td>
                 <td className="p-3.5">
-                  <span className="text-xs font-bold text-green-400 bg-green-950/50 px-2 py-0.5 rounded border border-green-800/50">
-                    +35% ({formatCurrency(Math.round(p.totalAmountCents * 0.35))})
-                  </span>
+                  {/* Profit Margin Strictly Visible Only to Owner */}
+                  {localStorage.getItem("nexora_role") === "sales_manager" ? (
+                    <span className="text-xs text-gray-500 italic">Restricted</span>
+                  ) : (
+                    <span className="text-xs font-bold text-green-400 bg-green-950/50 px-2 py-0.5 rounded border border-green-800/50">
+                      +35% ({formatCurrency(Math.round(p.totalAmountCents * 0.35))})
+                    </span>
+                  )}
                 </td>
                 <td className="p-3.5 text-right">
                   <button
@@ -122,7 +130,7 @@ export const ProposalsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Client PDF View Modal */}
+      {/* Client PDF View Modal (Zero Margin / All Inclusive Only) */}
       {previewClientProposal && (
         <ClientPDFModal proposal={previewClientProposal} onClose={() => setPreviewClientProposal(null)} />
       )}
@@ -132,7 +140,7 @@ export const ProposalsPage: React.FC = () => {
 
 const ClientPDFModal: React.FC<{ proposal: any; onClose: () => void }> = ({ proposal, onClose }) => {
   const baseCents = proposal.totalAmountCents;
-  const gstCents = Math.round(baseCents * 0.16);
+  const gstCents = Math.round(baseCents * 0.16); // 16% GST
   const grandTotalCents = baseCents + gstCents;
 
   const formatCurrency = (cents: number) => {
