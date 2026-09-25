@@ -1,114 +1,204 @@
 import React from "react";
-import { useParams, useSearchParams, Link } from "@/lib/router";
+import { FiFilm, FiRadio, FiAlertTriangle, FiTrendingUp, FiDollarSign } from "react-icons/fi";
 import { PageHeader } from "@/components/layout/AppShell";
-import { Tabs } from "@/components/ui/Tabs";
-import { ErrorState } from "@/components/ui/Feedback";
+import { StatCard } from "@/components/ui/StatCard";
+import { StatusBadge, campaignStatusTone, alertSeverityTone } from "@/components/ui/StatusBadge";
+import { LineChart } from "@/components/charts/LineChart";
+import { DonutChart } from "@/components/charts/DonutChart";
 import { useAsync } from "@/hooks/useAsync";
 import { repo } from "@/repositories/demo";
-import type { CurrencyCode } from "@/domain";
-import { formatMoney, money } from "@/domain";
-import { CampaignStatusControl } from "./workspace/StatusControl";
-import { OverviewTab } from "./workspace/OverviewTab";
-import { InventoryTab } from "./workspace/InventoryTab";
-import { ScheduleTab } from "./workspace/ScheduleTab";
-import { CreativesTab } from "./workspace/CreativesTab";
-import { ApprovalsTab } from "./workspace/ApprovalsTab";
-import { DeliveryTab } from "./workspace/DeliveryTab";
-import { ProofOfPlayTab } from "./workspace/ProofOfPlayTab";
-import { AnalyticsTab } from "./workspace/AnalyticsTab";
-import { BillingTab } from "./workspace/BillingTab";
-import { ActivityTab } from "./workspace/ActivityTab";
+import { Link } from "@/lib/router";
+import { CAMPAIGN_STATUS_LABELS, formatMoney, money } from "@/domain";
 
-const TAB_DEFS = [
-  { key: "overview", label: "Overview" },
-  { key: "inventory", label: "Inventory" },
-  { key: "schedule", label: "Schedule" },
-  { key: "creatives", label: "Creatives" },
-  { key: "approvals", label: "Approvals" },
-  { key: "delivery", label: "Delivery/Screens" },
-  { key: "pop", label: "Proof of Play" },
-  { key: "analytics", label: "Analytics" },
-  { key: "billing", label: "Billing & Financials" },
-  { key: "activity", label: "Activity" },
-];
+export const DashboardPage: React.FC = () => {
+  const campaigns = useAsync(() => repo.campaigns.listCampaigns(), []);
+  const screens = useAsync(() => repo.operations.listScreens(), []);
+  const alerts = useAsync(() => repo.operations.listAlerts(), []);
+  const leads = useAsync(() => repo.crm.listLeads(), []);
+  const invoices = useAsync(() => repo.finance.listInvoices(), []);
 
-export const CampaignWorkspacePage: React.FC = () => {
-  const { id } = useParams();
-  const [params, setParams] = useSearchParams();
-  const activeTab = params.get("tab") ?? "overview";
+  const liveCampaigns = campaigns.data?.filter((c) => c.status === "live") ?? [];
+  const activeCampaigns = campaigns.data?.filter((c) => !["archived", "cancelled", "draft"].includes(c.status)) ?? [];
+  const onlineScreens = screens.data?.filter((s) => s.liveStatus === "online").length ?? 0;
+  const totalScreens = screens.data?.length ?? 0;
+  const uptimePct = totalScreens ? Math.round((onlineScreens / totalScreens) * 100) : 0;
+  const pendingApprovals = campaigns.data?.filter((c) => c.status === "pending_approval").length ?? 0;
+  const pipelineValue = leads.data?.filter((l) => !["won", "lost"].includes(l.stage)).reduce((s, l) => s + l.estimatedValue, 0) ?? 0;
+  const outstanding = invoices.data?.reduce((s, i) => s + (i.total.amountCents - i.amountPaid.amountCents), 0) ?? 0;
 
-  const campaignState = useAsync(() => repo.campaigns.getCampaign(id), [id]);
-  const campaign = campaignState.data;
+  const deliveryTrend = [92, 94, 89, 96, 91, 95, 97];
+  const deliveryLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Today"];
 
-  if (campaignState.loading) {
-    return <div className="text-ink-500 text-sm p-4">Loading campaign workspace...</div>;
-  }
-  if (!campaign) {
-    return <ErrorState message={`Campaign "${id}" was not found.`} />;
-  }
-
-  // Financial & P&L Calculations for Active Campaign
-  const curr = (campaign.budget.total.currency || "PKR") as CurrencyCode;
-  const totalCents = campaign.budget.total.amountCents;
-  const netProfitCents = Math.round(totalCents * 0.35);
-  const mediaBuyCents = Math.round(totalCents * 0.65);
+  const statusBreakdown = campaigns.data
+    ? Object.entries(
+        campaigns.data.reduce<Record<string, number>>((acc, c) => {
+          acc[c.status] = (acc[c.status] ?? 0) + 1;
+          return acc;
+        }, {})
+      ).map(([status, count]) => ({
+        label: CAMPAIGN_STATUS_LABELS[status as keyof typeof CAMPAIGN_STATUS_LABELS],
+        value: count,
+        color: statusColor(status),
+      }))
+    : [];
 
   return (
     <div>
       <PageHeader
-        breadcrumb={
-          <Link to="/campaigns" className="text-xs text-ink-500 hover:text-ink-300">
-            ← All Campaigns
-          </Link>
-        }
-        title={campaign.name}
-        description={`${campaign.code} · ${campaign.brand}`}
-        actions={<CampaignStatusControl campaign={campaign} onChanged={campaignState.reload} />}
+        title="Command Center"
+        description="Live executive overview of campaigns, financials, delivery and operations across Vantage Outdoor Media."
       />
 
-      {/* Enterprise Executive P&L & ROAS Bar */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3.5 mb-5 bg-surface-bg/60 border border-surface-border rounded-xl">
-        <div>
-          <span className="text-[11px] uppercase tracking-wider text-ink-500 font-semibold block">Gross Contract Value</span>
-          <span className="text-base font-bold text-ink-50">{formatMoney(campaign.budget.total)}</span>
-        </div>
-        <div>
-          <span className="text-[11px] uppercase tracking-wider text-ink-500 font-semibold block">Est. Agency Profit (35%)</span>
-          <span className="text-base font-bold text-signal-green">
-            +{formatMoney(money(netProfitCents, curr))}
-          </span>
-        </div>
-        <div>
-          <span className="text-[11px] uppercase tracking-wider text-ink-500 font-semibold block">Media & Cost Allocation</span>
-          <span className="text-base font-bold text-ink-300">
-            {formatMoney(money(mediaBuyCents, curr))}
-          </span>
-        </div>
-        <div>
-          <span className="text-[11px] uppercase tracking-wider text-ink-500 font-semibold block">Target ROAS</span>
-          <div className="flex items-center gap-2">
-            <span className="text-base font-bold text-signal-cyan">4.2x</span>
-            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-signal-cyan/10 text-signal-cyan rounded border border-signal-cyan/20">
-              +320% ROI
-            </span>
+      {/* Primary KPI Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard 
+          label="Live Campaigns" 
+          value={liveCampaigns.length} 
+          icon={<FiFilm size={16} />} 
+          tone="green" 
+        />
+        <StatCard
+          label="Screens Online"
+          value={onlineScreens}
+          format={(n) => `${n} / ${totalScreens}`}
+          icon={<FiRadio size={16} />}
+          tone="cyan"
+          trend={{ direction: "up", label: `${uptimePct}% uptime` }}
+        />
+        <StatCard 
+          label="Pending Approvals" 
+          value={pendingApprovals} 
+          icon={<FiAlertTriangle size={16} />} 
+          tone="amber" 
+        />
+        
+        {/* Pipeline Value Container - Responsive Text Scaling & Text Overflow Fix */}
+        <div className="panel p-4 flex flex-col justify-between min-w-0">
+          <div className="flex items-center justify-between text-ink-400 text-xs font-semibold uppercase tracking-wider mb-1">
+            <span className="truncate">Pipeline Value</span>
+            <FiTrendingUp size={16} className="text-signal-cyan shrink-0 ml-1" />
+          </div>
+          <div className="text-xl xl:text-2xl font-bold text-ink-50 truncate tracking-tight">
+            {formatMoney(money(pipelineValue))}
+          </div>
+          <div className="text-[11px] text-signal-green font-medium mt-1 truncate">
+            +35% Est. Revenue Margin
           </div>
         </div>
       </div>
 
-      <Tabs tabs={TAB_DEFS} active={activeTab} onChange={(key) => setParams({ tab: key })} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
+        <div className="panel p-5 lg:col-span-2">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-semibold text-ink-50">Delivery Rate — Last 7 Days</h3>
+              <p className="text-xs text-ink-400 mt-0.5">Scheduled vs. delivered plays across all live campaigns</p>
+            </div>
+            <span className="px-2 py-0.5 text-[11px] font-bold bg-signal-cyan/10 text-signal-cyan rounded border border-signal-cyan/20">
+              95.2% Performance
+            </span>
+          </div>
+          <LineChart
+            labels={deliveryLabels}
+            series={[{ name: "Delivery %", color: "#22d3ee", values: deliveryTrend }]}
+            formatValue={(n) => `${n}%`}
+          />
+        </div>
 
-      <div className="mt-5">
-        {activeTab === "overview" && <OverviewTab campaign={campaign} />}
-        {activeTab === "inventory" && <InventoryTab campaign={campaign} onChanged={campaignState.reload} />}
-        {activeTab === "schedule" && <ScheduleTab campaign={campaign} />}
-        {activeTab === "creatives" && <CreativesTab campaign={campaign} />}
-        {activeTab === "approvals" && <ApprovalsTab campaign={campaign} />}
-        {activeTab === "delivery" && <DeliveryTab campaign={campaign} />}
-        {activeTab === "pop" && <ProofOfPlayTab campaign={campaign} />}
-        {activeTab === "analytics" && <AnalyticsTab campaign={campaign} />}
-        {activeTab === "billing" && <BillingTab campaign={campaign} />}
-        {activeTab === "activity" && <ActivityTab campaign={campaign} />}
+        <div className="panel p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-ink-50">Campaign Mix</h3>
+          </div>
+          {statusBreakdown.length > 0 && (
+            <DonutChart data={statusBreakdown} centerLabel="Total" centerValue={String(campaigns.data?.length ?? 0)} size={150} />
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="panel p-5 lg:col-span-2">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-ink-50">Active Campaigns & Budget</h3>
+            <Link to="/campaigns" className="text-xs text-signal-cyan font-semibold hover:underline">
+              View all →
+            </Link>
+          </div>
+          <div className="space-y-1">
+            {activeCampaigns.slice(0, 6).map((c) => (
+              <Link
+                key={c.id}
+                to={`/campaigns/${c.id}`}
+                className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-ink-800/50 -mx-3 transition-colors"
+              >
+                <div className="min-w-0 pr-2">
+                  <div className="text-sm font-medium text-ink-100 truncate">{c.name}</div>
+                  <div className="text-xs text-ink-500">{c.code} · {c.brand}</div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-xs font-semibold text-ink-200">
+                    {formatMoney(c.budget.total)}
+                  </span>
+                  <StatusBadge label={CAMPAIGN_STATUS_LABELS[c.status]} tone={campaignStatusTone(c.status)} />
+                </div>
+              </Link>
+            ))}
+            {activeCampaigns.length === 0 && !campaigns.loading && (
+              <p className="text-sm text-ink-500 py-4">No active campaigns right now.</p>
+            )}
+          </div>
+        </div>
+
+        <div className="panel p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-ink-50">Network Alerts</h3>
+            <Link to="/operations" className="text-xs text-signal-cyan font-semibold hover:underline">
+              View all →
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {alerts.data?.slice(0, 5).map((a) => (
+              <div key={a.id} className="flex items-start gap-2.5">
+                <div className="mt-1">
+                  <StatusBadge label="" dot tone={alertSeverityTone(a.severity)} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm text-ink-100 leading-snug">{a.title}</div>
+                  <div className="text-xs text-ink-500 mt-0.5">{a.detail}</div>
+                </div>
+              </div>
+            ))}
+            {alerts.data?.length === 0 && <p className="text-sm text-ink-500 py-4">No active alerts.</p>}
+          </div>
+        </div>
+      </div>
+
+      {/* Enterprise Financial Receivables Panel */}
+      <div className="mt-6 panel p-5 border border-signal-amber/20 bg-surface-bg/80">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+          <div className="flex items-center gap-2">
+            <FiDollarSign size={18} className="text-signal-amber" />
+            <h3 className="font-semibold text-ink-50">Outstanding Receivables (AR)</h3>
+          </div>
+          <span className="px-2 py-0.5 text-[11px] font-bold bg-signal-amber/10 text-signal-amber rounded border border-signal-amber/20">
+            Net 30 Payment Terms
+          </span>
+        </div>
+        <p className="text-sm text-ink-400 mb-3">Across all pending, partially paid, and overdue invoices requiring collection.</p>
+        <div className="text-2xl sm:text-3xl font-bold text-signal-amber tabular-nums tracking-tight">
+          {formatMoney(money(outstanding))}
+        </div>
+        <Link to="/finance" className="text-xs text-signal-cyan font-semibold hover:underline mt-3 inline-block">
+          Manage Accounts Receivable (AR) →
+        </Link>
       </div>
     </div>
   );
 };
+
+function statusColor(status: string): string {
+  const map: Record<string, string> = {
+    live: "#34d399", scheduled: "#22d3ee", booked: "#3b82f6", pending_approval: "#fbbf24",
+    proposal: "#8b5cf6", draft: "#5c6b82", completed: "#3b82f6", archived: "#374357", cancelled: "#f87171",
+  };
+  return map[status] ?? "#5c6b82";
+}
