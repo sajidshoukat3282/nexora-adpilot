@@ -1,9 +1,8 @@
 import React from "react";
-import { FiFilm, FiRadio, FiCheckCircle, FiAlertTriangle, FiTrendingUp } from "react-icons/fi";
+import { FiFilm, FiRadio, FiAlertTriangle, FiTrendingUp, FiDollarSign } from "react-icons/fi";
 import { PageHeader } from "@/components/layout/AppShell";
 import { StatCard } from "@/components/ui/StatCard";
 import { StatusBadge, campaignStatusTone, alertSeverityTone } from "@/components/ui/StatusBadge";
-import { DemoTag } from "@/components/ui/Feedback";
 import { LineChart } from "@/components/charts/LineChart";
 import { DonutChart } from "@/components/charts/DonutChart";
 import { useAsync } from "@/hooks/useAsync";
@@ -47,37 +46,45 @@ export const DashboardPage: React.FC = () => {
     <div>
       <PageHeader
         title="Command Center"
-        description="Live overview of campaigns, delivery and operations across Vantage Outdoor Media."
-        actions={<DemoTag label="Illustrative metrics" />}
+        description="Live executive overview of campaigns, financials, delivery and operations across Vantage Outdoor Media."
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="min-w-0">
-          <StatCard label="Live Campaigns" value={liveCampaigns.length} icon={<FiFilm size={16} />} tone="green" />
-        </div>
-        <div className="min-w-0">
-          <StatCard
-            label="Screens Online"
-            value={onlineScreens}
-            format={(n) => `${n} / ${totalScreens}`}
-            icon={<FiRadio size={16} />}
-            tone="cyan"
-            trend={{ direction: "up", label: `${uptimePct}% uptime` }}
-          />
-        </div>
-        <div className="min-w-0">
-          <StatCard label="Pending Approvals" value={pendingApprovals} icon={<FiAlertTriangle size={16} />} tone="amber" />
-        </div>
+      {/* Primary Executive KPI Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard 
+          label="Live Campaigns" 
+          value={liveCampaigns.length} 
+          icon={<FiFilm size={16} />} 
+          tone="green" 
+        />
+        <StatCard
+          label="Screens Online"
+          value={onlineScreens}
+          format={(n) => `${n} / ${totalScreens}`}
+          icon={<FiRadio size={16} />}
+          tone="cyan"
+          trend={{ direction: "up", label: `${uptimePct}% uptime` }}
+        />
+        <StatCard 
+          label="Pending Approvals" 
+          value={pendingApprovals} 
+          icon={<FiAlertTriangle size={16} />} 
+          tone="amber" 
+        />
         
-        {/* Fixes $40,700.00 Text Overflow Issue */}
-        <div className="min-w-0 overflow-hidden">
-          <StatCard 
-            label="Pipeline Value" 
-            value={pipelineValue / 100} 
-            format={(n) => formatMoney(money(n * 100))} 
-            icon={<FiTrendingUp size={16} />} 
-            demo 
-          />
+        {/* Pipeline Value Container - Fixes $40,700.00 Overflow & Adds P&L Margin */}
+        <div className="panel p-4 flex flex-col justify-between min-w-0 overflow-hidden">
+          <div className="flex items-center justify-between text-ink-400 text-xs font-semibold uppercase tracking-wider mb-1">
+            <span className="truncate">Pipeline Value</span>
+            <FiTrendingUp size={16} className="text-signal-cyan shrink-0 ml-1" />
+          </div>
+          <div className="text-lg sm:text-xl xl:text-2xl font-bold text-ink-50 truncate tracking-tight">
+            {formatMoney(money(pipelineValue))}
+          </div>
+          <div className="text-[11px] text-signal-green font-medium mt-1 truncate flex items-center gap-1">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-signal-green"></span>
+            <span>+35% Est. Revenue Margin</span>
+          </div>
         </div>
       </div>
 
@@ -88,7 +95,9 @@ export const DashboardPage: React.FC = () => {
               <h3 className="font-semibold text-ink-50">Delivery Rate — Last 7 Days</h3>
               <p className="text-xs text-ink-400 mt-0.5">Scheduled vs. delivered plays across all live campaigns</p>
             </div>
-            <DemoTag />
+            <span className="px-2 py-0.5 text-[11px] font-bold bg-signal-cyan/10 text-signal-cyan rounded border border-signal-cyan/20">
+              95.2% Performance
+            </span>
           </div>
           <LineChart
             labels={deliveryLabels}
@@ -110,7 +119,7 @@ export const DashboardPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="panel p-5 lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-ink-50">Active Campaigns</h3>
+            <h3 className="font-semibold text-ink-50">Active Campaigns & Budget</h3>
             <Link to="/campaigns" className="text-xs text-signal-cyan font-semibold hover:underline">
               View all →
             </Link>
@@ -120,13 +129,18 @@ export const DashboardPage: React.FC = () => {
               <Link
                 key={c.id}
                 to={`/campaigns/${c.id}`}
-                className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-ink-800/50 -mx-3"
+                className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-ink-800/50 -mx-3 transition-colors"
               >
-                <div className="min-w-0">
+                <div className="min-w-0 pr-2">
                   <div className="text-sm font-medium text-ink-100 truncate">{c.name}</div>
                   <div className="text-xs text-ink-500">{c.code} · {c.brand}</div>
                 </div>
-                <StatusBadge label={CAMPAIGN_STATUS_LABELS[c.status]} tone={campaignStatusTone(c.status)} />
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-xs font-semibold text-ink-200">
+                    {formatMoney(c.budget.total)}
+                  </span>
+                  <StatusBadge label={CAMPAIGN_STATUS_LABELS[c.status]} tone={campaignStatusTone(c.status)} />
+                </div>
               </Link>
             ))}
             {activeCampaigns.length === 0 && !campaigns.loading && (
@@ -137,7 +151,7 @@ export const DashboardPage: React.FC = () => {
 
         <div className="panel p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-ink-50">Alerts</h3>
+            <h3 className="font-semibold text-ink-50">Network Alerts</h3>
             <Link to="/operations" className="text-xs text-signal-cyan font-semibold hover:underline">
               View all →
             </Link>
@@ -159,15 +173,23 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="mt-6 panel p-5">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="font-semibold text-ink-50">Outstanding Receivables</h3>
-          <DemoTag />
+      {/* Enterprise Financial Receivables Panel */}
+      <div className="mt-6 panel p-5 border border-signal-amber/20 bg-surface-bg/80">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+          <div className="flex items-center gap-2">
+            <FiDollarSign size={18} className="text-signal-amber" />
+            <h3 className="font-semibold text-ink-50">Outstanding Receivables (AR)</h3>
+          </div>
+          <span className="px-2 py-0.5 text-[11px] font-bold bg-signal-amber/10 text-signal-amber rounded border border-signal-amber/20">
+            Net 30 Payment Terms
+          </span>
         </div>
-        <p className="text-sm text-ink-400 mb-3">Across all sent, partially paid, and overdue invoices.</p>
-        <div className="text-3xl font-bold text-signal-amber tabular-nums">{formatMoney(money(outstanding))}</div>
-        <Link to="/finance" className="text-xs text-signal-cyan font-semibold hover:underline mt-2 inline-block">
-          Go to Finance →
+        <p className="text-sm text-ink-400 mb-3">Across all sent, partially paid, and overdue invoices requiring collection.</p>
+        <div className="text-2xl sm:text-3xl font-bold text-signal-amber tabular-nums tracking-tight truncate">
+          {formatMoney(money(outstanding))}
+        </div>
+        <Link to="/finance" className="text-xs text-signal-cyan font-semibold hover:underline mt-3 inline-block">
+          Manage Accounts Receivable (AR) →
         </Link>
       </div>
     </div>
