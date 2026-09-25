@@ -7,6 +7,13 @@ import { OBJECTIVE_LABELS } from "@/domain";
 
 const OBJECTIVES = Object.keys(OBJECTIVE_LABELS) as CampaignObjective[];
 
+const CURRENCIES = [
+  { code: "PKR", label: "PKR - Pakistani Rupee" },
+  { code: "USD", label: "USD - US Dollar" },
+  { code: "EUR", label: "EUR - Euro" },
+  { code: "GBP", label: "GBP - British Pound" },
+];
+
 export const NewCampaignModal: React.FC<{
   open: boolean;
   onClose: () => void;
@@ -19,6 +26,8 @@ export const NewCampaignModal: React.FC<{
   const [clientId, setClientId] = useState("");
   const [brand, setBrand] = useState("");
   const [objective, setObjective] = useState<CampaignObjective>("brand_awareness");
+  const [currency, setCurrency] = useState("PKR");
+  const [budget, setBudget] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -35,6 +44,7 @@ export const NewCampaignModal: React.FC<{
 
   function reset() {
     setName(""); setClientId(""); setBrand(""); setObjective("brand_awareness");
+    setCurrency("PKR"); setBudget("");
     setStartDate(""); setEndDate(""); setError(null);
   }
 
@@ -48,6 +58,8 @@ export const NewCampaignModal: React.FC<{
     try {
       const campaign = await repo.campaigns.createCampaign({
         name, clientId, brand, objective,
+        currency,
+        budget: budget ? parseFloat(budget) : 0,
         schedule: {
           startDate, endDate,
           daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
@@ -56,7 +68,7 @@ export const NewCampaignModal: React.FC<{
           loopPosition: null,
           dayparts: [],
         },
-      });
+      } as any);
       reset();
       onCreated(campaign);
     } catch (err) {
@@ -109,6 +121,20 @@ export const NewCampaignModal: React.FC<{
           <select className="input" value={objective} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setObjective(e.target.value as CampaignObjective)}>
             {OBJECTIVES.map((o) => <option key={o} value={o}>{OBJECTIVE_LABELS[o]}</option>)}
           </select>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">Currency</label>
+            <select className="input" value={currency} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCurrency(e.target.value)}>
+              {CURRENCIES.map((c) => (
+                <option key={c.code} value={c.code}>{c.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">Total Budget</label>
+            <input type="number" min="0" className="input" value={budget} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBudget(e.target.value)} placeholder="e.g. 500000" />
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
