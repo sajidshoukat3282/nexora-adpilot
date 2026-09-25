@@ -1,5 +1,5 @@
 import React from "react";
-import { FiFilm, FiRadio, FiAlertTriangle, FiTrendingUp, FiDollarSign } from "react-icons/fi";
+import { FiFilm, FiRadio, FiAlertTriangle, FiTrendingUp } from "react-icons/fi";
 import { PageHeader } from "@/components/layout/AppShell";
 import { StatCard } from "@/components/ui/StatCard";
 import { StatusBadge, campaignStatusTone, alertSeverityTone } from "@/components/ui/StatusBadge";
@@ -51,27 +51,33 @@ export const DashboardPage: React.FC = () => {
         actions={<DemoTag label="Illustrative metrics" />}
       />
 
-      {/* Metrics Cards Grid - Overflow Safe Container */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Live Campaigns" value={liveCampaigns.length} icon={<FiFilm size={16} />} tone="green" />
-        <StatCard
-          label="Screens Online"
-          value={onlineScreens}
-          format={(n) => `${n} / ${totalScreens}`}
-          icon={<FiRadio size={16} />}
-          tone="cyan"
-          trend={{ direction: "up", label: `${uptimePct}% uptime` }}
-        />
-        <StatCard label="Pending Approvals" value={pendingApprovals} icon={<FiAlertTriangle size={16} />} tone="amber" />
+      {/* Main Stat Cards Grid - Overflow Safe Container */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="min-w-0">
+          <StatCard label="Live Campaigns" value={liveCampaigns.length} icon={<FiFilm size={16} />} tone="green" />
+        </div>
+        <div className="min-w-0">
+          <StatCard
+            label="Screens Online"
+            value={onlineScreens}
+            format={(n) => `${n} / ${totalScreens}`}
+            icon={<FiRadio size={16} />}
+            tone="cyan"
+            trend={{ direction: "up", label: `${uptimePct}% uptime` }}
+          />
+        </div>
+        <div className="min-w-0">
+          <StatCard label="Pending Approvals" value={pendingApprovals} icon={<FiAlertTriangle size={16} />} tone="amber" />
+        </div>
         
-        {/* Pipeline Value Container with Text Truncation & Overflow Safety */}
+        {/* Pipeline Value Container - Fixes $40,700.00 Text Overflow */}
         <div className="min-w-0 overflow-hidden">
           <StatCard
             label="Pipeline Value"
             value={pipelineValue / 100}
             format={(n) => formatMoney(money(n * 100))}
             icon={<FiTrendingUp size={16} />}
-            tone="cyan"
+            demo
           />
         </div>
       </div>
@@ -159,16 +165,13 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="mt-6 panel p-5 border border-signal-amber/20 bg-surface-bg/80">
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-          <div className="flex items-center gap-2">
-            <FiDollarSign size={18} className="text-signal-amber" />
-            <h3 className="font-semibold text-ink-50">Outstanding Receivables (AR)</h3>
-          </div>
+      <div className="mt-6 panel p-5">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="font-semibold text-ink-50">Outstanding Receivables</h3>
           <DemoTag />
         </div>
         <p className="text-sm text-ink-400 mb-3">Across all sent, partially paid, and overdue invoices.</p>
-        <div className="text-2xl sm:text-3xl font-bold text-signal-amber tabular-nums tracking-tight">
+        <div className="text-3xl font-bold text-signal-amber tabular-nums tracking-tight">
           {formatMoney(money(outstanding))}
         </div>
         <Link to="/finance" className="text-xs text-signal-cyan font-semibold hover:underline mt-2 inline-block">
