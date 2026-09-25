@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { PageHeader } from "@/components/layout/AppShell";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { StatusBadge, invoiceStatusTone } from "@/components/ui/StatusBadge";
@@ -9,7 +9,7 @@ import { RecordPaymentModal } from "./RecordPaymentModal";
 import { useAsync } from "@/hooks/useAsync";
 import { repo } from "@/repositories/demo";
 import { useSearchParams } from "@/lib/router";
-import type { Invoice } from "@/domain";
+import type { Invoice, CurrencyCode } from "@/domain";
 import { INVOICE_STATUS_LABELS, formatMoney, money } from "@/domain";
 
 export const FinancePage: React.FC = () => {
@@ -40,31 +40,26 @@ export const FinancePage: React.FC = () => {
   const overdueCount = invoices.data?.filter((i) => i.status === "overdue").length ?? 0;
 
   // AR Aging Calculation
-  const aging = useMemo(() => {
-    const data = invoices.data ?? [];
-    const today = new Date();
-    let days0to30 = 0;
-    let days31to60 = 0;
-    let days60Plus = 0;
+  const today = new Date();
+  let aging0to30 = 0;
+  let aging31to60 = 0;
+  let aging60Plus = 0;
 
-    data.forEach((inv) => {
-      const outCents = inv.total.amountCents - inv.amountPaid.amountCents;
-      if (outCents > 0) {
-        const dueDate = new Date(inv.dueDate);
-        const diffDays = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 3600 * 24));
-        if (diffDays <= 30) days0to30 += outCents;
-        else if (diffDays <= 60) days31to60 += outCents;
-        else days60Plus += outCents;
-      }
-    });
-
-    return { days0to30, days31to60, days60Plus };
-  }, [invoices.data]);
+  invoices.data?.forEach((inv) => {
+    const outCents = inv.total.amountCents - inv.amountPaid.amountCents;
+    if (outCents > 0) {
+      const dueDate = new Date(inv.dueDate);
+      const diffDays = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 3600 * 24));
+      if (diffDays <= 30) aging0to30 += outCents;
+      else if (diffDays <= 60) aging31to60 += outCents;
+      else aging60Plus += outCents;
+    }
+  });
 
   return (
     <PermissionGate permission="finance.view" action="view Finance">
       <div>
-        <PageHeader title="Finance & Accounting" description="Invoices, AR Aging, Tax breakdowns, and revenue across clients." />
+        <PageHeader title="Finance & Accounting" description="Invoices, AR Aging, and revenue across all clients and campaigns." />
 
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
           <StatCard label="Revenue Collected" value={totalRevenue / 100} format={(n) => formatMoney(money(n * 100))} tone="green" />
@@ -72,7 +67,7 @@ export const FinancePage: React.FC = () => {
           <StatCard label="Overdue Invoices" value={overdueCount} tone={overdueCount > 0 ? "red" : "default"} />
         </div>
 
-        {/* Accounts Receivable (AR) Aging Breakdown Widget */}
+        {/* Accounts Receivable (AR) Aging Summary Widget */}
         <div className="panel mb-5 p-4">
           <h3 className="text-xs uppercase tracking-wider text-ink-400 font-semibold mb-3">
             Accounts Receivable (AR) Aging Breakdown
@@ -80,15 +75,15 @@ export const FinancePage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
             <div className="p-3 bg-surface-bg/50 rounded-lg border border-surface-border">
               <span className="text-xs text-ink-400 block mb-1">0–30 Days Overdue</span>
-              <span className="text-sm font-semibold text-signal-amber">{formatMoney(money(aging.days0to30))}</span>
+              <span className="text-sm font-semibold text-signal-amber">{formatMoney(money(aging0to30))}</span>
             </div>
             <div className="p-3 bg-surface-bg/50 rounded-lg border border-surface-border">
               <span className="text-xs text-ink-400 block mb-1">31–60 Days Overdue</span>
-              <span className="text-sm font-semibold text-signal-amber">{formatMoney(money(aging.days31to60))}</span>
+              <span className="text-sm font-semibold text-signal-amber">{formatMoney(money(aging31to60))}</span>
             </div>
             <div className="p-3 bg-surface-bg/50 rounded-lg border border-surface-border">
               <span className="text-xs text-ink-400 block mb-1">60+ Days Overdue</span>
-              <span className="text-sm font-semibold text-signal-red">{formatMoney(money(aging.days60Plus))}</span>
+              <span className="text-sm font-semibold text-signal-red">{formatMoney(money(aging60Plus))}</span>
             </div>
           </div>
         </div>
@@ -134,11 +129,7 @@ function invoiceColumns(clientName: (id: string) => string): ColumnDef<Invoice>[
       sortValue: (i) => i.total.amountCents - i.amountPaid.amountCents,
       render: (i) => {
         const out = i.total.amountCents - i.amountPaid.amountCents;
-        return (
-          <span className={out > 0 ? "text-signal-amber font-medium" : "text-ink-500"}>
-            {formatMoney({ ...i.total, amountCents: out })}
-          </span>
-        );
+        return <span className={out > 0 ? "text-signal-amber font-medium" : "text-ink-500"}>{formatMoney(money(out, i.total.currency as CurrencyCode))}</span>;
       },
     },
     {
