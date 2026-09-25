@@ -9,7 +9,7 @@ import { RecordPaymentModal } from "./RecordPaymentModal";
 import { useAsync } from "@/hooks/useAsync";
 import { repo } from "@/repositories/demo";
 import { useSearchParams } from "@/lib/router";
-import type { Invoice, CurrencyCode } from "@/domain";
+import type { Invoice } from "@/domain";
 import { INVOICE_STATUS_LABELS, formatMoney, money } from "@/domain";
 
 export const FinancePage: React.FC = () => {
@@ -39,7 +39,7 @@ export const FinancePage: React.FC = () => {
   const totalOutstanding = invoices.data?.reduce((s, i) => s + (i.total.amountCents - i.amountPaid.amountCents), 0) ?? 0;
   const overdueCount = invoices.data?.filter((i) => i.status === "overdue").length ?? 0;
 
-  // AR Aging Calculation
+  // Accounts Receivable (AR) Aging Calculations
   const today = new Date();
   let aging0to30 = 0;
   let aging31to60 = 0;
@@ -59,7 +59,7 @@ export const FinancePage: React.FC = () => {
   return (
     <PermissionGate permission="finance.view" action="view Finance">
       <div>
-        <PageHeader title="Finance & Accounting" description="Invoices, AR Aging, and revenue across all clients and campaigns." />
+        <PageHeader title="Finance" description="Invoices, AR Aging, and revenue across all clients and campaigns." />
 
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
           <StatCard label="Revenue Collected" value={totalRevenue / 100} format={(n) => formatMoney(money(n * 100))} tone="green" />
@@ -70,7 +70,7 @@ export const FinancePage: React.FC = () => {
         {/* Accounts Receivable (AR) Aging Summary Widget */}
         <div className="panel mb-5 p-4">
           <h3 className="text-xs uppercase tracking-wider text-ink-400 font-semibold mb-3">
-            Accounts Receivable (AR) Aging Breakdown
+            Accounts Receivable (AR) Aging Summary
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
             <div className="p-3 bg-surface-bg/50 rounded-lg border border-surface-border">
@@ -129,7 +129,7 @@ function invoiceColumns(clientName: (id: string) => string): ColumnDef<Invoice>[
       sortValue: (i) => i.total.amountCents - i.amountPaid.amountCents,
       render: (i) => {
         const out = i.total.amountCents - i.amountPaid.amountCents;
-        return <span className={out > 0 ? "text-signal-amber font-medium" : "text-ink-500"}>{formatMoney(money(out, i.total.currency as CurrencyCode))}</span>;
+        return <span className={out > 0 ? "text-signal-amber font-medium" : "text-ink-500"}>{formatMoney({ amountCents: out, currency: i.total.currency })}</span>;
       },
     },
     {
