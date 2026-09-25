@@ -5,17 +5,12 @@ import {
 } from "react-icons/fi";
 import { PageHeader } from "@/components/layout/AppShell";
 import { StatusBadge, proposalStatusTone } from "@/components/ui/StatusBadge";
+import { PermissionGate } from "@/components/ui/PermissionGate";
 import { useAsync } from "@/hooks/useAsync";
 import { repo } from "@/repositories/demo";
 import { formatMoney, money } from "@/domain";
 
-// Fallback Mock Data in case repository fails
-const MOCK_PROPOSALS = [
-  { id: "p1", code: "PR-101", title: "Q4 Outdoor Brand Campaign", clientName: "Metro Electronics", status: "submitted", totalAmount: { amountCents: 4500000 } },
-  { id: "p2", code: "PR-102", title: "Commercial Highway Billboard", clientName: "Apex Motors", status: "draft", totalAmount: { amountCents: 7800000 } },
-  { id: "p3", code: "PR-103", title: "Retail Hub Screen Network", clientName: "Urban Fashion", status: "accepted", totalAmount: { amountCents: 3200000 } },
-];
-
+// Safe Helper Extractors
 function getTitle(p: any): string {
   if (!p) return "Commercial Proposal";
   return p.title || p.name || "Commercial Proposal";
@@ -36,18 +31,16 @@ function getValueCents(p: any): number {
 }
 
 export const ProposalsPage: React.FC = () => {
-  const proposalsRepo = useAsync(() => repo.proposals.listProposals(), []);
+  const proposals = useAsync(() => repo.proposals.listProposals(), []);
   const [previewClientProposal, setPreviewClientProposal] = useState<any | null>(null);
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
 
-  // New Proposal Form State
+  // Proposal Creation Form State
   const [newTitle, setNewTitle] = useState("");
   const [newClient, setNewClient] = useState("");
   const [newValue, setNewValue] = useState("50000");
 
-  const rawList = (proposalsRepo.data && proposalsRepo.data.length > 0) 
-    ? proposalsRepo.data 
-    : MOCK_PROPOSALS;
+  const rawList = Array.isArray(proposals.data) ? proposals.data : [];
 
   const totalPipelineCents = rawList.reduce((sum: number, p: any) => sum + getValueCents(p), 0);
 
@@ -66,6 +59,7 @@ export const ProposalsPage: React.FC = () => {
     setIsBuilderOpen(false);
     setNewTitle("");
     setNewClient("");
+    proposals.reload();
   };
 
   return (
@@ -84,77 +78,94 @@ export const ProposalsPage: React.FC = () => {
         }
       />
 
-      {/* Confidential Executive P&L Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-surface-bg/80 border border-surface-border rounded-xl">
-        <div>
-          <span className="text-xs text-ink-400 font-medium block">Total Active Proposals</span>
-          <span className="text-xl font-bold text-ink-50">
-            {rawList.length} Proposals
-          </span>
+      {/* Owner Confidential Financial Summary */}
+      <PermissionGate permission={"financials:read" as any} fallback={null}>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-surface-bg/80 border border-surface-border rounded-xl">
+          <div>
+            <span className="text-xs text-ink-400 font-medium block">Total Active Proposals</span>
+            <span className="text-xl font-bold text-ink-50">
+              {rawList.length} Proposals
+            </span>
+          </div>
+          <div>
+            <span className="text-xs text-ink-400 font-medium block">Gross Client Pipeline</span>
+            <span className="text-xl font-bold text-signal-cyan">
+              {formatMoney(money(totalPipelineCents))}
+            </span>
+          </div>
+          <div>
+            <span className="text-xs text-ink-400 font-medium block">Protected Agency Margin (35%)</span>
+            <span className="text-xl font-bold text-signal-green">
+              {formatMoney(money(Math.round(totalPipelineCents * 0.35)))}
+            </span>
+          </div>
         </div>
-        <div>
-          <span className="text-xs text-ink-400 font-medium block">Gross Client Pipeline</span>
-          <span className="text-xl font-bold text-signal-cyan">
-            {formatMoney(money(totalPipelineCents))}
-          </span>
-        </div>
-        <div>
-          <span className="text-xs text-ink-400 font-medium block">Protected Agency Margin (35%)</span>
-          <span className="text-xl font-bold text-signal-green">
-            {formatMoney(money(Math.round(totalPipelineCents * 0.35)))}
-          </span>
-        </div>
-      </div>
+      </PermissionGate>
 
-      {/* Robust Custom Table */}
-      <div className="panel overflow-x-auto">
-        <table className="w-full text-left text-xs text-ink-200">
-          <thead className="bg-surface-card border-b border-surface-border text-ink-400 uppercase tracking-wider font-semibold">
-            <tr>
-              <th className="p-3.5">Proposal / Client</th>
-              <th className="p-3.5">Status</th>
-              <th className="p-3.5">Client Investment</th>
-              <th className="p-3.5">Internal Margin (Owner Only)</th>
-              <th className="p-3.5 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-surface-border">
-            {rawList.map((p: any, idx: number) => (
-              <tr key={p.id || idx} className="hover:bg-surface-card/50 transition-colors">
-                <td className="p-3.5">
-                  <div className="font-semibold text-ink-50">{getTitle(p)}</div>
-                  <div className="text-ink-500 text-[11px]">{p.code || "PR-001"} · {getClientName(p)}</div>
-                </td>
-                <td className="p-3.5">
-                  <StatusBadge label={p.status || "draft"} tone={proposalStatusTone(p.status)} />
-                </td>
-                <td className="p-3.5 font-semibold text-ink-100">
-                  {formatMoney(money(getValueCents(p)))}
-                </td>
-                <td className="p-3.5">
-                  <span className="text-xs font-bold text-signal-green bg-signal-green/10 px-2 py-0.5 rounded border border-signal-green/20">
-                    +35% ({formatMoney(money(Math.round(getValueCents(p) * 0.35)))})
-                  </span>
-                </td>
-                <td className="p-3.5 text-right">
-                  <button
-                    onClick={() => setPreviewClientProposal(p)}
-                    className="px-2.5 py-1 text-xs font-medium bg-ink-800 hover:bg-ink-700 text-signal-cyan rounded border border-ink-700 inline-flex items-center gap-1.5 transition-colors"
-                  >
-                    <FiEye size={13} />
-                    <span>Client PDF View</span>
-                  </button>
-                </td>
+      {/* Crash-Proof Native Table Rendering */}
+      <div className="panel overflow-x-auto p-0 border border-surface-border rounded-xl bg-surface-card">
+        {proposals.loading ? (
+          <div className="p-8 text-center text-ink-400 text-xs">
+            Loading proposals...
+          </div>
+        ) : (
+          <table className="w-full text-left text-xs text-ink-200">
+            <thead className="bg-surface-bg border-b border-surface-border text-ink-400 uppercase tracking-wider font-semibold">
+              <tr>
+                <th className="p-3.5">Proposal / Client</th>
+                <th className="p-3.5">Status</th>
+                <th className="p-3.5">Client Investment</th>
+                <th className="p-3.5">Internal Margin (Owner Only)</th>
+                <th className="p-3.5 text-right">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-surface-border">
+              {rawList.map((p: any, idx: number) => (
+                <tr key={p.id || p.code || idx} className="hover:bg-surface-bg/50 transition-colors">
+                  <td className="p-3.5">
+                    <div className="font-semibold text-ink-50">{getTitle(p)}</div>
+                    <div className="text-ink-500 text-[11px]">{p.code || "PR-001"} · {getClientName(p)}</div>
+                  </td>
+                  <td className="p-3.5">
+                    <StatusBadge label={p.status || "draft"} tone={proposalStatusTone(p.status)} />
+                  </td>
+                  <td className="p-3.5 font-semibold text-ink-100">
+                    {formatMoney(money(getValueCents(p)))}
+                  </td>
+                  <td className="p-3.5">
+                    <PermissionGate permission={"financials:read" as any} fallback={<span className="text-ink-500 text-[11px]">Restricted</span>}>
+                      <span className="text-xs font-bold text-signal-green bg-signal-green/10 px-2 py-0.5 rounded border border-signal-green/20">
+                        +35% ({formatMoney(money(Math.round(getValueCents(p) * 0.35)))})
+                      </span>
+                    </PermissionGate>
+                  </td>
+                  <td className="p-3.5 text-right">
+                    <button
+                      onClick={() => setPreviewClientProposal(p)}
+                      className="px-2.5 py-1 text-xs font-medium bg-ink-800 hover:bg-ink-700 text-signal-cyan rounded border border-ink-700 inline-flex items-center gap-1.5 transition-colors"
+                    >
+                      <FiEye size={13} />
+                      <span>Client PDF View</span>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {rawList.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="p-6 text-center text-ink-400">
+                    No proposals found. Click "Create Proposal" to add one.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
 
-      {/* Create Proposal Modal */}
+      {/* Proposal Builder Modal */}
       {isBuilderOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-surface-card border border-surface-border rounded-xl w-full max-w-md p-6 space-y-4">
+          <div className="bg-surface-card border border-surface-border rounded-xl w-full max-w-md p-6 space-y-4 shadow-2xl">
             <div className="flex justify-between items-center border-b border-surface-border pb-3">
               <h3 className="font-bold text-ink-50 text-sm">Create New Proposal</h3>
               <button onClick={() => setIsBuilderOpen(false)} className="text-ink-400 hover:text-ink-100">
@@ -169,8 +180,8 @@ export const ProposalsPage: React.FC = () => {
                   required
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="e.g. Winter Sale DOOH Network"
-                  className="w-full bg-surface-bg border border-surface-border rounded p-2 text-ink-100"
+                  placeholder="e.g. Q4 DOOH Network Flight"
+                  className="w-full bg-surface-bg border border-surface-border rounded p-2 text-ink-100 focus:outline-none focus:border-signal-cyan"
                 />
               </div>
               <div>
@@ -181,7 +192,7 @@ export const ProposalsPage: React.FC = () => {
                   value={newClient}
                   onChange={(e) => setNewClient(e.target.value)}
                   placeholder="e.g. Samsung Pakistan"
-                  className="w-full bg-surface-bg border border-surface-border rounded p-2 text-ink-100"
+                  className="w-full bg-surface-bg border border-surface-border rounded p-2 text-ink-100 focus:outline-none focus:border-signal-cyan"
                 />
               </div>
               <div>
@@ -191,14 +202,14 @@ export const ProposalsPage: React.FC = () => {
                   required
                   value={newValue}
                   onChange={(e) => setNewValue(e.target.value)}
-                  className="w-full bg-surface-bg border border-surface-border rounded p-2 text-ink-100"
+                  className="w-full bg-surface-bg border border-surface-border rounded p-2 text-ink-100 focus:outline-none focus:border-signal-cyan"
                 />
               </div>
               <div className="pt-2 flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsBuilderOpen(false)}
-                  className="px-3 py-1.5 bg-ink-800 text-ink-300 rounded"
+                  className="px-3 py-1.5 bg-ink-800 text-ink-300 rounded hover:bg-ink-700"
                 >
                   Cancel
                 </button>
@@ -214,7 +225,7 @@ export const ProposalsPage: React.FC = () => {
         </div>
       )}
 
-      {/* 100% Confidential Client Presentation & PDF View Modal */}
+      {/* Client Presentation & PDF View Modal */}
       {previewClientProposal && (
         <ClientProposalPDFModal 
           proposal={previewClientProposal} 
@@ -225,7 +236,7 @@ export const ProposalsPage: React.FC = () => {
   );
 };
 
-/* Client Presentation & PDF View Component (All-Inclusive Pricing Only) */
+/* Client Presentation & PDF View Component */
 const ClientProposalPDFModal: React.FC<{ proposal: any; onClose: () => void }> = ({ proposal, onClose }) => {
   if (!proposal) return null;
 
@@ -241,7 +252,7 @@ const ClientProposalPDFModal: React.FC<{ proposal: any; onClose: () => void }> =
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-surface-card border border-surface-border rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
         
-        {/* Modal Top Actions */}
+        {/* Modal Header */}
         <div className="p-4 border-b border-surface-border flex items-center justify-between bg-surface-bg sticky top-0 z-10">
           <div className="flex items-center gap-2">
             <FiShield className="text-signal-green" size={18} />
@@ -266,7 +277,7 @@ const ClientProposalPDFModal: React.FC<{ proposal: any; onClose: () => void }> =
           </div>
         </div>
 
-        {/* Client Proposal Document Body */}
+        {/* Client Proposal Printable Area */}
         <div className="p-8 space-y-8 bg-surface-bg text-ink-100">
           
           {/* Header & Branding */}
