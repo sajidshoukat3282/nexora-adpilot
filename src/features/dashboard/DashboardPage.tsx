@@ -51,7 +51,6 @@ export const DashboardPage: React.FC = () => {
         actions={<DemoTag label="Illustrative metrics" />}
       />
 
-      {/* Grid wrapper with min-w-0 to prevent stat card overflow */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="min-w-0">
           <StatCard label="Live Campaigns" value={liveCampaigns.length} icon={<FiFilm size={16} />} tone="green" />
