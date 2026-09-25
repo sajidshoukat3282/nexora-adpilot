@@ -39,7 +39,7 @@ export const FinancePage: React.FC = () => {
   const totalOutstanding = invoices.data?.reduce((s, i) => s + (i.total.amountCents - i.amountPaid.amountCents), 0) ?? 0;
   const overdueCount = invoices.data?.filter((i) => i.status === "overdue").length ?? 0;
 
-  // Accounts Receivable (AR) Aging Calculations
+  // Accounts Receivable (AR) Aging Breakdown Calculations
   const today = new Date();
   let aging0to30 = 0;
   let aging31to60 = 0;
@@ -67,7 +67,7 @@ export const FinancePage: React.FC = () => {
           <StatCard label="Overdue Invoices" value={overdueCount} tone={overdueCount > 0 ? "red" : "default"} />
         </div>
 
-        {/* Accounts Receivable (AR) Aging Summary Widget */}
+        {/* Accounts Receivable (AR) Aging Breakdown Widget */}
         <div className="panel mb-5 p-4">
           <h3 className="text-xs uppercase tracking-wider text-ink-400 font-semibold mb-3">
             Accounts Receivable (AR) Aging Summary
@@ -129,7 +129,7 @@ function invoiceColumns(clientName: (id: string) => string): ColumnDef<Invoice>[
       sortValue: (i) => i.total.amountCents - i.amountPaid.amountCents,
       render: (i) => {
         const out = i.total.amountCents - i.amountPaid.amountCents;
-        return <span className={out > 0 ? "text-signal-amber font-medium" : "text-ink-500"}>{formatMoney({ amountCents: out, currency: i.total.currency })}</span>;
+        return <span className={out > 0 ? "text-signal-amber font-medium" : "text-ink-500"}>{formatMoney(money(out))}</span>;
       },
     },
     {
