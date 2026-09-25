@@ -10,7 +10,7 @@ import { useAsync } from "@/hooks/useAsync";
 import { repo } from "@/repositories/demo";
 import { useSearchParams } from "@/lib/router";
 import type { Invoice } from "@/domain";
-import { INVOICE_STATUS_LABELS, formatMoney } from "@/domain";
+import { INVOICE_STATUS_LABELS, formatMoney, money } from "@/domain";
 
 export const FinancePage: React.FC = () => {
   const [selected, setSelected] = useState<Invoice | null>(null);
@@ -35,56 +35,30 @@ export const FinancePage: React.FC = () => {
     return clients.data?.find((c) => c.id === id)?.name ?? "—";
   }
 
-  // Multi-Currency & AR Aging Analytics
-  const analytics = useMemo(() => {
+  const totalRevenue = invoices.data?.reduce((s, i) => s + i.amountPaid.amountCents, 0) ?? 0;
+  const totalOutstanding = invoices.data?.reduce((s, i) => s + (i.total.amountCents - i.amountPaid.amountCents), 0) ?? 0;
+  const overdueCount = invoices.data?.filter((i) => i.status === "overdue").length ?? 0;
+
+  // AR Aging Calculation
+  const aging = useMemo(() => {
     const data = invoices.data ?? [];
     const today = new Date();
-
-    const revenueByCurr: Record<string, number> = {};
-    const outstandingByCurr: Record<string, number> = {};
-    
-    let overdueCount = 0;
-    let aging0to30 = 0;
-    let aging31to60 = 0;
-    let aging60Plus = 0;
+    let days0to30 = 0;
+    let days31to60 = 0;
+    let days60Plus = 0;
 
     data.forEach((inv) => {
-      const curr = inv.total.currency || "PKR";
-      const paidCents = inv.amountPaid.amountCents;
-      const totalCents = inv.total.amountCents;
-      const outCents = totalCents - paidCents;
-
-      // Group totals by currency
-      revenueByCurr[curr] = (revenueByCurr[curr] || 0) + paidCents;
-      outstandingByCurr[curr] = (outstandingByCurr[curr] || 0) + outCents;
-
-      if (inv.status === "overdue" || (outCents > 0 && new Date(inv.dueDate) < today)) {
-        overdueCount++;
+      const outCents = inv.total.amountCents - inv.amountPaid.amountCents;
+      if (outCents > 0) {
         const dueDate = new Date(inv.dueDate);
         const diffDays = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 3600 * 24));
-
-        if (diffDays <= 30) aging0to30 += outCents;
-        else if (diffDays <= 60) aging31to60 += outCents;
-        else aging60Plus += outCents;
+        if (diffDays <= 30) days0to30 += outCents;
+        else if (diffDays <= 60) days31to60 += outCents;
+        else days60Plus += outCents;
       }
     });
 
-    const formatMultiCurr = (record: Record<string, number>) => {
-      const keys = Object.keys(record);
-      if (keys.length === 0) return "0.00";
-      return keys
-        .map((k) => formatMoney({ amountCents: record[k], currency: k }))
-        .join(" | ");
-    };
-
-    return {
-      revenueText: formatMultiCurr(revenueByCurr),
-      outstandingText: formatMultiCurr(outstandingByCurr),
-      overdueCount,
-      aging0to30Text: formatMoney({ amountCents: aging0to30, currency: "PKR" }),
-      aging31to60Text: formatMoney({ amountCents: aging31to60, currency: "PKR" }),
-      aging60PlusText: formatMoney({ amountCents: aging60Plus, currency: "PKR" }),
-    };
+    return { days0to30, days31to60, days60Plus };
   }, [invoices.data]);
 
   return (
@@ -92,30 +66,29 @@ export const FinancePage: React.FC = () => {
       <div>
         <PageHeader title="Finance & Accounting" description="Invoices, AR Aging, Tax breakdowns, and revenue across clients." />
 
-        {/* Top Summary Cards with Multi-Currency Support */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-          <StatCard label="Revenue Collected" value={analytics.revenueText} tone="green" />
-          <StatCard label="Total Outstanding" value={analytics.outstandingText} tone="amber" />
-          <StatCard label="Overdue Invoices" value={analytics.overdueCount} tone={analytics.overdueCount > 0 ? "red" : "default"} />
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
+          <StatCard label="Revenue Collected" value={totalRevenue / 100} format={(n) => formatMoney(money(n * 100))} tone="green" />
+          <StatCard label="Outstanding" value={totalOutstanding / 100} format={(n) => formatMoney(money(n * 100))} tone="amber" />
+          <StatCard label="Overdue Invoices" value={overdueCount} tone={overdueCount > 0 ? "red" : "default"} />
         </div>
 
-        {/* AR Aging Breakdown Widget */}
-        <div className="bg-panel-bg border border-panel-border rounded-xl p-4 mb-5 shadow-sm">
+        {/* Accounts Receivable (AR) Aging Breakdown Widget */}
+        <div className="panel mb-5 p-4">
           <h3 className="text-xs uppercase tracking-wider text-ink-400 font-semibold mb-3">
-            Accounts Receivable (AR) Aging Summary
+            Accounts Receivable (AR) Aging Breakdown
           </h3>
-          <div className="grid grid-cols-3 gap-4 text-center">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
             <div className="p-3 bg-surface-bg/50 rounded-lg border border-surface-border">
               <span className="text-xs text-ink-400 block mb-1">0–30 Days Overdue</span>
-              <span className="text-sm font-semibold text-signal-amber">{analytics.aging0to30Text}</span>
+              <span className="text-sm font-semibold text-signal-amber">{formatMoney(money(aging.days0to30))}</span>
             </div>
             <div className="p-3 bg-surface-bg/50 rounded-lg border border-surface-border">
               <span className="text-xs text-ink-400 block mb-1">31–60 Days Overdue</span>
-              <span className="text-sm font-semibold text-signal-orange">{analytics.aging31to60Text}</span>
+              <span className="text-sm font-semibold text-signal-amber">{formatMoney(money(aging.days31to60))}</span>
             </div>
             <div className="p-3 bg-surface-bg/50 rounded-lg border border-surface-border">
               <span className="text-xs text-ink-400 block mb-1">60+ Days Overdue</span>
-              <span className="text-sm font-semibold text-signal-red">{analytics.aging60PlusText}</span>
+              <span className="text-sm font-semibold text-signal-red">{formatMoney(money(aging.days60Plus))}</span>
             </div>
           </div>
         </div>
@@ -155,21 +128,15 @@ function invoiceColumns(clientName: (id: string) => string): ColumnDef<Invoice>[
     { key: "client", header: "Client", render: (i) => <span className="text-ink-100 font-medium">{clientName(i.clientId)}</span> },
     { key: "issued", header: "Issued", sortValue: (i) => i.issueDate, render: (i) => <span className="text-ink-400 text-xs">{i.issueDate}</span> },
     { key: "due", header: "Due", sortValue: (i) => i.dueDate, render: (i) => <span className="text-ink-400 text-xs">{i.dueDate}</span> },
-    { 
-      key: "total", 
-      header: "Total Amount", 
-      sortValue: (i) => i.total.amountCents, 
-      render: (i) => <span className="text-ink-100 font-semibold">{formatMoney(i.total)}</span> 
-    },
+    { key: "total", header: "Total", sortValue: (i) => i.total.amountCents, render: (i) => <span className="text-ink-100 font-semibold">{formatMoney(i.total)}</span> },
     {
       key: "outstanding", header: "Outstanding",
       sortValue: (i) => i.total.amountCents - i.amountPaid.amountCents,
       render: (i) => {
-        const outCents = i.total.amountCents - i.amountPaid.amountCents;
-        const curr = i.total.currency || "PKR";
+        const out = i.total.amountCents - i.amountPaid.amountCents;
         return (
-          <span className={outCents > 0 ? "text-signal-amber font-medium" : "text-ink-500"}>
-            {formatMoney({ amountCents: outCents, currency: curr })}
+          <span className={out > 0 ? "text-signal-amber font-medium" : "text-ink-500"}>
+            {formatMoney({ ...i.total, amountCents: out })}
           </span>
         );
       },
