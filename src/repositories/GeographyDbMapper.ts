@@ -3,7 +3,7 @@
  */
 
 import { GeographicLocation, validateCoordinates, LocationType } from '../domain/geography.types';
-import { GeographyDomainError } from '../domain/GeographyErrors';
+import { GeographyDomainError } from '../domain/geography.errors';
 
 export interface GeographyDbRow {
   id: unknown;
