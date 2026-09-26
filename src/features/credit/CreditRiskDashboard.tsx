@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FiShield, FiAlertTriangle, FiDollarSign, FiUsers, FiSearch, FiPrinter, FiEdit2, FiFilter, FiPieChart } from "react-icons/fi";
+import { FiShield, FiAlertTriangle, FiDollarSign, FiUsers, FiSearch, FiDownload, FiEdit2, FiFilter } from "react-icons/fi";
 
 interface ClientCredit {
   id: string;
@@ -20,10 +20,10 @@ const INITIAL_PORTFOLIO: ClientCredit[] = [
 
 export function CreditRiskDashboard() {
   const [portfolio, setPortfolio] = useState<ClientCredit[]>(INITIAL_PORTFOLIO);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [riskFilter, setRiskFilter] = useState<string>("All");
   const [editingClient, setEditingClient] = useState<ClientCredit | null>(null);
-  const [newLimitInput, setNewLimitInput] = useState("");
+  const [newLimitInput, setNewLimitInput] = useState<string>("");
 
   // Calculations
   const totalLimit = portfolio.reduce((acc, curr) => acc + curr.creditLimit, 0);
@@ -50,8 +50,8 @@ export function CreditRiskDashboard() {
     const updatedLimit = parseFloat(newLimitInput);
     if (isNaN(updatedLimit)) return;
 
-    setPortfolio(prev =>
-      prev.map(c => c.id === editingClient.id ? { ...c, creditLimit: updatedLimit } : c)
+    setPortfolio((prev: ClientCredit[]) =>
+      prev.map((c) => (c.id === editingClient.id ? { ...c, creditLimit: updatedLimit } : c))
     );
     setEditingClient(null);
     setNewLimitInput("");
@@ -71,7 +71,7 @@ export function CreditRiskDashboard() {
           onClick={handlePrintPDF}
           className="flex items-center gap-2 px-4 py-2 bg-signal-blue text-white rounded-lg text-sm font-medium hover:bg-signal-blue/90 transition-colors shadow-sm"
         >
-          <FiPrinter size={16} />
+          <FiDownload size={16} />
           Save to PDF / Print Report
         </button>
       </div>
@@ -152,7 +152,7 @@ export function CreditRiskDashboard() {
             type="text"
             placeholder="Search client name..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
             className="w-full bg-ink-900/60 border border-border rounded-lg pl-9 pr-4 py-2 text-sm text-ink-50 focus:outline-none focus:border-signal-blue"
           />
         </div>
@@ -162,7 +162,7 @@ export function CreditRiskDashboard() {
           <span className="text-xs text-ink-400 font-medium">Risk Filter:</span>
           <select
             value={riskFilter}
-            onChange={(e) => setRiskFilter(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRiskFilter(e.target.value)}
             className="bg-ink-900/60 border border-border rounded-lg px-3 py-2 text-sm text-ink-50 focus:outline-none focus:border-signal-blue"
           >
             <option value="All">All Risks</option>
@@ -296,7 +296,7 @@ export function CreditRiskDashboard() {
               <input
                 type="number"
                 value={newLimitInput}
-                onChange={(e) => setNewLimitInput(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewLimitInput(e.target.value)}
                 className="w-full bg-ink-900 border border-border rounded-lg px-3 py-2 text-sm text-ink-50 focus:outline-none focus:border-signal-blue"
               />
             </div>
