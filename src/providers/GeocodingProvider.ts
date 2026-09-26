@@ -4,7 +4,7 @@
  */
 
 import { Coordinates, GeocodingResult } from '../domain/geography.types';
-import { GeographyDomainError } from '../domain/GeographyErrors';
+import { GeographyDomainError } from '../domain/geography.errors';
 
 export interface IGeocodingProvider {
   forwardGeocode(addressText: string): Promise<GeocodingResult | null>;
