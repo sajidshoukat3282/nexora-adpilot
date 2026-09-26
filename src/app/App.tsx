@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FiAlertTriangle, FiShield, FiCheckCircle, FiKey, FiX } from "react-icons/fi";
+import { FiAlertTriangle, FiShield, FiCheckCircle, FiX } from "react-icons/fi";
 
 export const ClientCreditRiskPage: React.FC = () => {
   const [clients, setClients] = useState([
@@ -89,7 +89,7 @@ export const ClientCreditRiskPage: React.FC = () => {
                         onClick={() => setSelectedClientForOverride(client)}
                         className="px-2.5 py-1 text-xs font-medium bg-red-900/40 hover:bg-red-900/70 text-red-300 rounded border border-red-700 inline-flex items-center gap-1 transition-colors"
                       >
-                        <FiKey size={12} />
+                        <FiShield size={12} />
                         <span>Override Limit</span>
                       </button>
                     )}
@@ -106,7 +106,7 @@ export const ClientCreditRiskPage: React.FC = () => {
           <div className="bg-gray-900 border border-gray-800 rounded-xl w-full max-w-md p-6 space-y-4 shadow-2xl">
             <div className="flex justify-between items-center border-b border-gray-800 pb-3">
               <h3 className="font-bold text-white text-sm flex items-center gap-2">
-                <FiKey className="text-red-400" />
+                <FiShield className="text-red-400" />
                 Credit Limit Override (Owner Authorization)
               </h3>
               <button onClick={() => setSelectedClientForOverride(null)} className="text-gray-400 hover:text-white">
