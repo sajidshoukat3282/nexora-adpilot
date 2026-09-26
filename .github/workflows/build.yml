@@ -22,14 +22,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-        working-directory: adpilot
 
       - name: Build
         run: npm run build
-        working-directory: adpilot
 
       - name: Upload dist
         uses: actions/upload-artifact@v4
         with:
           name: nexora-adpilot-dist
-          path: adpilot/dist
+          path: dist
