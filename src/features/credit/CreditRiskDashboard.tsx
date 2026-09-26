@@ -1,15 +1,125 @@
 import React from "react";
+import { FiShield, FiAlertTriangle, FiDollarSign, FiUsers } from "react-icons/fi";
+
+interface ClientCredit {
+  id: string;
+  name: string;
+  creditLimit: number;
+  currentBalance: number;
+  riskLevel: "Low" | "Medium" | "High";
+  status: "Active" | "Warning" | "Blocked";
+}
+
+const MOCK_CREDIT_DATA: ClientCredit[] = [
+  { id: "1", name: "Alpha Media Group", creditLimit: 50000, currentBalance: 42000, riskLevel: "Medium", status: "Active" },
+  { id: "2", name: "Vertex Advertising", creditLimit: 30000, currentBalance: 29500, riskLevel: "High", status: "Warning" },
+  { id: "3", name: "Pioneer Brand Co.", creditLimit: 75000, currentBalance: 18000, riskLevel: "Low", status: "Active" },
+  { id: "4", name: "Nexus Global Ltd.", creditLimit: 40000, currentBalance: 40000, riskLevel: "High", status: "Blocked" },
+];
 
 export function CreditRiskDashboard() {
+  const totalLimit = MOCK_CREDIT_DATA.reduce((acc, curr) => acc + curr.creditLimit, 0);
+  const totalBalance = MOCK_CREDIT_DATA.reduce((acc, curr) => acc + curr.currentBalance, 0);
+  const highRiskCount = MOCK_CREDIT_DATA.filter((curr) => curr.riskLevel === "High").length;
+
   return (
-    <div className="space-y-6 p-6 text-ink-200">
-      <div className="flex justify-between items-center">
-        <h1 className="text-xl font-bold text-ink-50">
-          Client Credit Limit & Risk Alerts
-        </h1>
+    <div className="space-y-6 p-4 md:p-6 text-ink-200">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-ink-50">
+            Client Credit Limit & Risk Alerts
+          </h1>
+          <p className="text-sm text-ink-400">Monitor credit limits, outstanding balances, and risk factors.</p>
+        </div>
       </div>
-      <div className="bg-surface-card p-6 rounded-xl border border-border">
-        <p className="text-ink-400">Client credit monitoring and risk management dashboard is active.</p>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="bg-surface-card p-5 rounded-xl border border-border flex items-center gap-4">
+          <div className="p-3 rounded-lg bg-signal-blue/10 text-signal-blue">
+            <FiDollarSign size={24} />
+          </div>
+          <div>
+            <div className="text-xs text-ink-400 font-medium">TOTAL CREDIT LIMIT</div>
+            <div className="text-lg md:text-xl font-bold text-ink-50">${totalLimit.toLocaleString()}</div>
+          </div>
+        </div>
+
+        <div className="bg-surface-card p-5 rounded-xl border border-border flex items-center gap-4">
+          <div className="p-3 rounded-lg bg-amber-500/10 text-amber-500">
+            <FiUsers size={24} />
+          </div>
+          <div>
+            <div className="text-xs text-ink-400 font-medium">OUTSTANDING BALANCE</div>
+            <div className="text-lg md:text-xl font-bold text-ink-50">${totalBalance.toLocaleString()}</div>
+          </div>
+        </div>
+
+        <div className="bg-surface-card p-5 rounded-xl border border-border flex items-center gap-4">
+          <div className="p-3 rounded-lg bg-rose-500/10 text-rose-500">
+            <FiAlertTriangle size={24} />
+          </div>
+          <div>
+            <div className="text-xs text-ink-400 font-medium">HIGH RISK CLIENTS</div>
+            <div className="text-lg md:text-xl font-bold text-rose-400">{highRiskCount}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Data Table */}
+      <div className="bg-surface-card rounded-xl border border-border overflow-hidden">
+        <div className="p-4 border-b border-border font-semibold text-ink-50 flex items-center gap-2">
+          <FiShield size={18} />
+          Client Credit Portfolio
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-border bg-ink-900/40 text-ink-400">
+                <th className="p-3 font-medium">Client Name</th>
+                <th className="p-3 font-medium">Credit Limit</th>
+                <th className="p-3 font-medium">Current Balance</th>
+                <th className="p-3 font-medium">Risk Level</th>
+                <th className="p-3 font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {MOCK_CREDIT_DATA.map((client) => (
+                <tr key={client.id} className="hover:bg-ink-800/30">
+                  <td className="p-3 font-medium text-ink-50">{client.name}</td>
+                  <td className="p-3">${client.creditLimit.toLocaleString()}</td>
+                  <td className="p-3">${client.currentBalance.toLocaleString()}</td>
+                  <td className="p-3">
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-semibold ${
+                        client.riskLevel === "High"
+                          ? "bg-rose-500/10 text-rose-400"
+                          : client.riskLevel === "Medium"
+                          ? "bg-amber-500/10 text-amber-400"
+                          : "bg-emerald-500/10 text-emerald-400"
+                      }`}
+                    >
+                      {client.riskLevel}
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-semibold ${
+                        client.status === "Blocked"
+                          ? "bg-rose-500/10 text-rose-400"
+                          : client.status === "Warning"
+                          ? "bg-amber-500/10 text-amber-400"
+                          : "bg-emerald-500/10 text-emerald-400"
+                      }`}
+                    >
+                      {client.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
