@@ -1,4 +1,4 @@
-Name: Build Nexora AdPilot
+name: Build Nexora AdPilot
 
 on:
   push:
