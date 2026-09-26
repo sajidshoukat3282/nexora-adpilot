@@ -16,6 +16,8 @@ import { ClientPortalPage } from "@/features/client-portal/ClientPortalPage";
 import { NotificationsPage } from "@/features/notifications/NotificationsPage";
 import { AdminPage } from "@/features/admin/AdminPage";
 import { MarketplacePage } from "@/features/marketplace/MarketplacePage";
+// 👉 نیا کریڈٹ رسک پیج یہاں امپورٹ ہو گیا
+import { ClientCreditRiskPage } from "@/features/clients/ClientCreditRiskPage";
 
 const NotFound: React.FC = () => {
   const navigate = useNavigate();
@@ -53,6 +55,8 @@ const AppRoutes: React.FC = () => (
       { path: "/notifications", element: <AppShell><NotificationsPage /></AppShell> },
       { path: "/admin", element: <AppShell><AdminPage /></AppShell> },
       { path: "/marketplace", element: <AppShell><MarketplacePage /></AppShell> },
+      // 👉 نیا راؤٹ یہاں جوڑ دیا گیا ہے
+      { path: "/clients/credit-risk", element: <AppShell><ClientCreditRiskPage /></AppShell> },
     ]}
   />
 );
