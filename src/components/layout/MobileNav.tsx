@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { path: "/crm", label: "CRM & Leads", icon: <FiUsers size={18} /> },
   { path: "/proposals", label: "Proposals", icon: <FiFileText size={18} /> },
   { path: "/finance", label: "Finance", icon: <FiDollarSign size={18} /> },
+  { path: "/clients/credit-risk", label: "Credit Risk", icon: <FiShield size={18} /> },
   { path: "/client-portal", label: "Client Portal", icon: <FiUser size={18} /> },
   { path: "/marketplace", label: "Marketplace", icon: <FiShoppingBag size={18} /> },
   { path: "/notifications", label: "Notifications", icon: <FiBell size={18} /> },
