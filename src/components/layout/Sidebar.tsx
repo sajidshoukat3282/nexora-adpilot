@@ -1,4 +1,4 @@
-Import React from "react";
+import React from "react";
 import {
   FiGrid, FiMap, FiFilm, FiRadio, FiUsers, FiFileText,
   FiDollarSign, FiBarChart2, FiUser, FiBell, FiShield, FiShoppingBag,
