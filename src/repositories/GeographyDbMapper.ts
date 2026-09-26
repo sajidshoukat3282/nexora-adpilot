@@ -7,7 +7,7 @@ import { GeographyDomainError } from '../domain/geography.errors';
 
 export interface GeographyDbRow {
   id: unknown;
-  country_code: unknown;
+  country_code:  unknown;
   country_name: unknown;
   state_province_region: unknown;
   state_province_code: unknown;
