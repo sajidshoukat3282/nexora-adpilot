@@ -1,4 +1,4 @@
-import React from "react";
+Import React from "react";
 import {
   FiGrid, FiMap, FiFilm, FiRadio, FiUsers, FiFileText,
   FiDollarSign, FiBarChart2, FiUser, FiBell, FiShield, FiShoppingBag,
@@ -22,6 +22,7 @@ const NAV_ITEMS: NavItem[] = [
   { path: "/crm", label: "CRM & Leads", icon: <FiUsers size={17} />, group: "Sell" },
   { path: "/proposals", label: "Proposals", icon: <FiFileText size={17} />, group: "Sell" },
   { path: "/finance", label: "Finance", icon: <FiDollarSign size={17} />, group: "Sell" },
+  { path: "/clients/credit-risk", label: "Credit Risk", icon: <FiShield size={17} />, group: "Sell" },
   { path: "/client-portal", label: "Client Portal", icon: <FiUser size={17} />, group: "Client" },
   { path: "/marketplace", label: "Marketplace", icon: <FiShoppingBag size={17} />, group: "Client" },
   { path: "/notifications", label: "Notifications", icon: <FiBell size={17} />, group: "System" },
