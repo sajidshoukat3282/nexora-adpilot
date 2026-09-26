@@ -1,3 +1,4 @@
+
 import React from "react";
 import { RouterProvider, Routes, useNavigate } from "@/lib/router";
 import { SessionProvider } from "@/hooks/useSession";
@@ -16,7 +17,7 @@ import { ClientPortalPage } from "@/features/client-portal/ClientPortalPage";
 import { NotificationsPage } from "@/features/notifications/NotificationsPage";
 import { AdminPage } from "@/features/admin/AdminPage";
 import { MarketplacePage } from "@/features/marketplace/MarketplacePage";
-import { ClientCreditRiskPage } from "@/features/client-portal/ClientCreditRiskPage";
+import { CreditRiskDashboard } from "@/features/credit/CreditRiskDashboard";
 
 const NotFound: React.FC = () => {
   const navigate = useNavigate();
@@ -54,7 +55,7 @@ const AppRoutes: React.FC = () => (
       { path: "/notifications", element: <AppShell><NotificationsPage /></AppShell> },
       { path: "/admin", element: <AppShell><AdminPage /></AppShell> },
       { path: "/marketplace", element: <AppShell><MarketplacePage /></AppShell> },
-      { path: "/clients/credit-risk", element: <AppShell><ClientCreditRiskPage /></AppShell> },
+      { path: "/clients/credit-risk", element: <AppShell><CreditRiskDashboard /></AppShell> },
     ]}
   />
 );
