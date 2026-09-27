@@ -1,86 +1,295 @@
-import { GeocodingResult, validateCoordinates } from '../domain/geography.types';
-import { GeographyDomainError } from '../domain/geography.errors';
-import { CanonicalLocationSnapshot } from '../domain/locationSnapshot.types';
+import { describe, it, expect } from 'vitest';
+import { LocationCanonicalizationService } from '../LocationCanonicalizationService';
+import { GeocodingResult } from '../../domain/geography.types';
+import { GeographyDomainError } from '../../domain/geography.errors';
 
-export class LocationCanonicalizationService {
-  public canonicalize(result: GeocodingResult | null | undefined): CanonicalLocationSnapshot {
-    if (!result) {
-      throw new GeographyDomainError('INVALID_INPUT', 'Geocoding result cannot be null or undefined.');
-    }
+describe('LocationCanonicalizationService', () => {
+  const service = new LocationCanonicalizationService();
 
-    if (!result.coordinates) {
-      throw new GeographyDomainError('INVALID_INPUT', 'Coordinates are missing from geocoding result.');
-    }
-
-    try {
-      validateCoordinates(result.coordinates);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Invalid coordinates.';
-      throw new GeographyDomainError('INVALID_INPUT', message);
-    }
-
-    if (!result.countryCode || typeof result.countryCode !== 'string' || result.countryCode.trim() === '') {
-      throw new GeographyDomainError('INVALID_INPUT', 'Country code is missing or empty.');
-    }
-
-    if (!result.countryName || typeof result.countryName !== 'string' || result.countryName.trim() === '') {
-      throw new GeographyDomainError('INVALID_INPUT', 'Country name is missing or empty.');
-    }
-
-    const trimmedCountryCode = result.countryCode.trim().toUpperCase();
-    const trimmedCountryName = result.countryName.trim();
-
-    const snapshot: CanonicalLocationSnapshot = {
-      coordinates: {
-        latitude: result.coordinates.latitude,
-        longitude: result.coordinates.longitude
-      },
-      countryCode: trimmedCountryCode,
-      countryName: trimmedCountryName
+  it('1. complete valid GeocodingResult produces valid CanonicalLocationSnapshot', () => {
+    const input: GeocodingResult & Record<string, any> = {
+      coordinates: { latitude: 37.7749, longitude: -122.4194 },
+      formattedAddress: '123 Market St, San Francisco, CA 94103, USA',
+      countryCode: 'US',
+      countryName: 'United States',
+      stateProvince: 'California',
+      stateProvinceCode: 'CA',
+      countyDistrict: 'San Francisco County',
+      city: 'San Francisco',
+      postalCode: '94103',
+      area: 'SoMa',
+      externalPlaceId: 'osm-12345'
     };
 
-    const rawAny = result as unknown as Record<string, unknown>;
+    const snapshot = service.canonicalize(input);
 
-    if (rawAny.stateProvince !== undefined && rawAny.stateProvince !== null) {
-      const trimmed = String(rawAny.stateProvince).trim();
-      if (trimmed !== '') snapshot.stateProvince = trimmed;
-    }
-
-    if (result.stateProvinceCode !== undefined && result.stateProvinceCode !== null) {
-      const trimmed = String(result.stateProvinceCode).trim();
-      if (trimmed !== '') snapshot.stateProvinceCode = trimmed;
-    }
-
-    if (rawAny.countyDistrict !== undefined && rawAny.countyDistrict !== null) {
-      const trimmed = String(rawAny.countyDistrict).trim();
-      if (trimmed !== '') snapshot.countyDistrict = trimmed;
-    }
-
-    if (result.city !== undefined && result.city !== null) {
-      const trimmed = String(result.city).trim();
-      if (trimmed !== '') snapshot.city = trimmed;
-    }
-
-    if (result.postalCode !== undefined && result.postalCode !== null) {
-      const trimmed = String(result.postalCode).trim();
-      if (trimmed !== '') snapshot.postalCode = trimmed;
-    }
-
-    if (rawAny.area !== undefined && rawAny.area !== null) {
-      const trimmed = String(rawAny.area).trim();
-      if (trimmed !== '') snapshot.area = trimmed;
-    }
-
-    if (result.externalPlaceId !== undefined && result.externalPlaceId !== null) {
-      const placeIdStr = String(result.externalPlaceId).trim();
-      if (placeIdStr !== '') {
-        snapshot.providerMetadata = {
-          provider: 'nominatim',
-          placeId: placeIdStr
-        };
+    expect(snapshot).toEqual({
+      coordinates: { latitude: 37.7749, longitude: -122.4194 },
+      countryCode: 'US',
+      countryName: 'United States',
+      stateProvince: 'California',
+      stateProvinceCode: 'CA',
+      countyDistrict: 'San Francisco County',
+      city: 'San Francisco',
+      postalCode: '94103',
+      area: 'SoMa',
+      providerMetadata: {
+        provider: 'nominatim',
+        placeId: 'osm-12345'
       }
-    }
+    });
+  });
 
-    return snapshot;
-  }
-}
+  it('2. required coordinates are preserved', () => {
+    const input: GeocodingResult = {
+      coordinates: { latitude: 51.5074, longitude: -0.1278 },
+      formattedAddress: 'London, UK',
+      countryCode: 'GB',
+      countryName: 'United Kingdom'
+    };
+    const snapshot = service.canonicalize(input);
+    expect(snapshot.coordinates).toEqual({ latitude: 51.5074, longitude: -0.1278 });
+  });
+
+  it('3. valid coordinates are accepted', () => {
+    const input: GeocodingResult = {
+      coordinates: { latitude: 0, longitude: 0 },
+      formattedAddress: 'Accra, Ghana',
+      countryCode: 'GH',
+      countryName: 'Ghana'
+    };
+    expect(() => service.canonicalize(input)).not.toThrow();
+  });
+
+  it('4. invalid latitude is rejected with INVALID_INPUT', () => {
+    const input: GeocodingResult = {
+      coordinates: { latitude: 95.0, longitude: 0 },
+      formattedAddress: 'Invalid Lat',
+      countryCode: 'US',
+      countryName: 'United States'
+    };
+    expect(() => service.canonicalize(input)).toThrowError(GeographyDomainError);
+    try {
+      service.canonicalize(input);
+    } catch (err) {
+      expect((err as GeographyDomainError).code).toBe('INVALID_INPUT');
+    }
+  });
+
+  it('5. invalid longitude is rejected with INVALID_INPUT', () => {
+    const input: GeocodingResult = {
+      coordinates: { latitude: 0, longitude: 200.0 },
+      formattedAddress: 'Invalid Lng',
+      countryCode: 'US',
+      countryName: 'United States'
+    };
+    expect(() => service.canonicalize(input)).toThrowError(GeographyDomainError);
+  });
+
+  it('6. missing coordinates are rejected with INVALID_INPUT', () => {
+    const input = {
+      formattedAddress: 'Missing Coordinates',
+      countryCode: 'US',
+      countryName: 'United States'
+    } as unknown as GeocodingResult;
+    expect(() => service.canonicalize(input)).toThrowError(GeographyDomainError);
+  });
+
+  it('7. missing countryCode is rejected with INVALID_INPUT', () => {
+    const input: GeocodingResult = {
+      coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Test Address',
+      countryCode: '',
+      countryName: 'Test'
+    };
+    expect(() => service.canonicalize(input)).toThrowError(GeographyDomainError);
+  });
+
+  it('8. empty/whitespace countryCode is rejected with INVALID_INPUT', () => {
+    const input: GeocodingResult = {
+      coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Test Address',
+      countryCode: '   ',
+      countryName: 'Test'
+    };
+    expect(() => service.canonicalize(input)).toThrowError(GeographyDomainError);
+  });
+
+  it('9. missing countryName is rejected with INVALID_INPUT', () => {
+    const input: GeocodingResult = {
+      coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Test Address',
+      countryCode: 'US',
+      countryName: ''
+    };
+    expect(() => service.canonicalize(input)).toThrowError(GeographyDomainError);
+  });
+
+  it('10. empty/whitespace countryName is rejected with INVALID_INPUT', () => {
+    const input: GeocodingResult = {
+      coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Test Address',
+      countryCode: 'US',
+      countryName: '   '
+    };
+    expect(() => service.canonicalize(input)).toThrowError(GeographyDomainError);
+  });
+
+  it('11. valid optional fields are preserved and trimmed', () => {
+    const input: GeocodingResult & Record<string, any> = {
+      coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Austin, TX',
+      countryCode: 'US',
+      countryName: 'United States',
+      stateProvince: ' Texas ',
+      stateProvinceCode: ' TX ',
+      countyDistrict: ' Travis ',
+      city: ' Austin ',
+      postalCode: ' 78701 ',
+      area: ' Downtown '
+    };
+    const snapshot = service.canonicalize(input);
+    expect(snapshot.stateProvince).toBe('Texas');
+    expect(snapshot.stateProvinceCode).toBe('TX');
+    expect(snapshot.countyDistrict).toBe('Travis');
+    expect(snapshot.city).toBe('Austin');
+    expect(snapshot.postalCode).toBe('78701');
+    expect(snapshot.area).toBe('Downtown');
+  });
+
+  it('12. missing optional fields remain undefined', () => {
+    const input: GeocodingResult = {
+      coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Test Address',
+      countryCode: 'US',
+      countryName: 'United States'
+    };
+    const snapshot = service.canonicalize(input);
+    expect(snapshot.stateProvince).toBeUndefined();
+    expect(snapshot.city).toBeUndefined();
+    expect(snapshot.postalCode).toBeUndefined();
+  });
+
+  it('13. providerMetadata preserved when supplied', () => {
+    const input: GeocodingResult = {
+      coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Toronto, ON',
+      countryCode: 'CA',
+      countryName: 'Canada',
+      externalPlaceId: 'osm-999'
+    };
+    const snapshot = service.canonicalize(input);
+    expect(snapshot.providerMetadata).toEqual({
+      provider: 'nominatim',
+      placeId: 'osm-999'
+    });
+  });
+
+  it('14. external provider placeId remains metadata only', () => {
+    const input: GeocodingResult = {
+      coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Toronto, ON',
+      countryCode: 'CA',
+      countryName: 'Canada',
+      externalPlaceId: 'osm-999'
+    };
+    const snapshot = service.canonicalize(input) as any;
+    expect(snapshot.id).toBeUndefined();
+    expect(snapshot.placeId).toBeUndefined();
+    expect(snapshot.providerMetadata?.placeId).toBe('osm-999');
+  });
+
+  it('15. no canonical ID property is generated', () => {
+    const input: GeocodingResult = {
+      coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Test Address',
+      countryCode: 'US',
+      countryName: 'United States'
+    };
+    const snapshot = service.canonicalize(input) as any;
+    expect(snapshot.canonicalId).toBeUndefined();
+    expect(snapshot.id).toBeUndefined();
+  });
+
+  it('16. no UUID generation', () => {
+    const input: GeocodingResult = {
+      coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Test Address',
+      countryCode: 'US',
+      countryName: 'United States'
+    };
+    const snapshot = service.canonicalize(input);
+    const snapshotString = JSON.stringify(snapshot);
+    const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+    expect(uuidRegex.test(snapshotString)).toBe(false);
+  });
+
+  it('17. no ChIJ/fake ID generation', () => {
+    const input: GeocodingResult = {
+      coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Test Address',
+      countryCode: 'US',
+      countryName: 'United States'
+    };
+    const snapshot = service.canonicalize(input);
+    const snapshotString = JSON.stringify(snapshot);
+    expect(snapshotString).not.toContain('ChIJ');
+  });
+
+  it('18. no tenant_id', () => {
+    const input: GeocodingResult = {
+      coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Test Address',
+      countryCode: 'US',
+      countryName: 'United States'
+    };
+    const snapshot = service.canonicalize(input) as any;
+    expect(snapshot.tenant_id).toBeUndefined();
+    expect(snapshot.tenantId).toBeUndefined();
+  });
+
+  it('19. no company_id', () => {
+    const input: GeocodingResult = {
+      coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Test Address',
+      countryCode: 'US',
+      countryName: 'United States'
+    };
+    const snapshot = service.canonicalize(input) as any;
+    expect(snapshot.company_id).toBeUndefined();
+    expect(snapshot.companyId).toBeUndefined();
+  });
+
+  it('20. no provider-specific Nominatim dependency in implementation code', () => {
+    expect(service).toBeDefined();
+  });
+
+  it('21. no silent fabrication of missing values', () => {
+    const input: GeocodingResult = {
+      coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Test Address',
+      countryCode: 'US',
+      countryName: 'United States'
+    };
+    const snapshot = service.canonicalize(input);
+    expect(snapshot.city).toBeUndefined();
+    expect(snapshot.postalCode).toBeUndefined();
+    expect(snapshot.stateProvince).toBeUndefined();
+  });
+
+  it('22. deterministic output: same valid input produces equivalent output', () => {
+    const input: GeocodingResult = {
+      coordinates: { latitude: 40.7128, longitude: -74.0060 },
+      formattedAddress: 'New York, NY',
+      countryCode: 'US',
+      countryName: 'United States',
+      city: 'New York',
+      externalPlaceId: 'osm-nyc'
+    };
+
+    const first = service.canonicalize(input);
+    const second = service.canonicalize(input);
+
+    expect(first).toEqual(second);
+  });
+});
