@@ -9,6 +9,7 @@ describe('LocationCanonicalizationService', () => {
   it('1. complete valid GeocodingResult produces valid CanonicalLocationSnapshot', () => {
     const input: GeocodingResult & Record<string, any> = {
       coordinates: { latitude: 37.7749, longitude: -122.4194 },
+      formattedAddress: '123 Market St, San Francisco, CA 94103, USA',
       countryCode: 'US',
       countryName: 'United States',
       stateProvince: 'California',
@@ -42,6 +43,7 @@ describe('LocationCanonicalizationService', () => {
   it('2. required coordinates are preserved', () => {
     const input: GeocodingResult = {
       coordinates: { latitude: 51.5074, longitude: -0.1278 },
+      formattedAddress: 'London, UK',
       countryCode: 'GB',
       countryName: 'United Kingdom'
     };
@@ -52,6 +54,7 @@ describe('LocationCanonicalizationService', () => {
   it('3. valid coordinates are accepted', () => {
     const input: GeocodingResult = {
       coordinates: { latitude: 0, longitude: 0 },
+      formattedAddress: 'Accra, Ghana',
       countryCode: 'GH',
       countryName: 'Ghana'
     };
@@ -61,6 +64,7 @@ describe('LocationCanonicalizationService', () => {
   it('4. invalid latitude is rejected with INVALID_INPUT', () => {
     const input: GeocodingResult = {
       coordinates: { latitude: 95.0, longitude: 0 },
+      formattedAddress: 'Invalid Lat',
       countryCode: 'US',
       countryName: 'United States'
     };
@@ -75,6 +79,7 @@ describe('LocationCanonicalizationService', () => {
   it('5. invalid longitude is rejected with INVALID_INPUT', () => {
     const input: GeocodingResult = {
       coordinates: { latitude: 0, longitude: 200.0 },
+      formattedAddress: 'Invalid Lng',
       countryCode: 'US',
       countryName: 'United States'
     };
@@ -83,6 +88,7 @@ describe('LocationCanonicalizationService', () => {
 
   it('6. missing coordinates are rejected with INVALID_INPUT', () => {
     const input = {
+      formattedAddress: 'Missing Coordinates',
       countryCode: 'US',
       countryName: 'United States'
     } as unknown as GeocodingResult;
@@ -92,6 +98,7 @@ describe('LocationCanonicalizationService', () => {
   it('7. missing countryCode is rejected with INVALID_INPUT', () => {
     const input: GeocodingResult = {
       coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Test Address',
       countryCode: '',
       countryName: 'Test'
     };
@@ -101,6 +108,7 @@ describe('LocationCanonicalizationService', () => {
   it('8. empty/whitespace countryCode is rejected with INVALID_INPUT', () => {
     const input: GeocodingResult = {
       coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Test Address',
       countryCode: '   ',
       countryName: 'Test'
     };
@@ -110,6 +118,7 @@ describe('LocationCanonicalizationService', () => {
   it('9. missing countryName is rejected with INVALID_INPUT', () => {
     const input: GeocodingResult = {
       coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Test Address',
       countryCode: 'US',
       countryName: ''
     };
@@ -119,6 +128,7 @@ describe('LocationCanonicalizationService', () => {
   it('10. empty/whitespace countryName is rejected with INVALID_INPUT', () => {
     const input: GeocodingResult = {
       coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Test Address',
       countryCode: 'US',
       countryName: '   '
     };
@@ -128,6 +138,7 @@ describe('LocationCanonicalizationService', () => {
   it('11. valid optional fields are preserved and trimmed', () => {
     const input: GeocodingResult & Record<string, any> = {
       coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Austin, TX',
       countryCode: 'US',
       countryName: 'United States',
       stateProvince: ' Texas ',
@@ -149,6 +160,7 @@ describe('LocationCanonicalizationService', () => {
   it('12. missing optional fields remain undefined', () => {
     const input: GeocodingResult = {
       coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Test Address',
       countryCode: 'US',
       countryName: 'United States'
     };
@@ -161,6 +173,7 @@ describe('LocationCanonicalizationService', () => {
   it('13. providerMetadata preserved when supplied', () => {
     const input: GeocodingResult = {
       coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Toronto, ON',
       countryCode: 'CA',
       countryName: 'Canada',
       externalPlaceId: 'osm-999'
@@ -175,6 +188,7 @@ describe('LocationCanonicalizationService', () => {
   it('14. external provider placeId remains metadata only', () => {
     const input: GeocodingResult = {
       coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Toronto, ON',
       countryCode: 'CA',
       countryName: 'Canada',
       externalPlaceId: 'osm-999'
@@ -188,6 +202,7 @@ describe('LocationCanonicalizationService', () => {
   it('15. no canonical ID property is generated', () => {
     const input: GeocodingResult = {
       coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Test Address',
       countryCode: 'US',
       countryName: 'United States'
     };
@@ -199,6 +214,7 @@ describe('LocationCanonicalizationService', () => {
   it('16. no UUID generation', () => {
     const input: GeocodingResult = {
       coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Test Address',
       countryCode: 'US',
       countryName: 'United States'
     };
@@ -211,6 +227,7 @@ describe('LocationCanonicalizationService', () => {
   it('17. no ChIJ/fake ID generation', () => {
     const input: GeocodingResult = {
       coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Test Address',
       countryCode: 'US',
       countryName: 'United States'
     };
@@ -222,6 +239,7 @@ describe('LocationCanonicalizationService', () => {
   it('18. no tenant_id', () => {
     const input: GeocodingResult = {
       coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Test Address',
       countryCode: 'US',
       countryName: 'United States'
     };
@@ -233,6 +251,7 @@ describe('LocationCanonicalizationService', () => {
   it('19. no company_id', () => {
     const input: GeocodingResult = {
       coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Test Address',
       countryCode: 'US',
       countryName: 'United States'
     };
@@ -248,6 +267,7 @@ describe('LocationCanonicalizationService', () => {
   it('21. no silent fabrication of missing values', () => {
     const input: GeocodingResult = {
       coordinates: { latitude: 10, longitude: 10 },
+      formattedAddress: 'Test Address',
       countryCode: 'US',
       countryName: 'United States'
     };
@@ -260,6 +280,7 @@ describe('LocationCanonicalizationService', () => {
   it('22. deterministic output: same valid input produces equivalent output', () => {
     const input: GeocodingResult = {
       coordinates: { latitude: 40.7128, longitude: -74.0060 },
+      formattedAddress: 'New York, NY',
       countryCode: 'US',
       countryName: 'United States',
       city: 'New York',
