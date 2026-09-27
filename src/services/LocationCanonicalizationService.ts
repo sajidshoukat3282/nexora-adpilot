@@ -13,7 +13,7 @@ export class LocationCanonicalizationService {
     }
 
     try {
-      validateCoordinates(result.coordinates.latitude, result.coordinates.longitude);
+      validateCoordinates(result.coordinates);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Invalid coordinates.';
       throw new GeographyDomainError('INVALID_INPUT', message);
@@ -39,33 +39,35 @@ export class LocationCanonicalizationService {
       countryName: trimmedCountryName
     };
 
-    if (result.stateProvince !== undefined && result.stateProvince !== null) {
-      const trimmed = result.stateProvince.trim();
+    const rawAny = result as Record<string, unknown>;
+
+    if (rawAny.stateProvince !== undefined && rawAny.stateProvince !== null) {
+      const trimmed = String(rawAny.stateProvince).trim();
       if (trimmed !== '') snapshot.stateProvince = trimmed;
     }
 
     if (result.stateProvinceCode !== undefined && result.stateProvinceCode !== null) {
-      const trimmed = result.stateProvinceCode.trim();
+      const trimmed = String(result.stateProvinceCode).trim();
       if (trimmed !== '') snapshot.stateProvinceCode = trimmed;
     }
 
-    if (result.countyDistrict !== undefined && result.countyDistrict !== null) {
-      const trimmed = result.countyDistrict.trim();
+    if (rawAny.countyDistrict !== undefined && rawAny.countyDistrict !== null) {
+      const trimmed = String(rawAny.countyDistrict).trim();
       if (trimmed !== '') snapshot.countyDistrict = trimmed;
     }
 
     if (result.city !== undefined && result.city !== null) {
-      const trimmed = result.city.trim();
+      const trimmed = String(result.city).trim();
       if (trimmed !== '') snapshot.city = trimmed;
     }
 
     if (result.postalCode !== undefined && result.postalCode !== null) {
-      const trimmed = result.postalCode.trim();
+      const trimmed = String(result.postalCode).trim();
       if (trimmed !== '') snapshot.postalCode = trimmed;
     }
 
-    if (result.area !== undefined && result.area !== null) {
-      const trimmed = result.area.trim();
+    if (rawAny.area !== undefined && rawAny.area !== null) {
+      const trimmed = String(rawAny.area).trim();
       if (trimmed !== '') snapshot.area = trimmed;
     }
 
