@@ -7,7 +7,7 @@ describe('LocationCanonicalizationService', () => {
   const service = new LocationCanonicalizationService();
 
   it('1. complete valid GeocodingResult produces valid CanonicalLocationSnapshot', () => {
-    const input: GeocodingResult = {
+    const input: GeocodingResult & Record<string, any> = {
       coordinates: { latitude: 37.7749, longitude: -122.4194 },
       countryCode: 'US',
       countryName: 'United States',
@@ -126,7 +126,7 @@ describe('LocationCanonicalizationService', () => {
   });
 
   it('11. valid optional fields are preserved and trimmed', () => {
-    const input: GeocodingResult = {
+    const input: GeocodingResult & Record<string, any> = {
       coordinates: { latitude: 10, longitude: 10 },
       countryCode: 'US',
       countryName: 'United States',
