@@ -39,7 +39,7 @@ export class LocationCanonicalizationService {
       countryName: trimmedCountryName
     };
 
-    const rawAny = result as Record<string, unknown>;
+    const rawAny = result as any;
 
     if (rawAny.stateProvince !== undefined && rawAny.stateProvince !== null) {
       const trimmed = String(rawAny.stateProvince).trim();
