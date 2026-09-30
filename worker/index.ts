@@ -1,3 +1,4 @@
+import type { GeographicLocation } from '../src/domain/geography.types';
 import { ProductionGeographyRepository } from '../src/repositories/GeographyRepository';
 import { NominatimGeocodingProvider } from '../src/providers/NominatimGeocodingProvider';
 
@@ -26,6 +27,49 @@ function createGeographyRepository(
     env.DB,
     new NominatimGeocodingProvider(),
   );
+}
+
+function errorStatus(error: unknown): number {
+  if (
+    error instanceof Error &&
+    'code' in error
+  ) {
+    const code = (error as { code?: string }).code;
+
+    if (code === 'INVALID_INPUT') return 400;
+    if (code === 'NOT_FOUND') return 404;
+    if (code === 'PROVIDER_RATE_LIMITED') return 429;
+    if (
+      code === 'PROVIDER_UNAVAILABLE' ||
+      code === 'DATABASE_UNAVAILABLE'
+    ) {
+      return 503;
+    }
+    if (code === 'PROVIDER_REQUEST_FAILED') return 502;
+  }
+
+  return 500;
+}
+
+function errorPayload(error: unknown) {
+  if (error instanceof Error && 'code' in error) {
+    return {
+      ok: false,
+      error:
+        (error as { code?: string }).code ??
+        'GEOGRAPHY_ERROR',
+      message: error.message,
+    };
+  }
+
+  return {
+    ok: false,
+    error: 'GEOGRAPHY_ERROR',
+    message:
+      error instanceof Error
+        ? error.message
+        : String(error),
+  };
 }
 
 export default {
@@ -105,18 +149,8 @@ export default {
         });
       } catch (error) {
         return json(
-          {
-            ok: false,
-            error:
-              error instanceof Error
-                ? error.name
-                : 'GEOGRAPHY_ERROR',
-            message:
-              error instanceof Error
-                ? error.message
-                : String(error),
-          },
-          500,
+          errorPayload(error),
+          errorStatus(error),
         );
       }
     }
@@ -183,18 +217,8 @@ export default {
         });
       } catch (error) {
         return json(
-          {
-            ok: false,
-            error:
-              error instanceof Error
-                ? error.name
-                : 'GEOGRAPHY_ERROR',
-            message:
-              error instanceof Error
-                ? error.message
-                : String(error),
-          },
-          500,
+          errorPayload(error),
+          errorStatus(error),
         );
       }
     }
