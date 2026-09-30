@@ -224,6 +224,7 @@ export class ProductionGeographyRepository
    *
    * The provider's real external place ID is required.
    * We do not invent UUIDs or fake external identifiers.
+   * No fake UUIDs or invented external identifiers are generated.
    */
   async persistGeocodingResult(
     result: GeocodingResult,
@@ -246,6 +247,9 @@ export class ProductionGeographyRepository
       !result.countryCode ||
       !validateCountryCode(result.countryCode)
     ) {
+    const countryCode = result.countryCode?.trim().toUpperCase();
+
+    if (!countryCode || !validateCountryCode(countryCode)) {
       throw new GeographyDomainError(
         'INVALID_INPUT',
         'Valid country code is required for persistence.',
@@ -254,6 +258,16 @@ export class ProductionGeographyRepository
 
     const externalPlaceId =
       result.externalPlaceId?.trim();
+    const countryName = result.countryName?.trim();
+
+    if (!countryName) {
+      throw new GeographyDomainError(
+        'INVALID_INPUT',
+        'Country name is required for persistence.',
+      );
+    }
+
+    const externalPlaceId = result.externalPlaceId?.trim();
 
     if (!externalPlaceId) {
       throw new GeographyDomainError(
@@ -289,3 +303,62 @@ export class ProductionGeographyRepository
           INSERT INTO geography_locations (
             id,
             country_code,
+            country_name,
+            state_province_region,
+            state_province_code,
+            county_district,
+            city,
+            postal_code,
+            area_neighborhood,
+            latitude,
+            longitude,
+            timezone,
+            place_id,
+            location_type,
+            parent_id
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `)
+        .bind(
+          id,
+          countryCode,
+          countryName,
+          result.stateProvinceRegion ?? null,
+          result.stateProvinceCode ?? null,
+          result.countyDistrict ?? null,
+          result.city ?? null,
+          result.postalCode ?? null,
+          result.areaNeighborhood ?? null,
+          result.coordinates.latitude,
+          result.coordinates.longitude,
+          null,
+          externalPlaceId,
+          locationType,
+          null,
+        )
+        .all();
+
+      const saved = await this.getById(id);
+
+      if (!saved) {
+        throw new GeographyDomainError(
+          'DATABASE_UNAVAILABLE',
+          `Geography record could not be read after persistence: ${id}`,
+        );
+      }
+
+      return saved;
+    } catch (err) {
+      if (err instanceof GeographyDomainError) {
+        throw err;
+      }
+
+      throw new GeographyDomainError(
+        'DATABASE_UNAVAILABLE',
+        `D1 geography persistence failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
+}
