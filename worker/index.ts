@@ -22,11 +22,9 @@ function json(
 function createGeographyRepository(
   env: Env,
 ): ProductionGeographyRepository {
-  const provider = new NominatimGeocodingProvider();
-
   return new ProductionGeographyRepository(
     env.DB,
-    provider,
+    new NominatimGeocodingProvider(),
   );
 }
 
@@ -37,9 +35,6 @@ export default {
   ): Promise<Response> {
     const url = new URL(request.url);
 
-    /*
-     * Health/API check
-     */
     if (
       url.pathname === '/api' ||
       url.pathname === '/api/'
@@ -51,12 +46,6 @@ export default {
       });
     }
 
-    /*
-     * Geography search / geocoding
-     *
-     * Example:
-     * /api/geography/search?q=Lahore
-     */
     if (
       url.pathname === '/api/geography/search' &&
       request.method === 'GET'
@@ -78,9 +67,6 @@ export default {
         const repository =
           createGeographyRepository(env);
 
-        /*
-         * First search our own D1 database.
-         */
         const existing = await repository.search({
           query,
         });
@@ -94,10 +80,6 @@ export default {
           });
         }
 
-        /*
-         * If D1 has no result, use the real
-         * Nominatim provider.
-         */
         const geocoded =
           await repository.forwardGeocode(query);
 
@@ -110,10 +92,6 @@ export default {
           });
         }
 
-        /*
-         * Persist only results that contain a real
-         * provider place ID.
-         */
         const persisted =
           await repository.persistGeocodingResult(
             geocoded,
@@ -143,12 +121,6 @@ export default {
       }
     }
 
-    /*
-     * Reverse geocoding
-     *
-     * Example:
-     * /api/geography/reverse?lat=31.5204&lng=74.3587
-     */
     if (
       url.pathname === '/api/geography/reverse' &&
       request.method === 'GET'
@@ -194,7 +166,8 @@ export default {
           });
         }
 
-        let persisted = null;
+        let persisted: GeographicLocation | null =
+          null;
 
         if (result.externalPlaceId) {
           persisted =
@@ -226,9 +199,6 @@ export default {
       }
     }
 
-    /*
-     * All other /api/* routes.
-     */
     if (url.pathname.startsWith('/api/')) {
       return json(
         {
@@ -240,9 +210,6 @@ export default {
       );
     }
 
-    /*
-     * Frontend / SPA assets.
-     */
     return env.ASSETS.fetch(request);
   },
 };
