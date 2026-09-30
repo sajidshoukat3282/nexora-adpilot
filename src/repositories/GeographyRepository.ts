@@ -19,13 +19,14 @@ import {
   mapAndValidateDbRow,
 } from './GeographyDbMapper';
 
+interface D1Statement {
+  bind(...args: unknown[]): D1Statement;
+  all<T>(): Promise<{ results: T[] }>;
+  first<T>(): Promise<T | null>;
+}
+
 interface D1DatabaseBinding {
-  prepare(query: string): {
-    bind(...args: unknown[]): {
-      all<T>(): Promise<{ results: T[] }>;
-      first<T>(): Promise<T | null>;
-    };
-  };
+  prepare(query: string): D1Statement;
 }
 
 export class ProductionGeographyRepository
@@ -131,3 +132,160 @@ export class ProductionGeographyRepository
         wildcard,
         wildcard,
         wildcard,
+        wildcard,
+      );
+    }
+
+    try {
+      const { results } = await this.db
+        .prepare(query)
+        .bind(...bindings)
+        .all<GeographyDbRow>();
+
+      if (!results || !Array.isArray(results)) {
+        return [];
+      }
+
+      return results.map((row) =>
+        mapAndValidateDbRow(row),
+      );
+    } catch (err) {
+      if (err instanceof GeographyDomainError) {
+        throw err;
+      }
+
+      throw new GeographyDomainError(
+        'DATABASE_UNAVAILABLE',
+        `D1 query execution failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
+
+  async getById(
+    id: string,
+  ): Promise<GeographicLocation | null> {
+    if (!id || typeof id !== 'string') {
+      throw new GeographyDomainError(
+        'INVALID_INPUT',
+        'A valid non-empty string ID must be provided to getById.',
+      );
+    }
+
+    try {
+      const row = await this.db
+        .prepare(
+          'SELECT * FROM geography_locations WHERE id = ?',
+        )
+        .bind(id)
+        .first<GeographyDbRow>();
+
+      if (!row) {
+        return null;
+      }
+
+      return mapAndValidateDbRow(row);
+    } catch (err) {
+      if (err instanceof GeographyDomainError) {
+        throw err;
+      }
+
+      throw new GeographyDomainError(
+        'DATABASE_UNAVAILABLE',
+        `D1 getById execution failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
+
+  async forwardGeocode(
+    addressText: string,
+  ): Promise<GeocodingResult | null> {
+    return this.provider.forwardGeocode(addressText);
+  }
+
+  async reverseGeocode(
+    coordinates: Coordinates,
+  ): Promise<GeocodingResult | null> {
+    if (!validateCoordinates(coordinates)) {
+      throw new GeographyDomainError(
+        'INVALID_INPUT',
+        `Coordinates are out of valid range: Lat (${coordinates.latitude}), Lng (${coordinates.longitude}).`,
+      );
+    }
+
+    return this.provider.reverseGeocode(coordinates);
+  }
+
+  /**
+   * Persist a real geocoding provider result into D1.
+   *
+   * The provider's real external place ID is required.
+   * We do not invent UUIDs or fake external identifiers.
+   */
+  async persistGeocodingResult(
+    result: GeocodingResult,
+  ): Promise<GeographicLocation> {
+    if (!result) {
+      throw new GeographyDomainError(
+        'INVALID_INPUT',
+        'Geocoding result is required for persistence.',
+      );
+    }
+
+    if (!validateCoordinates(result.coordinates)) {
+      throw new GeographyDomainError(
+        'INVALID_INPUT',
+        'Invalid coordinates supplied for persistence.',
+      );
+    }
+
+    if (
+      !result.countryCode ||
+      !validateCountryCode(result.countryCode)
+    ) {
+      throw new GeographyDomainError(
+        'INVALID_INPUT',
+        'Valid country code is required for persistence.',
+      );
+    }
+
+    const externalPlaceId =
+      result.externalPlaceId?.trim();
+
+    if (!externalPlaceId) {
+      throw new GeographyDomainError(
+        'INVALID_INPUT',
+        'External provider place ID is required for persistent geography records.',
+      );
+    }
+
+    const id = `nominatim:${externalPlaceId}`;
+
+    const existing = await this.getById(id);
+
+    if (existing) {
+      return existing;
+    }
+
+    const locationType =
+      result.areaNeighborhood
+        ? 'area'
+        : result.postalCode
+          ? 'postal_code'
+          : result.city
+            ? 'city'
+            : result.countyDistrict
+              ? 'county_district'
+              : result.stateProvinceRegion
+                ? 'state_province'
+                : 'country';
+
+    try {
+      await this.db
+        .prepare(`
+          INSERT INTO geography_locations (
+            id,
+            country_code,
