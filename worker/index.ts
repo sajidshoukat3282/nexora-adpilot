@@ -1,5 +1,7 @@
+cat > worker/index.ts <<'EOF'
 export interface Env {
   ASSETS: Fetcher;
+  DB: D1Database;
 }
 
 export default {
@@ -11,6 +13,7 @@ export default {
         JSON.stringify({
           ok: true,
           service: 'Nexora AdPilot API',
+          database: !!env.DB,
         }),
         {
           headers: {
@@ -23,3 +26,4 @@ export default {
     return env.ASSETS.fetch(request);
   },
 };
+EOF
