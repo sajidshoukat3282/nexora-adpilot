@@ -224,7 +224,6 @@ export class ProductionGeographyRepository
    *
    * The provider's real external place ID is required.
    * We do not invent UUIDs or fake external identifiers.
-   * No fake UUIDs or invented external identifiers are generated.
    */
   async persistGeocodingResult(
     result: GeocodingResult,
@@ -243,10 +242,6 @@ export class ProductionGeographyRepository
       );
     }
 
-    if (
-      !result.countryCode ||
-      !validateCountryCode(result.countryCode)
-    ) {
     const countryCode = result.countryCode?.trim().toUpperCase();
 
     if (!countryCode || !validateCountryCode(countryCode)) {
@@ -256,8 +251,6 @@ export class ProductionGeographyRepository
       );
     }
 
-    const externalPlaceId =
-      result.externalPlaceId?.trim();
     const countryName = result.countryName?.trim();
 
     if (!countryName) {
@@ -361,4 +354,6 @@ export class ProductionGeographyRepository
       );
     }
   }
+
+
 }
