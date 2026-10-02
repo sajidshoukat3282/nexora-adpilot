@@ -162,3 +162,117 @@ export function hasPermission(
 ): boolean {
   return session.permissions.includes(permission);
 }
+
+const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
+
+function generateSessionToken(): string {
+  const bytes = crypto.getRandomValues(
+    new Uint8Array(32),
+  );
+
+  let binary = "";
+
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+export interface CreatedSession {
+  sessionId: string;
+  expiresAt: string;
+  setCookie: string;
+}
+
+export async function createSession(
+  db: D1Database,
+  accountId: string,
+  membershipId: string,
+): Promise<CreatedSession> {
+  const sessionId = crypto.randomUUID();
+  const token = generateSessionToken();
+  const tokenHash = await sha256(token);
+
+  const now = new Date();
+  const expiresAt = new Date(
+    now.getTime() + SESSION_TTL_SECONDS * 1000,
+  );
+
+  await db
+    .prepare(
+      `INSERT INTO sessions (
+        id,
+        account_id,
+        membership_id,
+        token_hash,
+        created_at,
+        expires_at,
+        last_seen_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      sessionId,
+      accountId,
+      membershipId,
+      tokenHash,
+      now.toISOString(),
+      expiresAt.toISOString(),
+      now.toISOString(),
+    )
+    .run();
+
+  const setCookie = [
+    `${SESSION_COOKIE}=${token}`,
+    "Path=/",
+    "HttpOnly",
+    "Secure",
+    "SameSite=Lax",
+    `Max-Age=${SESSION_TTL_SECONDS}`,
+  ].join("; ");
+
+  return {
+    sessionId,
+    expiresAt: expiresAt.toISOString(),
+    setCookie,
+  };
+}
+
+export async function revokeSession(
+  request: Request,
+  db: D1Database,
+): Promise<boolean> {
+  const token = getSessionToken(request);
+
+  if (!token) return false;
+
+  const tokenHash = await sha256(token);
+  const now = new Date().toISOString();
+
+  const result = await db
+    .prepare(
+      `UPDATE sessions
+       SET revoked_at = ?
+       WHERE token_hash = ?
+         AND revoked_at IS NULL`,
+    )
+    .bind(now, tokenHash)
+    .run();
+
+  return result.meta.changes > 0;
+}
+
+export function clearSessionCookie(): string {
+  return [
+    `${SESSION_COOKIE}=`,
+    "Path=/",
+    "HttpOnly",
+    "Secure",
+    "SameSite=Lax",
+    "Max-Age=0",
+  ].join("; ");
+}
