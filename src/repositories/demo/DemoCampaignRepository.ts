@@ -37,7 +37,7 @@ export class DemoCampaignRepository implements CampaignRepository {
       objective: input.objective,
       status: "draft",
       schedule: input.schedule,
-      targeting: { locations: [], radiusKm: null, audience: [], weatherTriggered: false, eventTriggered: false },
+      targeting: { locationRefs: [], locations: [], radiusKm: null, audience: [], weatherTriggered: false, eventTriggered: false },
       budget: {
         inventoryCost: money(0), creativeFees: money(0), additionalFees: money(0),
         discount: money(0), total: money(0), estimatedCpmCents: 0,

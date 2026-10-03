@@ -38,3 +38,5 @@ export * from './invoiceArchitecture';
 export * from './devices';
 export * from './usage';
 export * from './requestPipeline';
+
+export * from "./weather";

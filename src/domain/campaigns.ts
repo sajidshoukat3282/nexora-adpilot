@@ -91,8 +91,23 @@ export interface CampaignSchedule {
   dayparts: string[]; // e.g. ["morning_commute","evening_commute"]
 }
 
+export interface CampaignLocationRef {
+  /** Stable geography record used for area-level services such as weather. */
+  geographyId: ID;
+  /** Human-readable label retained for display and reporting. */
+  label: string;
+  /** Optional coordinates snapshot for reliable area-level weather lookups. */
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
+}
+
 export interface CampaignTargeting {
-  locations: string[]; // city/area names
+  /** Legacy city/area names retained for backward compatibility. */
+  locations: string[];
+  /** Canonical geography references for campaign areas. */
+  locationRefs: CampaignLocationRef[];
   radiusKm: number | null;
   audience: string[];
   weatherTriggered: boolean;

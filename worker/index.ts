@@ -8,10 +8,12 @@ import {
   clearSessionCookie,
 } from './auth/session';
 import { verifyPassword } from './auth/password';
+import { WeatherApiProvider } from './weather/WeatherApiProvider';
 
 export interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
+  WEATHER_API_KEY?: string;
 }
 
 function json(
@@ -243,21 +245,105 @@ export default {
           .bind(now, account.id)
           .run();
 
+        const company = await env.DB
+          .prepare(
+            `SELECT
+              id,
+              name,
+              plan,
+              logo_initial,
+              seats_used,
+              seats_limit,
+              devices_active,
+              devices_limit,
+              timezone,
+              default_currency
+             FROM companies
+             WHERE id = ?
+             LIMIT 1`,
+          )
+          .bind(membership.company_id)
+          .first<{
+            id: string;
+            name: string;
+            plan: 'trial' | 'growth' | 'enterprise';
+            logo_initial: string;
+            seats_used: number;
+            seats_limit: number;
+            devices_active: number;
+            devices_limit: number;
+            timezone: string;
+            default_currency: string;
+          }>();
+
+        const permissions =
+          membership.account_type === 'owner'
+            ? [
+                'crm.view',
+                'crm.manage',
+                'inventory.view',
+                'inventory.manage',
+                'campaigns.view',
+                'campaigns.manage',
+                'proposals.view',
+                'proposals.manage',
+                'creative.view',
+                'creative.manage',
+                'operations.view',
+                'operations.manage',
+                'reports.view',
+                'reports.download',
+                'reports.send',
+                'finance.view',
+                'finance.manage',
+                'client_portal.view',
+                'admin.view',
+                'admin.manage',
+              ]
+            : [];
+
+        const companyPayload = company
+          ? {
+              id: company.id,
+              name: company.name,
+              plan: company.plan,
+              logoInitial: company.logo_initial,
+              seatsUsed: company.seats_used,
+              seatsLimit: company.seats_limit,
+              devicesActive: company.devices_active,
+              devicesLimit: company.devices_limit,
+              timezone: company.timezone,
+              defaultCurrency: company.default_currency,
+            }
+          : {
+              id: membership.company_id,
+            };
+
         return new Response(
           JSON.stringify({
             ok: true,
+            authenticated: true,
             account: {
               id: account.id,
               email: account.email,
             },
-            company: {
-              id: membership.company_id,
-            },
+            company: companyPayload,
             membership: {
               id: membership.id,
               role: membership.role,
               designation: membership.designation,
               accountType: membership.account_type,
+            },
+            session: {
+              accountId: account.id,
+              sessionId: session.sessionId,
+              companyId: membership.company_id,
+              membershipId: membership.id,
+              accountType: membership.account_type,
+              role: membership.role,
+              designation: membership.designation,
+              permissions,
+              expiresAt: session.expiresAt,
             },
             expiresAt: session.expiresAt,
           }),
@@ -302,9 +388,90 @@ export default {
         );
       }
 
+      const sessionAccount = await env.DB
+        .prepare(
+          `SELECT
+            a.id,
+            a.email,
+            c.id AS company_id,
+            c.name AS company_name,
+            c.plan,
+            c.logo_initial,
+            c.seats_used,
+            c.seats_limit,
+            c.devices_active,
+            c.devices_limit,
+            c.timezone,
+            c.default_currency,
+            cm.id AS membership_id,
+            cm.role,
+            cm.designation,
+            cm.account_type
+           FROM accounts a
+           INNER JOIN company_memberships cm
+             ON cm.account_id = a.id
+            AND cm.id = ?
+           INNER JOIN companies c
+             ON c.id = cm.company_id
+           WHERE a.id = ?
+           LIMIT 1`,
+        )
+        .bind(session.membershipId, session.accountId)
+        .first<{
+          id: string;
+          email: string;
+          company_id: string;
+          company_name: string;
+          plan: 'trial' | 'growth' | 'enterprise';
+          logo_initial: string;
+          seats_used: number;
+          seats_limit: number;
+          devices_active: number;
+          devices_limit: number;
+          timezone: string;
+          default_currency: string;
+          membership_id: string;
+          role: string;
+          designation: string;
+          account_type: 'owner' | 'employee' | 'client';
+        }>();
+
+      if (!sessionAccount) {
+        return json(
+          {
+            ok: false,
+            error: 'SESSION_CONTEXT_UNAVAILABLE',
+            message: 'The authenticated account context could not be loaded.',
+          },
+          500,
+        );
+      }
+
       return json({
         ok: true,
         authenticated: true,
+        account: {
+          id: sessionAccount.id,
+          email: sessionAccount.email,
+        },
+        company: {
+          id: sessionAccount.company_id,
+          name: sessionAccount.company_name,
+          plan: sessionAccount.plan,
+          logoInitial: sessionAccount.logo_initial,
+          seatsUsed: sessionAccount.seats_used,
+          seatsLimit: sessionAccount.seats_limit,
+          devicesActive: sessionAccount.devices_active,
+          devicesLimit: sessionAccount.devices_limit,
+          timezone: sessionAccount.timezone,
+          defaultCurrency: sessionAccount.default_currency,
+        },
+        membership: {
+          id: sessionAccount.membership_id,
+          role: sessionAccount.role,
+          designation: sessionAccount.designation,
+          accountType: sessionAccount.account_type,
+        },
         session: {
           accountId: session.accountId,
           sessionId: session.sessionId,
@@ -317,6 +484,120 @@ export default {
           expiresAt: session.expiresAt,
         },
       });
+    }
+
+    if (
+      url.pathname === '/api/weather' &&
+      request.method === 'GET'
+    ) {
+      const session = await resolveSession(
+        request,
+        env.DB,
+      );
+
+      if (!session) {
+        return json(
+          {
+            ok: false,
+            error: 'UNAUTHENTICATED',
+            message: 'An active authenticated session is required.',
+          },
+          401,
+        );
+      }
+
+      if (!env.WEATHER_API_KEY) {
+        return json(
+          {
+            ok: false,
+            error: 'WEATHER_NOT_CONFIGURED',
+            message: 'Weather service is not configured.',
+          },
+          503,
+        );
+      }
+
+      const lat = Number(url.searchParams.get('lat'));
+      const lng = Number(url.searchParams.get('lng'));
+      const geographyId =
+        url.searchParams.get('geographyId')?.trim();
+      const label =
+        url.searchParams.get('label')?.trim() ||
+        'Campaign area';
+
+      if (
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lng) ||
+        lat < -90 ||
+        lat > 90 ||
+        lng < -180 ||
+        lng > 180
+      ) {
+        return json(
+          {
+            ok: false,
+            error: 'INVALID_INPUT',
+            message: 'Valid lat and lng parameters are required.',
+          },
+          400,
+        );
+      }
+
+      if (!geographyId) {
+        return json(
+          {
+            ok: false,
+            error: 'INVALID_INPUT',
+            message: 'geographyId parameter is required.',
+          },
+          400,
+        );
+      }
+
+      const forecastDays = Math.min(
+        Math.max(
+          Math.trunc(
+            Number(url.searchParams.get('days') ?? '3'),
+          ),
+          1,
+        ),
+        3,
+      );
+
+      try {
+        const provider = new WeatherApiProvider({
+          apiKey: env.WEATHER_API_KEY,
+        });
+
+        const weather = await provider.getWeather(
+          {
+            geographyId,
+            label,
+            coordinates: {
+              lat,
+              lng,
+            },
+          },
+          forecastDays,
+        );
+
+        return json({
+          ok: true,
+          weather,
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error: 'WEATHER_PROVIDER_ERROR',
+            message:
+              error instanceof Error
+                ? error.message
+                : 'Weather provider request failed.',
+          },
+          502,
+        );
+      }
     }
 
     if (
