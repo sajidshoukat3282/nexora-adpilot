@@ -9,8 +9,8 @@ import React, {
 import type { Company, Permission, Role, User } from "@/domain";
 import {
   getSession,
-  login,
   logout,
+  requestMagicLink,
 } from "@/lib/api/auth";
 import type { ServerSession } from "@/lib/api/auth";
 
@@ -21,7 +21,7 @@ interface SessionContextValue {
   loading: boolean;
   signingIn: boolean;
   error: string | null;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
   setRole: (role: Role) => Promise<void>;
@@ -72,21 +72,17 @@ export const SessionProvider: React.FC<{
   }, [refresh]);
 
   const signIn = useCallback(
-    async (email: string, password: string) => {
+    async (email: string) => {
       setSigningIn(true);
       setError(null);
 
       try {
-        const result = await login(email, password);
-
-        setUser(result.user);
-        setCompany(result.company);
-        setSession(result.session);
+        await requestMagicLink(email);
       } catch (err) {
         const message =
           err instanceof Error
             ? err.message
-            : "Unable to sign in.";
+            : "Unable to send the sign-in link.";
 
         setError(message);
         throw err;

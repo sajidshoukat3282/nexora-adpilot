@@ -121,6 +121,33 @@ function mapResult(
   };
 }
 
+export async function requestMagicLink(
+  email: string,
+): Promise<{ message: string; expiresAt?: string }> {
+  return apiRequest<{
+    ok: true;
+    message: string;
+    expiresAt?: string;
+  }>("/api/auth/magic-link", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function verifyMagicLink(
+  token: string,
+): Promise<AuthResult> {
+  const response = await apiRequest<AuthResponse>(
+    "/api/auth/magic-link/verify",
+    {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    },
+  );
+
+  return mapResult(response);
+}
+
 export async function login(
   email: string,
   password: string,

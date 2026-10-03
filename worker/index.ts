@@ -81,12 +81,366 @@ function errorPayload(error: unknown) {
   };
 }
 
+async function sendMagicLinkEmail(
+  env: Env,
+  email: string,
+  token: string,
+): Promise<void> {
+  if (!env.BREVO_API_KEY) {
+    throw new Error('EMAIL_PROVIDER_NOT_CONFIGURED');
+  }
+
+  const baseUrl =
+    env.AUTH_BASE_URL ||
+    'http://localhost:5173';
+
+  const verifyUrl =
+    `${baseUrl}/#/auth/magic-link?token=${encodeURIComponent(token)}`;
+
+  const senderEmail =
+    env.MAIL_FROM_EMAIL ||
+    'hello@nexoratechnologies.pk';
+
+  const senderName =
+    env.MAIL_FROM_NAME ||
+    'Nexora AdPilot';
+
+  const response = await fetch(
+    'https://api.brevo.com/v3/smtp/email',
+    {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'api-key': env.BREVO_API_KEY,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: {
+          name: senderName,
+          email: senderEmail,
+        },
+        to: [{ email }],
+        subject: 'Your Nexora AdPilot sign-in link',
+        htmlContent: `
+          <p>Hello,</p>
+          <p>Use the secure link below to sign in to Nexora AdPilot:</p>
+          <p>
+            <a href="${verifyUrl}">
+              Sign in to Nexora AdPilot
+            </a>
+          </p>
+          <p>This link expires in 10 minutes and can only be used once.</p>
+          <p>If you did not request this email, you can safely ignore it.</p>
+        `,
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error('EMAIL_SEND_FAILED');
+  }
+}
+
+async function verifyMagicLink(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  try {
+    const body = (await request.json()) as {
+      token?: unknown;
+    };
+
+    const token =
+      typeof body.token === 'string'
+        ? body.token.trim()
+        : '';
+
+    if (!token) {
+      return json(
+        {
+          ok: false,
+          error: 'INVALID_INPUT',
+          message: 'Magic link token is required.',
+        },
+        400,
+      );
+    }
+
+    const accountId = await consumeMagicLinkToken(
+      env.DB,
+      token,
+    );
+
+    if (!accountId) {
+      return json(
+        {
+          ok: false,
+          error: 'INVALID_OR_EXPIRED_TOKEN',
+          message: 'This sign-in link is invalid or has expired.',
+        },
+        401,
+      );
+    }
+
+    const account = await env.DB
+      .prepare(
+        `SELECT id, email, status
+         FROM accounts
+         WHERE id = ?
+         LIMIT 1`,
+      )
+      .bind(accountId)
+      .first<{
+        id: string;
+        email: string;
+        status: string;
+      }>();
+
+    if (!account || account.status !== 'active') {
+      return json(
+        {
+          ok: false,
+          error: 'ACCOUNT_INACTIVE',
+          message: 'This account is not active.',
+        },
+        403,
+      );
+    }
+
+    const membership = await env.DB
+      .prepare(
+        `SELECT
+           id,
+           company_id,
+           role,
+           designation,
+           account_type,
+           status
+         FROM company_memberships
+         WHERE account_id = ?
+           AND status = 'active'
+         ORDER BY created_at ASC
+         LIMIT 1`,
+      )
+      .bind(account.id)
+      .first<{
+        id: string;
+        company_id: string;
+        role: string;
+        designation: string;
+        account_type: 'owner' | 'employee' | 'client';
+        status: string;
+      }>();
+
+    if (!membership) {
+      return json(
+        {
+          ok: false,
+          error: 'NO_ACTIVE_MEMBERSHIP',
+          message: 'No active company membership was found.',
+        },
+        403,
+      );
+    }
+
+    const session = await createSession(
+      env.DB,
+      account.id,
+      membership.company_id,
+      membership.id,
+      membership.account_type,
+      membership.role,
+      membership.designation,
+    );
+
+    await env.DB
+      .prepare(
+        `UPDATE accounts
+         SET last_login_at = ?
+         WHERE id = ?`,
+      )
+      .bind(new Date().toISOString(), account.id)
+      .run();
+
+    return json(
+      {
+        ok: true,
+        authenticated: true,
+        account: {
+          id: account.id,
+          email: account.email,
+        },
+        company: {
+          id: membership.company_id,
+        },
+        membership: {
+          id: membership.id,
+          role: membership.role,
+          designation: membership.designation,
+          accountType: membership.account_type,
+        },
+        session,
+        expiresAt: session.expiresAt,
+      },
+      200,
+      session.cookie,
+    );
+  } catch {
+    return json(
+      {
+        ok: false,
+        error: 'MAGIC_LINK_VERIFICATION_FAILED',
+        message: 'Unable to verify the sign-in link.',
+      },
+      500,
+    );
+  }
+}
+
+async function requestMagicLink(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  try {
+    const body = (await request.json()) as {
+      email?: unknown;
+    };
+
+    const email =
+      typeof body.email === 'string'
+        ? body.email.trim().toLowerCase()
+        : '';
+
+    if (!email) {
+      return json(
+        {
+          ok: false,
+          error: 'INVALID_INPUT',
+          message: 'Email address is required.',
+        },
+        400,
+      );
+    }
+
+    const account = await env.DB
+      .prepare(
+        `SELECT id, email, status
+         FROM accounts
+         WHERE LOWER(email) = ?
+         LIMIT 1`,
+      )
+      .bind(email)
+      .first<{
+        id: string;
+        email: string;
+        status: string;
+      }>();
+
+    if (!account || account.status !== 'active') {
+      return json({
+        ok: true,
+        message:
+          'If an active AdPilot account exists for this email, a sign-in link has been sent.',
+      });
+    }
+
+    const membership = await env.DB
+      .prepare(
+        `SELECT id
+         FROM company_memberships
+         WHERE account_id = ?
+           AND status = 'active'
+         ORDER BY created_at ASC
+         LIMIT 1`,
+      )
+      .bind(account.id)
+      .first<{ id: string }>();
+
+    if (!membership) {
+      return json({
+        ok: true,
+        message:
+          'If an active AdPilot account exists for this email, a sign-in link has been sent.',
+      });
+    }
+
+    const magicLink = await createMagicLinkToken(
+      env.DB,
+      account.id,
+    );
+
+    await sendMagicLinkEmail(
+      env,
+      account.email,
+      magicLink.token,
+    );
+
+    return json({
+      ok: true,
+      message:
+        'If an active AdPilot account exists for this email, a sign-in link has been sent.',
+      expiresAt: magicLink.expiresAt,
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === 'EMAIL_PROVIDER_NOT_CONFIGURED'
+    ) {
+      return json(
+        {
+          ok: false,
+          error: 'EMAIL_PROVIDER_NOT_CONFIGURED',
+          message: 'Email authentication is not configured.',
+        },
+        503,
+      );
+    }
+
+    if (
+      error instanceof Error &&
+      error.message === 'EMAIL_SEND_FAILED'
+    ) {
+      return json(
+        {
+          ok: false,
+          error: 'EMAIL_SEND_FAILED',
+          message: 'Unable to send the sign-in email.',
+        },
+        502,
+      );
+    }
+
+    return json(
+      {
+        ok: false,
+        error: 'MAGIC_LINK_REQUEST_FAILED',
+        message: 'Unable to request a sign-in link.',
+      },
+      500,
+    );
+  }
+}
+
 export default {
   async fetch(
     request: Request,
     env: Env,
   ): Promise<Response> {
     const url = new URL(request.url);
+
+    if (
+      url.pathname === '/api/auth/magic-link' &&
+      request.method === 'POST'
+    ) {
+      return requestMagicLink(request, env);
+    }
+
+    if (
+      url.pathname === '/api/auth/magic-link/verify' &&
+      request.method === 'POST'
+    ) {
+      return verifyMagicLink(request, env);
+    }
 
     if (
       url.pathname === '/api' ||
