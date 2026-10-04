@@ -3,6 +3,7 @@ import { RouterProvider, Routes, useNavigate } from "@/lib/router";
 import { SessionProvider, useSession } from "@/hooks/useSession";
 import { AppShell } from "@/components/layout/AppShell";
 import { LoginPage } from "@/features/auth/LoginPage";
+import { MagicLinkPage } from "@/features/auth/MagicLinkPage";
 
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { InventoryPage } from "@/features/inventory/InventoryPage";
@@ -116,6 +117,7 @@ const PublicRoutes: React.FC = () => (
     notFound={<LoginPage />}
     routes={[
       { path: "/login", element: <LoginPage /> },
+      { path: "/auth/magic-link", element: <MagicLinkPage /> },
     ]}
   />
 );
