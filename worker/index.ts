@@ -8,24 +8,39 @@ import {
   clearSessionCookie,
 } from './auth/session';
 import { verifyPassword } from './auth/password';
+import {
+  createMagicLinkToken,
+  consumeMagicLinkToken,
+} from './auth/magicLink';
 import { WeatherApiProvider } from './weather/WeatherApiProvider';
 
 export interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
   WEATHER_API_KEY?: string;
+  BREVO_API_KEY?: string;
+  AUTH_BASE_URL?: string;
+  MAIL_FROM_EMAIL?: string;
+  MAIL_FROM_NAME?: string;
 }
 
 function json(
   data: unknown,
   status = 200,
+  setCookie?: string,
 ): Response {
+  const headers = new Headers({
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'no-store',
+  });
+
+  if (setCookie) {
+    headers.set('Set-Cookie', setCookie);
+  }
+
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      'content-type': 'application/json; charset=utf-8',
-      'cache-control': 'no-store',
-    },
+    headers,
   });
 }
 
@@ -246,11 +261,7 @@ async function verifyMagicLink(
     const session = await createSession(
       env.DB,
       account.id,
-      membership.company_id,
       membership.id,
-      membership.account_type,
-      membership.role,
-      membership.designation,
     );
 
     await env.DB
@@ -283,7 +294,7 @@ async function verifyMagicLink(
         expiresAt: session.expiresAt,
       },
       200,
-      session.cookie,
+      session.setCookie,
     );
   } catch {
     return json(
