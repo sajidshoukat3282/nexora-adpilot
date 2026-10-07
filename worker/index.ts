@@ -13,6 +13,11 @@ import {
   consumeMagicLinkToken,
 } from './auth/magicLink';
 import { WeatherApiProvider } from './weather/WeatherApiProvider';
+import { ProductionSubscriptionRepository } from '../src/repositories/production/SubscriptionRepository';
+import {
+  hasEntitlement,
+  type EntitlementKey,
+} from '../src/domain/subscription';
 
 export interface Env {
   ASSETS: Fetcher;
@@ -22,6 +27,7 @@ export interface Env {
   AUTH_BASE_URL?: string;
   MAIL_FROM_EMAIL?: string;
   MAIL_FROM_NAME?: string;
+  OWNER_MAGIC_LINK_EMAIL?: string;
 }
 
 function json(
@@ -211,12 +217,16 @@ async function verifyMagicLink(
         status: string;
       }>();
 
-    if (!account || account.status !== 'active') {
+    if (
+      !account ||
+      account.status !== 'active' ||
+      !isConfiguredMagicLinkOwner(env, account.email)
+    ) {
       return json(
         {
           ok: false,
-          error: 'ACCOUNT_INACTIVE',
-          message: 'This account is not active.',
+          error: 'MAGIC_LINK_NOT_ALLOWED',
+          message: 'Magic link authentication is not available for this account.',
         },
         403,
       );
@@ -253,6 +263,17 @@ async function verifyMagicLink(
           ok: false,
           error: 'NO_ACTIVE_MEMBERSHIP',
           message: 'No active company membership was found.',
+        },
+        403,
+      );
+    }
+
+    if (membership.account_type !== 'owner') {
+      return json(
+        {
+          ok: false,
+          error: 'MAGIC_LINK_NOT_ALLOWED',
+          message: 'Magic link authentication is not available for this account.',
         },
         403,
       );
@@ -308,6 +329,17 @@ async function verifyMagicLink(
   }
 }
 
+function isConfiguredMagicLinkOwner(
+  env: Env,
+  email: string,
+): boolean {
+  const ownerEmail = env.OWNER_MAGIC_LINK_EMAIL
+    ?.trim()
+    .toLowerCase();
+
+  return Boolean(ownerEmail) && email === ownerEmail;
+}
+
 async function requestMagicLink(
   request: Request,
   env: Env,
@@ -347,7 +379,11 @@ async function requestMagicLink(
         status: string;
       }>();
 
-    if (!account || account.status !== 'active') {
+    if (
+      !account ||
+      account.status !== 'active' ||
+      !isConfiguredMagicLinkOwner(env, account.email)
+    ) {
       return json({
         ok: true,
         message:
@@ -357,7 +393,7 @@ async function requestMagicLink(
 
     const membership = await env.DB
       .prepare(
-        `SELECT id
+        `SELECT id, account_type
          FROM company_memberships
          WHERE account_id = ?
            AND status = 'active'
@@ -365,7 +401,18 @@ async function requestMagicLink(
          LIMIT 1`,
       )
       .bind(account.id)
-      .first<{ id: string }>();
+      .first<{
+        id: string;
+        account_type: 'owner' | 'employee' | 'client';
+      }>();
+
+    if (!membership || membership.account_type !== 'owner') {
+      return json({
+        ok: true,
+        message:
+          'If an active AdPilot account exists for this email, a sign-in link has been sent.',
+      });
+    }
 
     if (!membership) {
       return json({
@@ -812,6 +859,37 @@ export default {
         );
       }
 
+      const subscriptionRepository =
+        new ProductionSubscriptionRepository(env.DB);
+
+      const subscription = await subscriptionRepository.get(
+        session.companyId,
+      );
+
+      const entitlementKeys: EntitlementKey[] = [
+        'crm',
+        'inventory',
+        'campaigns',
+        'advanced_planning',
+        'proof_of_play',
+        'field_verification',
+        'analytics',
+        'finance',
+        'client_portal',
+        'api',
+        'programmatic',
+        'ai_planning',
+      ];
+
+      const entitlements = Object.fromEntries(
+        entitlementKeys.map((key) => [
+          key,
+          subscription
+            ? hasEntitlement(subscription, key).allowed
+            : false,
+        ]),
+      );
+
       return json({
         ok: true,
         authenticated: true,
@@ -837,6 +915,22 @@ export default {
           designation: sessionAccount.designation,
           accountType: sessionAccount.account_type,
         },
+        subscription: subscription
+          ? {
+              id: subscription.id,
+              planId: subscription.planId,
+              status: subscription.status,
+              billingCycle: subscription.billingCycle,
+              paymentStatus: subscription.paymentStatus,
+              startsAt: subscription.startsAt,
+              renewsAt: subscription.renewsAt,
+              trialEndsAt: subscription.trialEndsAt,
+              graceEndsAt: subscription.graceEndsAt,
+              maxSeats: subscription.maxSeats,
+              maxDevices: subscription.maxDevices,
+              entitlements,
+            }
+          : null,
         session: {
           accountId: session.accountId,
           sessionId: session.sessionId,
