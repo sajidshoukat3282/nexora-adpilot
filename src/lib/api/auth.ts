@@ -182,3 +182,28 @@ export async function logout(): Promise<void> {
     method: "POST",
   });
 }
+
+export async function requestPasswordReset(
+  email: string,
+): Promise<{ message: string }> {
+  return apiRequest<{ ok: true; message: string }>(
+    "/api/auth/password-reset/request",
+    {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    },
+  );
+}
+
+export async function confirmPasswordReset(
+  token: string,
+  password: string,
+): Promise<{ message: string }> {
+  return apiRequest<{ ok: true; message: string }>(
+    "/api/auth/password-reset/confirm",
+    {
+      method: "POST",
+      body: JSON.stringify({ token, password }),
+    },
+  );
+}

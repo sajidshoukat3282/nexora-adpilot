@@ -97,12 +97,22 @@ const ownerMembership: Membership = {
 };
 
 describe('authentication API', () => {
-  it('logs in with valid credentials', async () => {
-    const account = await createAccount();
+  it('logs in with valid client credentials', async () => {
+    const account = {
+      ...(await createAccount()),
+      email: 'client@nexora.test',
+    };
+
+    const clientMembership: Membership = {
+      ...ownerMembership,
+      account_type: 'client',
+      role: 'client',
+      designation: 'Client',
+    };
 
     const mock = createMockDb(
       account,
-      [ownerMembership],
+      [clientMembership],
     );
 
     const request = new Request(
@@ -113,7 +123,7 @@ describe('authentication API', () => {
           'content-type': 'application/json',
         },
         body: JSON.stringify({
-          email: 'OWNER@NEXORA.TEST',
+          email: 'CLIENT@NEXORA.TEST',
           password:
             'AdPilot-Secure-Password-2026!',
         }),

@@ -9,6 +9,7 @@ import React, {
 import type { Company, Permission, Role, User } from "@/domain";
 import {
   getSession,
+  login,
   logout,
   requestMagicLink,
 } from "@/lib/api/auth";
@@ -22,6 +23,7 @@ interface SessionContextValue {
   signingIn: boolean;
   error: string | null;
   signIn: (email: string) => Promise<void>;
+  signInWithPassword: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
   setRole: (role: Role) => Promise<void>;
@@ -93,6 +95,33 @@ export const SessionProvider: React.FC<{
     [],
   );
 
+  const signInWithPassword = useCallback(
+    async (email: string, password: string) => {
+      setSigningIn(true);
+      setError(null);
+
+      try {
+        const result = await login(email, password);
+
+        if (result.session.accountType !== "client") {
+          throw new Error("Password sign-in is available for client accounts only.");
+        }
+
+        setUser(result.user);
+        setCompany(result.company);
+        setSession(result.session);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Unable to sign in.";
+        setError(message);
+        throw err;
+      } finally {
+        setSigningIn(false);
+      }
+    },
+    [],
+  );
+
   const signOut = useCallback(async () => {
     try {
       await logout();
@@ -129,6 +158,7 @@ export const SessionProvider: React.FC<{
         signingIn,
         error,
         signIn,
+        signInWithPassword,
         signOut,
         refresh,
         setRole,

@@ -7,7 +7,11 @@ import {
   revokeSession,
   clearSessionCookie,
 } from './auth/session';
-import { verifyPassword } from './auth/password';
+import { hashPassword, verifyPassword } from './auth/password';
+import {
+  createPasswordResetToken,
+  consumePasswordResetToken,
+} from './auth/passwordReset';
 import {
   createMagicLinkToken,
   consumeMagicLinkToken,
@@ -159,6 +163,197 @@ async function sendMagicLinkEmail(
 
   if (!response.ok) {
     throw new Error('EMAIL_SEND_FAILED');
+  }
+}
+
+
+async function sendPasswordResetEmail(
+  env: Env,
+  email: string,
+  token: string,
+): Promise<void> {
+  if (!env.BREVO_API_KEY) {
+    throw new Error('EMAIL_PROVIDER_NOT_CONFIGURED');
+  }
+
+  const baseUrl = env.AUTH_BASE_URL || 'http://localhost:5173';
+  const resetUrl =
+    `${baseUrl}/#/auth/reset-password?token=${encodeURIComponent(token)}`;
+
+  const response = await fetch(
+    'https://api.brevo.com/v3/smtp/email',
+    {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'api-key': env.BREVO_API_KEY,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: {
+          name: env.MAIL_FROM_NAME || 'Nexora AdPilot',
+          email: env.MAIL_FROM_EMAIL || 'hello@nexoratechnologies.pk',
+        },
+        to: [{ email }],
+        subject: 'Reset your Nexora AdPilot password',
+        htmlContent: `
+          <p>Hello,</p>
+          <p>We received a request to reset your Nexora AdPilot client password.</p>
+          <p><a href="${resetUrl}">Reset my password</a></p>
+          <p>This link expires in 10 minutes and can only be used once.</p>
+          <p>If you did not request this, ignore this email.</p>
+        `,
+      }),
+    },
+  );
+
+  if (!response.ok) throw new Error('EMAIL_SEND_FAILED');
+}
+
+async function requestPasswordReset(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  const genericMessage =
+    'If an eligible client account exists for this email, password reset instructions will be sent.';
+
+  try {
+    const body = await request.json() as { email?: unknown };
+    const email =
+      typeof body.email === 'string'
+        ? body.email.trim().toLowerCase()
+        : '';
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return json({
+        ok: true,
+        message: genericMessage,
+      });
+    }
+
+    const account = await env.DB.prepare(
+      `SELECT id, email
+       FROM accounts
+       WHERE LOWER(email) = ?
+         AND status = 'active'
+       LIMIT 1`,
+    ).bind(email).first<{ id: string; email: string }>();
+
+    if (account) {
+      const membership = await env.DB.prepare(
+        `SELECT id
+         FROM company_memberships
+         WHERE account_id = ?
+           AND account_type = 'client'
+           AND status = 'active'
+         LIMIT 1`,
+      ).bind(account.id).first<{ id: string }>();
+
+      if (membership) {
+        try {
+          const reset = await createPasswordResetToken(env.DB, account.id);
+          await sendPasswordResetEmail(env, account.email, reset.token);
+        } catch {
+          // Keep the response generic to avoid revealing account existence.
+        }
+      }
+    }
+
+    return json({ ok: true, message: genericMessage });
+  } catch {
+    return json({ ok: true, message: genericMessage });
+  }
+}
+
+async function confirmPasswordReset(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  try {
+    const body = await request.json() as {
+      token?: unknown;
+      password?: unknown;
+    };
+
+    const token =
+      typeof body.token === 'string' ? body.token.trim() : '';
+    const password =
+      typeof body.password === 'string' ? body.password : '';
+
+    if (!token || password.length < 12) {
+      return json({
+        ok: false,
+        error: 'INVALID_INPUT',
+        message: 'A valid reset token and a password of at least 12 characters are required.',
+      }, 400);
+    }
+
+    const accountId = await consumePasswordResetToken(env.DB, token);
+
+    if (!accountId) {
+      return json({
+        ok: false,
+        error: 'INVALID_OR_EXPIRED_TOKEN',
+        message: 'This password reset link is invalid, expired, or already used.',
+      }, 400);
+    }
+
+    const eligible = await env.DB.prepare(
+      `SELECT a.id
+       FROM accounts a
+       WHERE a.id = ?
+         AND a.status = 'active'
+         AND EXISTS (
+           SELECT 1
+           FROM company_memberships m
+           WHERE m.account_id = a.id
+             AND m.account_type = 'client'
+             AND m.status = 'active'
+         )
+         AND NOT EXISTS (
+           SELECT 1
+           FROM company_memberships owner_membership
+           WHERE owner_membership.account_id = a.id
+             AND owner_membership.account_type = 'owner'
+             AND owner_membership.status = 'active'
+         )
+       LIMIT 1`,
+    ).bind(accountId).first<{ id: string }>();
+
+    if (!eligible) {
+      return json({
+        ok: false,
+        error: 'RESET_NOT_ALLOWED',
+        message: 'Password reset is not available for this account.',
+      }, 400);
+    }
+
+    const passwordHash = await hashPassword(password);
+    const now = new Date().toISOString();
+
+    await env.DB.batch([
+      env.DB.prepare(
+        `UPDATE accounts
+         SET password_hash = ?, updated_at = ?
+         WHERE id = ? AND status = 'active'`,
+      ).bind(passwordHash, now, accountId),
+      env.DB.prepare(
+        `UPDATE sessions
+         SET revoked_at = ?
+         WHERE account_id = ? AND revoked_at IS NULL`,
+      ).bind(now, accountId),
+    ]);
+
+    return json({
+      ok: true,
+      message: 'Password reset successful. Please sign in with your new password.',
+    });
+  } catch {
+    return json({
+      ok: false,
+      error: 'PASSWORD_RESET_FAILED',
+      message: 'Unable to reset the password. Please request a new reset link.',
+    }, 500);
   }
 }
 
@@ -501,6 +696,20 @@ export default {
     }
 
     if (
+      url.pathname === '/api/auth/password-reset/request' &&
+      request.method === 'POST'
+    ) {
+      return requestPasswordReset(request, env);
+    }
+
+    if (
+      url.pathname === '/api/auth/password-reset/confirm' &&
+      request.method === 'POST'
+    ) {
+      return confirmPasswordReset(request, env);
+    }
+
+    if (
       url.pathname === '/api' ||
       url.pathname === '/api/'
     ) {
@@ -639,6 +848,17 @@ export default {
         }
 
         const membership = memberships.results[0];
+
+        if (membership.account_type !== 'client') {
+          return json(
+            {
+              ok: false,
+              error: 'CLIENT_LOGIN_ONLY',
+              message: 'Password sign-in is available for client accounts only.',
+            },
+            403,
+          );
+        }
 
         const session = await createSession(
           env.DB,
