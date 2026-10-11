@@ -16,6 +16,9 @@ import {
   createMagicLinkToken,
   consumeMagicLinkToken,
 } from './auth/magicLink';
+import {
+  createClientInvitationToken,
+} from './auth/clientInvitation';
 import { WeatherApiProvider } from './weather/WeatherApiProvider';
 import { ProductionSubscriptionRepository } from '../src/repositories/production/SubscriptionRepository';
 import {
@@ -674,6 +677,352 @@ async function requestMagicLink(
   }
 }
 
+
+async function sendClientInvitationEmail(
+  env: Env,
+  email: string,
+  token: string,
+): Promise<void> {
+  if (!env.BREVO_API_KEY) {
+    throw new Error("EMAIL_PROVIDER_NOT_CONFIGURED");
+  }
+
+  const baseUrl = env.AUTH_BASE_URL || "http://localhost:5173";
+  const inviteUrl =
+    `${baseUrl}/#/auth/accept-invitation?token=${encodeURIComponent(token)}`;
+
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "api-key": env.BREVO_API_KEY,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      sender: {
+        name: env.MAIL_FROM_NAME || "Nexora AdPilot",
+        email: env.MAIL_FROM_EMAIL || "hello@nexoratechnologies.pk",
+      },
+      to: [{ email }],
+      subject: "Your Nexora AdPilot client invitation",
+      htmlContent: `
+        <p>Hello,</p>
+        <p>You have been invited to access a client workspace in Nexora AdPilot.</p>
+        <p><a href="${inviteUrl}">Accept invitation and set your password</a></p>
+        <p>This link expires in 24 hours and can only be used once.</p>
+        <p>If you were not expecting this invitation, you can ignore this email.</p>
+      `,
+    }),
+  });
+
+  if (!response.ok) throw new Error("EMAIL_SEND_FAILED");
+}
+
+async function createClientInvitation(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  let cleanup: {
+    accountId: string;
+    membershipId: string;
+    createdAccount: boolean;
+  } | null = null;
+
+  try {
+    const session = await resolveSession(request, env.DB);
+    if (!session) {
+      return json({ ok: false, error: "UNAUTHENTICATED" }, 401);
+    }
+    if (session.accountType !== "owner") {
+      return json({ ok: false, error: "FORBIDDEN" }, 403);
+    }
+
+    const body = await request.json() as { email?: unknown };
+    const email = typeof body.email === "string"
+      ? body.email.trim().toLowerCase()
+      : "";
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return json({
+        ok: false,
+        error: "INVALID_INPUT",
+        message: "Enter a valid client email address.",
+      }, 400);
+    }
+
+    const existing = await env.DB.prepare(
+      `SELECT id, status, auth_provider
+       FROM accounts WHERE LOWER(email) = ? LIMIT 1`,
+    ).bind(email).first<{
+      id: string;
+      status: string;
+      auth_provider: string;
+    }>();
+
+    if (existing) {
+      const membership = await env.DB.prepare(
+        `SELECT id, status, account_type
+         FROM company_memberships
+         WHERE company_id = ? AND account_id = ? LIMIT 1`,
+      ).bind(session.companyId, existing.id).first<{
+        id: string;
+        status: string;
+        account_type: string;
+      }>();
+
+      if (membership) {
+        return json({
+          ok: false,
+          error: "CLIENT_ALREADY_EXISTS",
+          message: "This email already has a membership in your workspace.",
+        }, 409);
+      }
+
+      // Avoid attaching an existing account to a new workspace without
+      // an explicit account-linking flow.
+      const anyMembership = await env.DB.prepare(
+        `SELECT id FROM company_memberships
+         WHERE account_id = ? LIMIT 1`,
+      ).bind(existing.id).first<{ id: string }>();
+
+      if (anyMembership || existing.status !== "pending") {
+        return json({
+          ok: false,
+          error: "ACCOUNT_ALREADY_REGISTERED",
+          message: "This email already belongs to a registered account.",
+        }, 409);
+      }
+    }
+
+    const now = new Date().toISOString();
+    const accountId = existing?.id || crypto.randomUUID();
+    const membershipId = crypto.randomUUID();
+
+    if (!existing) {
+      await env.DB.prepare(
+        `INSERT INTO accounts
+          (id, email, status, email_verified_at, auth_provider,
+           created_at, updated_at, password_hash)
+         VALUES (?, ?, 'pending', NULL, 'password', ?, ?, NULL)`,
+      ).bind(accountId, email, now, now).run();
+    }
+
+    await env.DB.prepare(
+      `INSERT INTO company_memberships
+        (id, company_id, account_id, role, designation, status,
+         invited_by_user_id, created_at, updated_at, account_type)
+       VALUES (?, ?, ?, 'client', 'Client', 'invited', ?, ?, ?, 'client')`,
+    ).bind(
+      membershipId, session.companyId, accountId,
+      session.accountId, now, now,
+    ).run();
+
+    cleanup = {
+      accountId,
+      membershipId,
+      createdAccount: !existing,
+    };
+
+    const invitation = await createClientInvitationToken(env.DB, {
+      companyId: session.companyId,
+      accountId,
+      membershipId,
+      invitedByAccountId: session.accountId,
+    });
+
+    await sendClientInvitationEmail(env, email, invitation.token);
+    cleanup = null;
+
+    return json({
+      ok: true,
+      message: "Invitation email sent.",
+      expiresAt: invitation.expiresAt,
+    }, 201);
+  } catch (error) {
+    if (cleanup) {
+      try {
+        await env.DB.batch([
+          env.DB.prepare(
+            `DELETE FROM client_invitation_tokens
+             WHERE account_id = ? AND membership_id = ? AND used_at IS NULL`,
+          ).bind(cleanup.accountId, cleanup.membershipId),
+          env.DB.prepare(
+            `DELETE FROM company_memberships
+             WHERE id = ? AND account_id = ? AND status = 'invited'`,
+          ).bind(cleanup.membershipId, cleanup.accountId),
+          ...(cleanup.createdAccount ? [
+            env.DB.prepare(
+              `DELETE FROM accounts
+               WHERE id = ? AND status = 'pending'
+                 AND NOT EXISTS (
+                   SELECT 1 FROM company_memberships
+                   WHERE account_id = ?
+                 )`,
+            ).bind(cleanup.accountId, cleanup.accountId),
+          ] : []),
+        ]);
+      } catch {
+        // Preserve the original error response if cleanup itself fails.
+      }
+    }
+
+    if (error instanceof Error &&
+        error.message === "EMAIL_PROVIDER_NOT_CONFIGURED") {
+      return json({
+        ok: false,
+        error: "EMAIL_PROVIDER_NOT_CONFIGURED",
+      }, 503);
+    }
+    if (error instanceof Error && error.message === "EMAIL_SEND_FAILED") {
+      return json({ ok: false, error: "EMAIL_SEND_FAILED" }, 502);
+    }
+    return json({ ok: false, error: "CLIENT_INVITATION_FAILED" }, 500);
+  }
+}
+
+async function acceptClientInvitation(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  try {
+    const body = await request.json() as {
+      token?: unknown;
+      password?: unknown;
+    };
+    const token = typeof body.token === "string" ? body.token : "";
+    const password = typeof body.password === "string" ? body.password : "";
+
+    if (!token || password.length < 12) {
+      return json({
+        ok: false,
+        error: "INVALID_INPUT",
+        message: "A valid invitation token and password of at least 12 characters are required.",
+      }, 400);
+    }
+
+    const digest = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(token),
+    );
+    const tokenHash = Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    const now = new Date().toISOString();
+
+    const invitation = await env.DB.prepare(
+      `SELECT t.account_id, t.company_id, t.membership_id,
+              a.status AS account_status, m.status AS membership_status,
+              m.account_type
+       FROM client_invitation_tokens t
+       JOIN accounts a ON a.id = t.account_id
+       JOIN company_memberships m ON m.id = t.membership_id
+       WHERE t.token_hash = ?
+         AND t.used_at IS NULL
+         AND t.expires_at > ?
+         AND m.company_id = t.company_id
+         AND m.account_id = t.account_id
+       LIMIT 1`,
+    ).bind(tokenHash, now).first<{
+      account_id: string;
+      company_id: string;
+      membership_id: string;
+      account_status: string;
+      membership_status: string;
+      account_type: string;
+    }>();
+
+    if (
+      !invitation ||
+      invitation.account_status !== "pending" ||
+      invitation.membership_status !== "invited" ||
+      invitation.account_type !== "client"
+    ) {
+      return json({
+        ok: false,
+        error: "INVITATION_INVALID_OR_EXPIRED",
+        message: "This invitation is invalid, expired, or already used.",
+      }, 400);
+    }
+
+    const passwordHash = await hashPassword(password);
+
+    // D1 batch executes as a transaction. The account and membership
+    // updates only proceed when this request successfully claims the token.
+    const results = await env.DB.batch([
+      env.DB.prepare(
+        `UPDATE client_invitation_tokens
+         SET used_at = ?
+         WHERE token_hash = ? AND used_at IS NULL AND expires_at > ?
+           AND account_id = ? AND company_id = ? AND membership_id = ?
+           AND EXISTS (
+             SELECT 1 FROM accounts a
+             WHERE a.id = client_invitation_tokens.account_id
+               AND a.status = 'pending'
+           )
+           AND EXISTS (
+             SELECT 1 FROM company_memberships m
+             WHERE m.id = client_invitation_tokens.membership_id
+               AND m.account_id = client_invitation_tokens.account_id
+               AND m.company_id = client_invitation_tokens.company_id
+               AND m.status = 'invited'
+               AND m.account_type = 'client'
+           )`,
+      ).bind(
+        now, tokenHash, now, invitation.account_id,
+        invitation.company_id, invitation.membership_id,
+      ),
+      env.DB.prepare(
+        `UPDATE accounts
+         SET status = 'active', password_hash = ?, auth_provider = 'password',
+             email_verified_at = ?, updated_at = ?
+         WHERE id = ? AND status = 'pending'
+           AND EXISTS (
+             SELECT 1 FROM client_invitation_tokens
+             WHERE token_hash = ? AND used_at = ?
+           )`,
+      ).bind(
+        passwordHash, now, now, invitation.account_id, tokenHash, now,
+      ),
+      env.DB.prepare(
+        `UPDATE company_memberships
+         SET status = 'active', updated_at = ?
+         WHERE id = ? AND account_id = ? AND company_id = ?
+           AND status = 'invited' AND account_type = 'client'
+           AND EXISTS (
+             SELECT 1 FROM client_invitation_tokens
+             WHERE token_hash = ? AND used_at = ?
+           )`,
+      ).bind(
+        now, invitation.membership_id, invitation.account_id,
+        invitation.company_id, tokenHash, now,
+      ),
+    ]);
+
+    if (
+      results[0]?.meta.changes !== 1 ||
+      results[1]?.meta.changes !== 1 ||
+      results[2]?.meta.changes !== 1
+    ) {
+      return json({
+        ok: false,
+        error: "INVITATION_INVALID_OR_EXPIRED",
+        message: "This invitation could not be accepted. Request a new invitation.",
+      }, 400);
+    }
+
+    return json({
+      ok: true,
+      message: "Invitation accepted. You can now sign in with your email and password.",
+    });
+  } catch {
+    return json({
+      ok: false,
+      error: "INVITATION_ACCEPT_FAILED",
+      message: "Unable to accept this invitation.",
+    }, 500);
+  }
+}
+
 export default {
   async fetch(
     request: Request,
@@ -686,6 +1035,20 @@ export default {
       request.method === 'POST'
     ) {
       return requestMagicLink(request, env);
+    }
+
+    if (
+      url.pathname === '/api/clients/invitations' &&
+      request.method === 'POST'
+    ) {
+      return createClientInvitation(request, env);
+    }
+
+    if (
+      url.pathname === '/api/clients/invitations/accept' &&
+      request.method === 'POST'
+    ) {
+      return acceptClientInvitation(request, env);
     }
 
     if (

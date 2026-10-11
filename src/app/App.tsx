@@ -7,6 +7,7 @@ import { MagicLinkPage } from "@/features/auth/MagicLinkPage";
 import { ClientLoginPage } from "@/features/auth/ClientLoginPage";
 import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage";
+import { AcceptInvitationPage } from "@/features/auth/AcceptInvitationPage";
 
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { InventoryPage } from "@/features/inventory/InventoryPage";
@@ -124,6 +125,7 @@ const PublicRoutes: React.FC = () => (
       { path: "/client-login", element: <ClientLoginPage /> },
       { path: "/auth/forgot-password", element: <ForgotPasswordPage /> },
       { path: "/auth/reset-password", element: <ResetPasswordPage /> },
+      { path: "/auth/accept-invitation", element: <AcceptInvitationPage /> },
     ]}
   />
 );
