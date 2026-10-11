@@ -130,9 +130,22 @@ const PublicRoutes: React.FC = () => (
 
 const RootRouter: React.FC = () => {
   const { user, loading } = useSession();
+  const pathname = window.location.hash.replace(/^#/, "").split("?")[0] || "/";
+
+  const publicPaths = [
+    "/login",
+    "/client-login",
+    "/auth/magic-link",
+    "/auth/forgot-password",
+    "/auth/reset-password",
+  ];
 
   if (loading) {
     return <LoadingScreen />;
+  }
+
+  if (publicPaths.includes(pathname)) {
+    return <PublicRoutes />;
   }
 
   if (user) {
