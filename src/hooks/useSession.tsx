@@ -10,6 +10,7 @@ import type { Company, Permission, Role, User } from "@/domain";
 import {
   getSession,
   login,
+  register,
   logout,
   requestMagicLink,
 } from "@/lib/api/auth";
@@ -24,6 +25,7 @@ interface SessionContextValue {
   error: string | null;
   signIn: (email: string) => Promise<void>;
   signInWithPassword: (email: string, password: string) => Promise<void>;
+  signUp: (input: { email: string; password: string; companyName: string }) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
   setRole: (role: Role) => Promise<void>;
@@ -103,10 +105,6 @@ export const SessionProvider: React.FC<{
       try {
         const result = await login(email, password);
 
-        if (result.session.accountType !== "client") {
-          throw new Error("Password sign-in is available for client accounts only.");
-        }
-
         setUser(result.user);
         setCompany(result.company);
         setSession(result.session);
@@ -121,6 +119,26 @@ export const SessionProvider: React.FC<{
     },
     [],
   );
+
+  const signUp = useCallback(
+async (input: { email: string; password: string; companyName: string }) => {
+setSigningIn(true);
+setError(null);
+try {
+const result = await register(input);
+setUser(result.user);
+setCompany(result.company);
+setSession(result.session);
+} catch (err) {
+const message = err instanceof Error ? err.message : "Unable to create your workspace.";
+setError(message);
+throw err;
+} finally {
+setSigningIn(false);
+}
+},
+[],
+);
 
   const signOut = useCallback(async () => {
     try {
@@ -159,6 +177,7 @@ export const SessionProvider: React.FC<{
         error,
         signIn,
         signInWithPassword,
+        signUp,
         signOut,
         refresh,
         setRole,

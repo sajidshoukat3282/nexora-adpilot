@@ -78,11 +78,6 @@ export const ClientLoginPage: React.FC = () => {
             </button>
           </p>
         </div>
-        <p className="mt-6 text-center text-sm text-ink-500">
-          <button type="button" onClick={() => navigate("/login")} className="hover:text-ink-300">
-            Owner sign in
-          </button>
-        </p>
       </section>
     </main>
   );

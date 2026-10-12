@@ -682,6 +682,158 @@ export default {
     const url = new URL(request.url);
 
     if (
+      url.pathname === '/api/auth/register' &&
+      request.method === 'POST'
+    ) {
+      try {
+        const body = (await request.json()) as {
+          email?: unknown;
+          password?: unknown;
+          companyName?: unknown;
+        };
+
+        const email =
+          typeof body.email === 'string'
+            ? body.email.trim().toLowerCase()
+            : '';
+        const password =
+          typeof body.password === 'string'
+            ? body.password
+            : '';
+        const companyName =
+          typeof body.companyName === 'string'
+            ? body.companyName.trim()
+            : '';
+
+        if (
+          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+          email.length > 254 ||
+          companyName.length < 2 ||
+          companyName.length > 100 ||
+          password.length < 12 ||
+          password.length > 256
+        ) {
+          return json({
+            ok: false,
+            error: 'INVALID_INPUT',
+            message: 'Enter a valid email, a company name (2–100 characters), and a password of 12–256 characters.',
+          }, 400);
+        }
+
+        const existing = await env.DB
+          .prepare('SELECT id FROM accounts WHERE LOWER(email) = ? LIMIT 1')
+          .bind(email)
+          .first<{ id: string }>();
+
+        if (existing) {
+          return json({
+            ok: false,
+            error: 'EMAIL_UNAVAILABLE',
+            message: 'This email cannot be used to create a new account. Try signing in or resetting your password.',
+          }, 409);
+        }
+
+        const now = new Date().toISOString();
+        const accountId = crypto.randomUUID();
+        const companyId = crypto.randomUUID();
+        const membershipId = crypto.randomUUID();
+        const passwordHash = await hashPassword(password);
+
+        await env.DB.batch([
+          env.DB.prepare(
+            `INSERT INTO accounts
+              (id, email, status, email_verified_at, last_login_at,
+               mfa_enabled, auth_provider, created_at, updated_at, password_hash)
+             VALUES (?, ?, 'active', NULL, ?, 0, 'password', ?, ?, ?)`
+          ).bind(accountId, email, now, now, now, passwordHash),
+
+          env.DB.prepare(
+            `INSERT INTO companies
+              (id, name, plan, logo_initial, seats_used, seats_limit,
+               devices_active, devices_limit, timezone, default_currency,
+               created_at, updated_at)
+             VALUES (?, ?, 'trial', ?, 1, 1, 0, 0, 'Asia/Karachi', 'PKR', ?, ?)`
+          ).bind(companyId, companyName, companyName.charAt(0).toUpperCase(), now, now),
+
+          env.DB.prepare(
+            `INSERT INTO company_memberships
+              (id, company_id, account_id, role, designation, status,
+               invited_by_user_id, created_at, updated_at, account_type)
+             VALUES (?, ?, ?, 'owner', 'Owner', 'active', NULL, ?, ?, 'owner')`
+          ).bind(membershipId, companyId, accountId, now, now),
+        ]);
+
+        const session = await createSession(env.DB, accountId, membershipId);
+
+        await env.DB
+          .prepare('UPDATE accounts SET last_login_at = ? WHERE id = ?')
+          .bind(now, accountId)
+          .run();
+
+        return json({
+          ok: true,
+          authenticated: true,
+          account: { id: accountId, email },
+          company: {
+            id: companyId,
+            name: companyName,
+            plan: 'trial',
+            logoInitial: companyName.charAt(0).toUpperCase(),
+            seatsUsed: 1,
+            seatsLimit: 1,
+            devicesActive: 0,
+            devicesLimit: 0,
+            timezone: 'Asia/Karachi',
+            defaultCurrency: 'PKR',
+          },
+          membership: {
+            id: membershipId,
+            role: 'owner',
+            designation: 'Owner',
+            accountType: 'owner',
+          },
+          session: {
+            accountId,
+            sessionId: session.sessionId,
+            companyId,
+            membershipId,
+            accountType: 'owner',
+            role: 'owner',
+            designation: 'Owner',
+            permissions: [
+              'campaigns.manage', 'inventory.manage',
+              'creatives.manage', 'creatives.approve',
+              'operations.manage', 'operations.override',
+              'crm.manage', 'proposals.manage',
+              'finance.view', 'finance.manage',
+              'company.manage', 'reports.view',
+              'reports.generate', 'reports.send',
+              'client_portal.view', 'proof.view',
+              'proof.submit', 'analytics.view',
+              'subscription.view',
+            ],
+            expiresAt: session.expiresAt,
+          },
+          expiresAt: session.expiresAt,
+        }, 201, session.setCookie);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '';
+        if (message.includes('UNIQUE constraint failed')) {
+          return json({
+            ok: false,
+            error: 'EMAIL_UNAVAILABLE',
+            message: 'This email cannot be used to create a new account. Try signing in or resetting your password.',
+          }, 409);
+        }
+        return json({
+          ok: false,
+          error: 'REGISTRATION_FAILED',
+          message: 'Unable to create the workspace. Please try again.',
+        }, 500);
+      }
+    }
+
+    if (
       url.pathname === '/api/auth/magic-link' &&
       request.method === 'POST'
     ) {
@@ -848,17 +1000,6 @@ export default {
         }
 
         const membership = memberships.results[0];
-
-        if (membership.account_type !== 'client') {
-          return json(
-            {
-              ok: false,
-              error: 'CLIENT_LOGIN_ONLY',
-              message: 'Password sign-in is available for client accounts only.',
-            },
-            403,
-          );
-        }
 
         const session = await createSession(
           env.DB,

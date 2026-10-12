@@ -121,6 +121,14 @@ function mapResult(
   };
 }
 
+export async function register(input: { email: string; password: string; companyName: string }): Promise<AuthResult> {
+const response = await apiRequest<AuthResponse>("/api/auth/register", {
+method: "POST",
+body: JSON.stringify(input),
+});
+return mapResult(response);
+}
+
 export async function requestMagicLink(
   email: string,
 ): Promise<{ message: string; expiresAt?: string }> {
