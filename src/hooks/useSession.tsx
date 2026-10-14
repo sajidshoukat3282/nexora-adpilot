@@ -14,7 +14,10 @@ import {
   logout,
   requestMagicLink,
 } from "@/lib/api/auth";
-import type { ServerSession } from "@/lib/api/auth";
+import type {
+  ServerSession,
+  RegistrationPendingVerification,
+} from "@/lib/api/auth";
 
 interface SessionContextValue {
   user: User | null;
@@ -25,7 +28,11 @@ interface SessionContextValue {
   error: string | null;
   signIn: (email: string) => Promise<void>;
   signInWithPassword: (email: string, password: string) => Promise<void>;
-  signUp: (input: { email: string; password: string; companyName: string }) => Promise<void>;
+  signUp: (input: {
+    email: string;
+    password: string;
+    companyName: string;
+  }) => Promise<RegistrationPendingVerification>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
   setRole: (role: Role) => Promise<void>;
@@ -111,6 +118,7 @@ export const SessionProvider: React.FC<{
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Unable to sign in.";
+
         setError(message);
         throw err;
       } finally {
@@ -121,24 +129,30 @@ export const SessionProvider: React.FC<{
   );
 
   const signUp = useCallback(
-async (input: { email: string; password: string; companyName: string }) => {
-setSigningIn(true);
-setError(null);
-try {
-const result = await register(input);
-setUser(result.user);
-setCompany(result.company);
-setSession(result.session);
-} catch (err) {
-const message = err instanceof Error ? err.message : "Unable to create your workspace.";
-setError(message);
-throw err;
-} finally {
-setSigningIn(false);
-}
-},
-[],
-);
+    async (input: {
+      email: string;
+      password: string;
+      companyName: string;
+    }): Promise<RegistrationPendingVerification> => {
+      setSigningIn(true);
+      setError(null);
+
+      try {
+        return await register(input);
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Unable to create your workspace.";
+
+        setError(message);
+        throw err;
+      } finally {
+        setSigningIn(false);
+      }
+    },
+    [],
+  );
 
   const signOut = useCallback(async () => {
     try {
