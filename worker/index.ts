@@ -16,6 +16,10 @@ import {
   createMagicLinkToken,
   consumeMagicLinkToken,
 } from './auth/magicLink';
+import {
+  createEmailVerificationToken,
+  consumeEmailVerificationToken,
+} from './auth/emailVerification';
 import { WeatherApiProvider } from './weather/WeatherApiProvider';
 import { ProductionSubscriptionRepository } from '../src/repositories/production/SubscriptionRepository';
 import {
@@ -166,6 +170,49 @@ async function sendMagicLinkEmail(
   }
 }
 
+
+async function sendVerificationEmail(
+  env: Env,
+  email: string,
+  token: string,
+): Promise<void> {
+  if (!env.BREVO_API_KEY) {
+    throw new Error('EMAIL_PROVIDER_NOT_CONFIGURED');
+  }
+
+  const baseUrl = (env.AUTH_BASE_URL || 'http://localhost:5173').replace(/\/$/, '');
+  const verifyUrl =
+    `${baseUrl}/#/auth/verify-email?token=${encodeURIComponent(token)}`;
+
+  const response = await fetch(
+    'https://api.brevo.com/v3/smtp/email',
+    {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'api-key': env.BREVO_API_KEY,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: {
+          name: env.MAIL_FROM_NAME || 'Nexora AdPilot',
+          email: env.MAIL_FROM_EMAIL || 'hello@nexoratechnologies.pk',
+        },
+        to: [{ email }],
+        subject: 'Verify your Nexora AdPilot account',
+        htmlContent: `
+          <p>Welcome to Nexora AdPilot!</p>
+          <p>Please confirm your email address to activate your account:</p>
+          <p><a href="${verifyUrl}">Verify my email</a></p>
+          <p>This link expires in 60 minutes and can only be used once.</p>
+          <p>If you did not create this account, you can safely ignore this email.</p>
+        `,
+      }),
+    },
+  );
+
+  if (!response.ok) throw new Error('EMAIL_SEND_FAILED');
+}
 
 async function sendPasswordResetEmail(
   env: Env,
@@ -763,59 +810,28 @@ export default {
           ).bind(membershipId, companyId, accountId, now, now),
         ]);
 
-        const session = await createSession(env.DB, accountId, membershipId);
+        let emailSent = true;
 
-        await env.DB
-          .prepare('UPDATE accounts SET last_login_at = ? WHERE id = ?')
-          .bind(now, accountId)
-          .run();
+        try {
+          const verification = await createEmailVerificationToken(
+            env.DB,
+            accountId,
+          );
+          await sendVerificationEmail(env, email, verification.token);
+        } catch {
+          emailSent = false;
+        }
 
         return json({
           ok: true,
-          authenticated: true,
-          account: { id: accountId, email },
-          company: {
-            id: companyId,
-            name: companyName,
-            plan: 'trial',
-            logoInitial: companyName.charAt(0).toUpperCase(),
-            seatsUsed: 1,
-            seatsLimit: 1,
-            devicesActive: 0,
-            devicesLimit: 0,
-            timezone: 'Asia/Karachi',
-            defaultCurrency: 'PKR',
-          },
-          membership: {
-            id: membershipId,
-            role: 'owner',
-            designation: 'Owner',
-            accountType: 'owner',
-          },
-          session: {
-            accountId,
-            sessionId: session.sessionId,
-            companyId,
-            membershipId,
-            accountType: 'owner',
-            role: 'owner',
-            designation: 'Owner',
-            permissions: [
-              'campaigns.manage', 'inventory.manage',
-              'creatives.manage', 'creatives.approve',
-              'operations.manage', 'operations.override',
-              'crm.manage', 'proposals.manage',
-              'finance.view', 'finance.manage',
-              'company.manage', 'reports.view',
-              'reports.generate', 'reports.send',
-              'client_portal.view', 'proof.view',
-              'proof.submit', 'analytics.view',
-              'subscription.view',
-            ],
-            expiresAt: session.expiresAt,
-          },
-          expiresAt: session.expiresAt,
-        }, 201, session.setCookie);
+          authenticated: false,
+          verificationRequired: true,
+          emailSent,
+          email,
+          message: emailSent
+            ? 'Account created. Please check your email and click the verification link to activate your account.'
+            : 'Account created, but we could not send the verification email. Please use "Resend verification email".',
+        }, 201);
       } catch (error) {
         const message = error instanceof Error ? error.message : '';
         if (message.includes('UNIQUE constraint failed')) {
@@ -859,6 +875,107 @@ export default {
       request.method === 'POST'
     ) {
       return confirmPasswordReset(request, env);
+    }
+
+    if (
+      url.pathname === '/api/auth/email-verification/verify' &&
+      request.method === 'POST'
+    ) {
+      try {
+        const body = (await request.json()) as { token?: unknown };
+        const token =
+          typeof body.token === 'string' ? body.token.trim() : '';
+
+        const accountId = token
+          ? await consumeEmailVerificationToken(env.DB, token)
+          : null;
+
+        if (!accountId) {
+          return json({
+            ok: false,
+            error: 'INVALID_OR_EXPIRED_TOKEN',
+            message: 'This verification link is invalid, expired, or already used.',
+          }, 400);
+        }
+
+        const now = new Date().toISOString();
+
+        await env.DB.prepare(
+          `UPDATE accounts
+           SET email_verified_at = ?, updated_at = ?
+           WHERE id = ? AND email_verified_at IS NULL`,
+        ).bind(now, now, accountId).run();
+
+        return json({
+          ok: true,
+          message: 'Email verified successfully. You can now sign in.',
+        });
+      } catch {
+        return json({
+          ok: false,
+          error: 'EMAIL_VERIFICATION_FAILED',
+          message: 'Unable to verify the email address.',
+        }, 500);
+      }
+    }
+
+    if (
+      url.pathname === '/api/auth/email-verification/resend' &&
+      request.method === 'POST'
+    ) {
+      const genericMessage =
+        'If an unverified account exists for this email, a new verification link has been sent.';
+
+      try {
+        const body = (await request.json()) as { email?: unknown };
+        const email =
+          typeof body.email === 'string'
+            ? body.email.trim().toLowerCase()
+            : '';
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          return json({ ok: true, message: genericMessage });
+        }
+
+        const account = await env.DB.prepare(
+          `SELECT id, email
+           FROM accounts
+           WHERE LOWER(email) = ?
+             AND status = 'active'
+             AND email_verified_at IS NULL
+           LIMIT 1`,
+        ).bind(email).first<{ id: string; email: string }>();
+
+        if (account) {
+          const last = await env.DB.prepare(
+            `SELECT created_at
+             FROM email_verification_tokens
+             WHERE account_id = ?
+             ORDER BY created_at DESC
+             LIMIT 1`,
+          ).bind(account.id).first<{ created_at: string }>();
+
+          const tooSoon =
+            !!last &&
+            Date.now() - new Date(last.created_at).getTime() < 60_000;
+
+          if (!tooSoon) {
+            const verification = await createEmailVerificationToken(
+              env.DB,
+              account.id,
+            );
+            await sendVerificationEmail(
+              env,
+              account.email,
+              verification.token,
+            );
+          }
+        }
+      } catch {
+        // Keep the response generic to avoid revealing account existence.
+      }
+
+      return json({ ok: true, message: genericMessage });
     }
 
     if (
@@ -909,6 +1026,7 @@ export default {
               id,
               email,
               status,
+              email_verified_at,
               password_hash
              FROM accounts
              WHERE LOWER(email) = ?
@@ -919,6 +1037,7 @@ export default {
             id: string;
             email: string;
             status: string;
+            email_verified_at: string | null;
             password_hash: string | null;
           }>();
 
@@ -950,6 +1069,18 @@ export default {
               message: 'Invalid email or password.',
             },
             401,
+          );
+        }
+
+        if (!account.email_verified_at) {
+          return json(
+            {
+              ok: false,
+              error: 'EMAIL_NOT_VERIFIED',
+              message:
+                'Please verify your email address before signing in. Check your inbox for the verification link.',
+            },
+            403,
           );
         }
 
