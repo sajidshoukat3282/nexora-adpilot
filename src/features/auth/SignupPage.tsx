@@ -14,6 +14,7 @@ export const SignupPage: React.FC = () => {
   const [localError, setLocalError] = useState("");
   const [verificationSent, setVerificationSent] = useState(false);
   const [verifiedEmail, setVerifiedEmail] = useState("");
+  const [emailSent, setEmailSent] = useState(true);
   const [resendMessage, setResendMessage] = useState("");
   const [resending, setResending] = useState(false);
 
@@ -48,6 +49,7 @@ export const SignupPage: React.FC = () => {
       });
 
       setVerifiedEmail(result.email);
+      setEmailSent(result.emailSent !== false);
       setVerificationSent(true);
     } catch {
       // The session provider exposes the server error.
@@ -93,13 +95,24 @@ export const SignupPage: React.FC = () => {
             </h2>
 
             <p className="mt-3 text-sm text-ink-300">
-              Your workspace registration has been received. We sent a
-              verification link to:
+              {emailSent
+                ? "Your workspace registration has been received. We sent a verification link to:"
+                : "Your workspace has been created, but we could not send a verification link to:"}
             </p>
 
             <p className="mt-3 break-all font-medium text-primary-400">
               {verifiedEmail}
             </p>
+
+            {!emailSent && (
+              <p
+                role="alert"
+                className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-300"
+              >
+                We could not send the verification email. Please click
+                &quot;Resend verification email&quot; below to try again.
+              </p>
+            )}
 
             <p className="mt-4 text-sm text-ink-400">
               Open the email and click the verification link within 60
