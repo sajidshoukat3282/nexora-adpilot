@@ -115,6 +115,12 @@ export const ClientLoginPage: React.FC = () => {
               Forgot your password?
             </button>
           </p>
+          <p className="mt-3 text-center text-sm text-ink-400">
+            New to Nexora AdPilot?{" "}
+            <button className="text-primary-400 hover:text-primary-300" onClick={() => navigate("/signup")} type="button">
+              Create an account
+            </button>
+          </p>
         </div>
       </section>
     </main>
