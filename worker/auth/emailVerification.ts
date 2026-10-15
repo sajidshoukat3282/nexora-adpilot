@@ -1,4 +1,4 @@
-const TOKEN_TTL_MINUTES = 10;
+const TOKEN_TTL_MINUTES = 60;
 
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes)
