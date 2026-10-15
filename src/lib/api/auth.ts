@@ -153,6 +153,18 @@ export async function verifyEmail(
   );
 }
 
+export async function resendVerificationEmail(
+  email: string,
+): Promise<{ message: string }> {
+  return apiRequest<{ ok: true; message: string }>(
+    "/api/auth/email-verification/resend",
+    {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    },
+  );
+}
+
 export async function requestMagicLink(
   email: string,
 ): Promise<{ message: string; expiresAt?: string }> {
