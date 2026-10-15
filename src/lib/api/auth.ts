@@ -65,6 +65,7 @@ export interface AuthResult {
 
 export interface RegistrationPendingVerification {
   verificationRequired: true;
+  emailSent?: boolean;
   email: string;
   message: string;
 }
