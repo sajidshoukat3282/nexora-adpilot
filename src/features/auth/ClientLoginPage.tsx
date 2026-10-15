@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "@/lib/router";
 import { useSession } from "@/hooks/useSession";
+import { resendVerificationEmail } from "@/lib/api/auth";
 
 export const ClientLoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -8,6 +9,10 @@ export const ClientLoginPage: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [resendMessage, setResendMessage] = useState("");
+  const [resending, setResending] = useState(false);
+
+  const needsVerification = error.toLowerCase().includes("verify your email");
 
   useEffect(() => {
     if (user) navigate("/client-portal");
@@ -16,11 +21,29 @@ export const ClientLoginPage: React.FC = () => {
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
+    setResendMessage("");
     try {
       await signInWithPassword(email.trim(), password);
       navigate("/client-portal");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to sign in.");
+    }
+  };
+
+  const resend = async () => {
+    setResendMessage("");
+    setResending(true);
+    try {
+      const result = await resendVerificationEmail(email.trim());
+      setResendMessage(result.message);
+    } catch (err) {
+      setResendMessage(
+        err instanceof Error
+          ? err.message
+          : "Unable to resend the verification email.",
+      );
+    } finally {
+      setResending(false);
     }
   };
 
@@ -67,6 +90,21 @@ export const ClientLoginPage: React.FC = () => {
               <p role="alert" className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
                 {error}
               </p>
+            )}
+            {needsVerification && (
+              <div>
+                <button
+                  type="button"
+                  className="text-sm text-primary-400 hover:text-primary-300"
+                  onClick={resend}
+                  disabled={resending || !email.trim()}
+                >
+                  {resending ? "Sending..." : "Resend verification email"}
+                </button>
+                {resendMessage && (
+                  <p className="mt-2 text-sm text-ink-300">{resendMessage}</p>
+                )}
+              </div>
             )}
             <button className="btn-primary w-full" type="submit" disabled={signingIn}>
               {signingIn ? "Signing in..." : "Sign in"}
