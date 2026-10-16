@@ -7,10 +7,12 @@ import { LineChart } from "@/components/charts/LineChart";
 import { DonutChart } from "@/components/charts/DonutChart";
 import { useAsync } from "@/hooks/useAsync";
 import { repo } from "@/repositories/demo";
+import { useSession } from "@/hooks/useSession";
 import { Link } from "@/lib/router";
 import { CAMPAIGN_STATUS_LABELS, formatMoney, money } from "@/domain";
 
 export const DashboardPage: React.FC = () => {
+  const { company } = useSession();
   const campaigns = useAsync(() => repo.campaigns.listCampaigns(), []);
   const screens = useAsync(() => repo.operations.listScreens(), []);
   const alerts = useAsync(() => repo.operations.listAlerts(), []);
@@ -46,7 +48,7 @@ export const DashboardPage: React.FC = () => {
     <div>
       <PageHeader
         title="Command Center"
-        description="Live executive overview of campaigns, financials, delivery and operations across Vantage Outdoor Media."
+        description={`Live executive overview of campaigns, financials, delivery and operations across ${company?.name ?? "your company"}.`}
       />
 
       {/* Primary Executive KPI Grid */}
