@@ -43,7 +43,7 @@ export const AdminPage: React.FC = () => {
   return (
     <PermissionGate permission="company.manage" action="view Admin & Roles">
       <div>
-        <PageHeader title="Admin & Roles" description="Users, permissions and company settings for Vantage Outdoor Media." />
+        <PageHeader title="Admin & Roles" description={`Users, permissions and company settings for ${company?.name ?? "your company"}.`} />
 
         <div className="text-xs text-signal-amber bg-signal-amber/10 border border-signal-amber/25 rounded-lg px-3 py-2 mb-5">
           Demo Enforcement — this permission matrix reflects client-side RBAC used to shape this demo's UI. It is not a
