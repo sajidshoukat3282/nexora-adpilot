@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useSession } from "@/hooks/useSession";
-import { DEMO_COMPANY_ID } from "@/repositories/demo/store";
+import { isDemoCompany } from "@/repositories/demo/store";
 import { FiShield, FiAlertTriangle, FiDollarSign, FiUsers, FiSearch, FiDownload, FiEdit2, FiFilter } from "react-icons/fi";
 
 interface ClientCredit {
@@ -25,7 +25,7 @@ const DEMO_PORTFOLIO: ClientCredit[] = [
 export function CreditRiskDashboard() {
   const { session } = useSession();
   const [portfolio, setPortfolio] = useState<ClientCredit[]>(
-    session?.companyId === DEMO_COMPANY_ID ? DEMO_PORTFOLIO : [],
+    isDemoCompany(session?.companyId) ? DEMO_PORTFOLIO : [],
   );
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [riskFilter, setRiskFilter] = useState<string>("All");
