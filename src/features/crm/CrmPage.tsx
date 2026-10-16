@@ -7,9 +7,11 @@ import { LeadsBoard } from "./LeadsBoard";
 import { ClientDetailDrawer } from "./ClientDetailDrawer";
 import { useAsync } from "@/hooks/useAsync";
 import { repo } from "@/repositories/demo";
+import { useSession } from "@/hooks/useSession";
 import type { Client } from "@/domain";
 
 export const CrmPage: React.FC = () => {
+  const { company } = useSession();
   const [tab, setTab] = useState<"leads" | "clients">("leads");
   const [search, setSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -21,7 +23,7 @@ export const CrmPage: React.FC = () => {
     <div>
       <PageHeader
         title="CRM & Leads"
-        description="Sales pipeline and client roster for Vantage Outdoor Media."
+        description={`Sales pipeline and client roster for ${company?.name ?? "your company"}.`}
       />
 
       <Tabs
