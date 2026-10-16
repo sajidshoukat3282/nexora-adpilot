@@ -7,6 +7,7 @@ import React, {
 } from "react";
 
 import type { Company, Permission, Role, User } from "@/domain";
+import { initWorkspace } from "@/repositories/demo/store";
 import {
   getSession,
   login,
@@ -59,17 +60,20 @@ export const SessionProvider: React.FC<{
       const result = await getSession();
 
       if (!result) {
+        initWorkspace(null);
         setUser(null);
         setCompany(null);
         setSession(null);
         return;
       }
 
+      initWorkspace({ companyId: result.session.companyId, user: result.user });
       setUser(result.user);
       setCompany(result.company);
       setSession(result.session);
       setError(null);
     } catch {
+      initWorkspace(null);
       setUser(null);
       setCompany(null);
       setSession(null);
@@ -112,6 +116,7 @@ export const SessionProvider: React.FC<{
       try {
         const result = await login(email, password);
 
+        initWorkspace({ companyId: result.session.companyId, user: result.user });
         setUser(result.user);
         setCompany(result.company);
         setSession(result.session);
@@ -158,6 +163,7 @@ export const SessionProvider: React.FC<{
     try {
       await logout();
     } finally {
+      initWorkspace(null);
       setUser(null);
       setCompany(null);
       setSession(null);
