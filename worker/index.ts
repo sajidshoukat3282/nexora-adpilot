@@ -6,7 +6,9 @@ import {
   resolveSession,
   revokeSession,
   clearSessionCookie,
+  loadMembershipPermissions,
 } from './auth/session';
+import { handleTeamRoutes } from './team/teamRoutes';
 import { hashPassword, verifyPassword } from './auth/password';
 import {
   createPasswordResetToken,
@@ -799,7 +801,7 @@ export default {
               (id, name, plan, logo_initial, seats_used, seats_limit,
                devices_active, devices_limit, timezone, default_currency,
                created_at, updated_at)
-             VALUES (?, ?, 'trial', ?, 1, 1, 0, 0, 'Asia/Karachi', 'PKR', ?, ?)`
+             VALUES (?, ?, 'trial', ?, 1, 2, 0, 0, 'Asia/Karachi', 'PKR', ?, ?)`
           ).bind(companyId, companyName, companyName.charAt(0).toUpperCase(), now, now),
 
           env.DB.prepare(
@@ -1180,31 +1182,11 @@ export default {
             default_currency: string;
           }>();
 
-        const permissions =
-          membership.account_type === 'owner'
-            ? [
-                'crm.view',
-                'crm.manage',
-                'inventory.view',
-                'inventory.manage',
-                'campaigns.view',
-                'campaigns.manage',
-                'proposals.view',
-                'proposals.manage',
-                'creative.view',
-                'creative.manage',
-                'operations.view',
-                'operations.manage',
-                'reports.view',
-                'reports.download',
-                'reports.send',
-                'finance.view',
-                'finance.manage',
-                'client_portal.view',
-                'admin.view',
-                'admin.manage',
-              ]
-            : [];
+        const permissions = await loadMembershipPermissions(
+          env.DB,
+          membership.id,
+          membership.account_type,
+        );
 
         const companyPayload = company
           ? {
@@ -1704,6 +1686,11 @@ export default {
           errorStatus(error),
         );
       }
+    }
+
+    const teamResponse = await handleTeamRoutes(request, env, url);
+    if (teamResponse) {
+      return teamResponse;
     }
 
     if (url.pathname.startsWith('/api/')) {
