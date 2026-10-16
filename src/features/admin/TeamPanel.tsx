@@ -38,7 +38,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
 export const ALL_PERMISSIONS = Object.keys(PERMISSION_LABELS) as Permission[];
 
 /** Permissions an owner can hand out. Team & company management stays with the owner. */
-const GRANTABLE = ALL_PERMISSIONS.filter((p) => p !== "company.manage");
+const GRANTABLE: Permission[] = ALL_PERMISSIONS.filter((p) => p !== "company.manage");
 
 const EMPLOYEE_ROLES: Role[] = [
   "campaign_manager",
