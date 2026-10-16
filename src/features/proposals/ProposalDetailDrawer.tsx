@@ -7,12 +7,14 @@ import { useAsync } from "@/hooks/useAsync";
 import type { Proposal, ProposalStatus } from "@/domain";
 import { PROPOSAL_STATUS_LABELS, PROPOSAL_TRANSITIONS, formatMoney } from "@/domain";
 import { Link } from "@/lib/router";
+import { useSession } from "@/hooks/useSession";
 
 export const ProposalDetailDrawer: React.FC<{
   proposal: Proposal | null;
   onClose: () => void;
   onChanged: () => void;
 }> = ({ proposal, onClose, onChanged }) => {
+  const { company } = useSession();
   const client = useAsync(() => (proposal ? repo.crm.getClient(proposal.clientId) : Promise.resolve(null)), [proposal?.id]);
   const [transitioning, setTransitioning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +72,7 @@ export const ProposalDetailDrawer: React.FC<{
           <div className="bg-ink-850 border border-ink-700/60 rounded-xl2 p-6">
             <div className="flex items-start justify-between mb-6 pb-4 border-b border-ink-700/60">
               <div>
-                <div className="text-lg font-bold text-ink-50">Vantage Outdoor Media</div>
+                <div className="text-lg font-bold text-ink-50">{company?.name ?? "Your company"}</div>
                 <div className="text-xs text-ink-500 mt-0.5">Media Proposal</div>
               </div>
               <div className="text-right">
