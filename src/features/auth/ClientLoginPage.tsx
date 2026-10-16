@@ -5,7 +5,8 @@ import { resendVerificationEmail } from "@/lib/api/auth";
 
 export const ClientLoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, signInWithPassword, signingIn } = useSession();
+  const { user, session, signInWithPassword, signingIn } = useSession();
+  const homePath = session?.accountType === "client" ? "/client-portal" : "/dashboard";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -15,8 +16,8 @@ export const ClientLoginPage: React.FC = () => {
   const needsVerification = error.toLowerCase().includes("verify your email");
 
   useEffect(() => {
-    if (user) navigate("/client-portal");
-  }, [user, navigate]);
+    if (user) navigate(homePath);
+  }, [user, homePath, navigate]);
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -24,7 +25,6 @@ export const ClientLoginPage: React.FC = () => {
     setResendMessage("");
     try {
       await signInWithPassword(email.trim(), password);
-      navigate("/client-portal");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to sign in.");
     }
@@ -52,12 +52,12 @@ export const ClientLoginPage: React.FC = () => {
       <section className="w-full max-w-md">
         <header className="text-center mb-8">
           <h1 className="text-3xl font-bold text-ink-50">Nexora AdPilot</h1>
-          <p className="mt-2 text-sm text-ink-400">Client workspace sign in</p>
+          <p className="mt-2 text-sm text-ink-400">Workspace sign in</p>
         </header>
         <div className="panel-solid p-6 md:p-8">
-          <h2 className="text-xl font-semibold text-ink-50">Client sign in</h2>
+          <h2 className="text-xl font-semibold text-ink-50">Sign in</h2>
           <p className="mt-2 mb-6 text-sm text-ink-400">
-            Sign in with the email and password provided for your client account.
+            Sign in with your email and password.
           </p>
           <form onSubmit={submit} className="space-y-5">
             <div>
