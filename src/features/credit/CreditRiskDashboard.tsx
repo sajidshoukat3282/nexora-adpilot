@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { useSession } from "@/hooks/useSession";
+import { DEMO_COMPANY_ID } from "@/repositories/demo/store";
 import { FiShield, FiAlertTriangle, FiDollarSign, FiUsers, FiSearch, FiDownload, FiEdit2, FiFilter } from "react-icons/fi";
 
 interface ClientCredit {
@@ -10,7 +12,9 @@ interface ClientCredit {
   status: "Active" | "Warning" | "Blocked";
 }
 
-const INITIAL_PORTFOLIO: ClientCredit[] = [
+// Sample data shown ONLY for the Nexora owner demo company. Every other
+// company starts with an empty portfolio.
+const DEMO_PORTFOLIO: ClientCredit[] = [
   { id: "c-101", name: "Alpha Media Group", creditLimit: 60000, currentBalance: 42000, riskLevel: "Medium", status: "Active" },
   { id: "c-102", name: "Vertex Advertising", creditLimit: 35000, currentBalance: 34500, riskLevel: "High", status: "Warning" },
   { id: "c-103", name: "Pioneer Brand Co.", creditLimit: 80000, currentBalance: 18000, riskLevel: "Low", status: "Active" },
@@ -19,7 +23,10 @@ const INITIAL_PORTFOLIO: ClientCredit[] = [
 ];
 
 export function CreditRiskDashboard() {
-  const [portfolio, setPortfolio] = useState<ClientCredit[]>(INITIAL_PORTFOLIO);
+  const { session } = useSession();
+  const [portfolio, setPortfolio] = useState<ClientCredit[]>(
+    session?.companyId === DEMO_COMPANY_ID ? DEMO_PORTFOLIO : [],
+  );
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [riskFilter, setRiskFilter] = useState<string>("All");
   const [editingClient, setEditingClient] = useState<ClientCredit | null>(null);
@@ -205,7 +212,7 @@ export function CreditRiskDashboard() {
             <tbody className="divide-y divide-border">
               {filteredPortfolio.length > 0 ? (
                 filteredPortfolio.map((client) => {
-                  const utilization = Math.min(Math.round((client.currentBalance / client.creditLimit) * 100), 100);
+                  const utilization = client.creditLimit > 0 ? Math.min(Math.round((client.currentBalance / client.creditLimit) * 100), 100) : 0;
                   return (
                     <tr key={client.id} className="hover:bg-ink-800/30">
                       <td className="p-3 font-medium text-ink-50">{client.name}</td>
@@ -274,7 +281,9 @@ export function CreditRiskDashboard() {
               ) : (
                 <tr>
                   <td colSpan={7} className="p-6 text-center text-ink-400">
-                    No matching clients found in portfolio.
+                    {portfolio.length === 0
+                      ? "No clients with credit limits yet."
+                      : "No matching clients found in portfolio."}
                   </td>
                 </tr>
               )}
