@@ -9,6 +9,7 @@ import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage";
 import { VerifyEmailPage } from "@/features/auth/VerifyEmailPage";
 import { SignupPage } from "@/features/auth/SignupPage";
+import { AcceptInvitePage } from "@/features/auth/AcceptInvitePage";
 
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { InventoryPage } from "@/features/inventory/InventoryPage";
@@ -129,6 +130,7 @@ routes={[
 { path: "/auth/reset-password", element: <ResetPasswordPage /> },
 { path: "/auth/verify-email", element: <VerifyEmailPage /> },
 { path: "/signup", element: <SignupPage /> },
+{ path: "/auth/accept-invite", element: <AcceptInvitePage /> },
 ]}
 />
 );
@@ -145,6 +147,7 @@ const publicPaths = [
 "/auth/reset-password",
 "/auth/verify-email",
 "/signup",
+"/auth/accept-invite",
 ];
 
 if (loading) {
