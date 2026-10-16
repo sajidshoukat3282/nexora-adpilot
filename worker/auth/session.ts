@@ -61,6 +61,32 @@ async function sha256(value: string): Promise<string> {
     .join("");
 }
 
+/**
+ * The single source of truth for what a membership may do. Owners hold every
+ * permission; everyone else holds exactly what the owner granted them.
+ */
+export async function loadMembershipPermissions(
+  db: D1Database,
+  membershipId: string,
+  accountType: "owner" | "employee" | "client",
+): Promise<Permission[]> {
+  if (accountType === "owner") return [...ALL_PERMISSIONS];
+
+  const now = new Date().toISOString();
+  const permissionRows = await db
+    .prepare(
+      `SELECT permission
+       FROM company_membership_permissions
+       WHERE membership_id = ?
+         AND revoked_at IS NULL
+         AND (expires_at IS NULL OR expires_at > ?)`,
+    )
+    .bind(membershipId, now)
+    .all<{ permission: Permission }>();
+
+  return permissionRows.results.map((item) => item.permission);
+}
+
 export async function resolveSession(
   request: Request,
   db: D1Database,
@@ -115,26 +141,11 @@ export async function resolveSession(
   if (row.account_status !== "active") return null;
   if (row.membership_status !== "active") return null;
 
-  let permissions: Permission[];
-
-  if (row.account_type === "owner") {
-    permissions = [...ALL_PERMISSIONS];
-  } else {
-    const permissionRows = await db
-      .prepare(
-        `SELECT permission
-         FROM company_membership_permissions
-         WHERE membership_id = ?
-           AND revoked_at IS NULL
-           AND (expires_at IS NULL OR expires_at > ?)`,
-      )
-      .bind(row.membership_id, now)
-      .all<{ permission: Permission }>();
-
-    permissions = permissionRows.results.map(
-      (item) => item.permission,
-    );
-  }
+  const permissions = await loadMembershipPermissions(
+    db,
+    row.membership_id,
+    row.account_type,
+  );
 
   await db
     .prepare(
