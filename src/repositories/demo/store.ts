@@ -22,7 +22,21 @@ import type {
  * refresh doesn't lose demo interactions, per the Phase 1 brief.
  */
 
-const STORAGE_KEY = "adpilot_demo_store_v1";
+/**
+ * The Nexora owner's own company keeps the full demo dataset. Every other
+ * company starts with an EMPTY workspace. This is only a temporary frontend
+ * rule until each module is moved to the database (the server will then
+ * decide what a company sees using the company id from the session).
+ */
+export const DEMO_COMPANY_ID = "ace7742a-78bb-475d-b865-a90719673d35";
+
+const DEMO_STORAGE_KEY = "adpilot_demo_store_v1";
+const WORKSPACE_STORAGE_PREFIX = "adpilot_ws_v1:";
+
+/** null = nothing is persisted (signed out). */
+let storageKey: string | null = null;
+let activeCompanyId: string | null = null;
+let activeUserId: string | null = null;
 
 interface StoreShape {
   assets: MediaAsset[];
@@ -74,28 +88,102 @@ function seed(): StoreShape {
   };
 }
 
-function load(): StoreShape {
+function emptyStore(user?: User): StoreShape {
+  return {
+    assets: [],
+    packages: [],
+    bookings: [],
+    maintenance: [],
+    campaigns: [],
+    activity: [],
+    creatives: [],
+    screens: [],
+    playback: [],
+    alerts: [],
+    overrides: [],
+    clients: [],
+    contacts: [],
+    leads: [],
+    opportunities: [],
+    proposals: [],
+    invoices: [],
+    payments: [],
+    notifications: [],
+    users: user ? [structuredClone(user)] : [],
+    activeUserId: user ? user.id : "",
+  };
+}
+
+function baseFor(companyId: string, user: User): StoreShape {
+  return companyId === DEMO_COMPANY_ID ? seed() : emptyStore(user);
+}
+
+function loadSaved(key: string, companyId: string, user: User): StoreShape {
+  const base = baseFor(companyId, user);
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return seed();
+    const raw = localStorage.getItem(key);
+    if (!raw) return base;
     const parsed = JSON.parse(raw) as Partial<StoreShape>;
-    // Merge over a fresh seed so new fixture entities added between builds
-    // still show up even if an older snapshot is in localStorage.
-    return { ...seed(), ...parsed };
+    // Merge over a fresh base so new fixture entities added between builds
+    // still show up for the demo company.
+    const merged = { ...base, ...parsed };
+    if (companyId !== DEMO_COMPANY_ID) {
+      // Real companies: the team list always comes from the signed-in account,
+      // never from browser storage.
+      merged.users = base.users;
+      merged.activeUserId = base.activeUserId;
+    }
+    return merged;
   } catch {
-    return seed();
+    return base;
   }
 }
 
-export const store: StoreShape = typeof window !== "undefined" ? load() : seed();
+/** Starts empty (nothing visible) until a signed-in workspace is selected. */
+export const store: StoreShape = emptyStore();
+
+/**
+ * Called by the session provider after sign-in / session restore, and with
+ * `null` on sign-out. Decides which dataset the app shows:
+ *  - the Nexora owner's company  -> full demo data
+ *  - any other company           -> empty workspace
+ */
+export function initWorkspace(ctx: { companyId: string; user: User } | null): void {
+  if (!ctx) {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = null;
+    storageKey = null;
+    activeCompanyId = null;
+    activeUserId = null;
+    Object.assign(store, emptyStore());
+    return;
+  }
+
+  // Same workspace already loaded (e.g. session refresh) -> keep in-memory state.
+  if (activeCompanyId === ctx.companyId && activeUserId === ctx.user.id) return;
+
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = null;
+
+  activeCompanyId = ctx.companyId;
+  activeUserId = ctx.user.id;
+  storageKey =
+    ctx.companyId === DEMO_COMPANY_ID
+      ? DEMO_STORAGE_KEY
+      : `${WORKSPACE_STORAGE_PREFIX}${ctx.companyId}`;
+
+  Object.assign(store, typeof window !== "undefined" ? loadSaved(storageKey, ctx.companyId, ctx.user) : baseFor(ctx.companyId, ctx.user));
+}
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 export function persist(): void {
   if (typeof window === "undefined") return;
+  if (!storageKey) return;
   if (saveTimer) clearTimeout(saveTimer);
+  const key = storageKey;
   saveTimer = setTimeout(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+      localStorage.setItem(key, JSON.stringify(store));
     } catch {
       // Storage unavailable/full — demo continues in-memory only.
     }
@@ -103,7 +191,13 @@ export function persist(): void {
 }
 
 export function resetDemoStore(): void {
-  Object.assign(store, seed());
+  // Demo company: back to the sample data. Any other company: back to empty.
+  if (activeCompanyId === DEMO_COMPANY_ID) {
+    Object.assign(store, seed());
+  } else {
+    const me = store.users[0];
+    Object.assign(store, emptyStore(me));
+  }
   persist();
 }
 
