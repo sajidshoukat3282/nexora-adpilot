@@ -28,7 +28,14 @@ import type {
  * rule until each module is moved to the database (the server will then
  * decide what a company sees using the company id from the session).
  */
-export const DEMO_COMPANY_ID = "ace7742a-78bb-475d-b865-a90719673d35";
+export const DEMO_COMPANY_IDS: readonly string[] = [
+  "ace7742a-78bb-475d-b865-a90719673d35", // Nexora Technologies (owner)
+  "20083a73-7d8c-4e6a-9683-eed510e85818", // Nexora Media Agency (shared demo account)
+];
+
+export function isDemoCompany(companyId: string | null | undefined): boolean {
+  return !!companyId && DEMO_COMPANY_IDS.includes(companyId);
+}
 
 const DEMO_STORAGE_KEY = "adpilot_demo_store_v1";
 const WORKSPACE_STORAGE_PREFIX = "adpilot_ws_v1:";
@@ -115,7 +122,7 @@ function emptyStore(user?: User): StoreShape {
 }
 
 function baseFor(companyId: string, user: User): StoreShape {
-  return companyId === DEMO_COMPANY_ID ? seed() : emptyStore(user);
+  return isDemoCompany(companyId) ? seed() : emptyStore(user);
 }
 
 function loadSaved(key: string, companyId: string, user: User): StoreShape {
@@ -127,7 +134,7 @@ function loadSaved(key: string, companyId: string, user: User): StoreShape {
     // Merge over a fresh base so new fixture entities added between builds
     // still show up for the demo company.
     const merged = { ...base, ...parsed };
-    if (companyId !== DEMO_COMPANY_ID) {
+    if (!isDemoCompany(companyId)) {
       // Real companies: the team list always comes from the signed-in account,
       // never from browser storage.
       merged.users = base.users;
@@ -167,8 +174,9 @@ export function initWorkspace(ctx: { companyId: string; user: User } | null): vo
 
   activeCompanyId = ctx.companyId;
   activeUserId = ctx.user.id;
+  // Each demo company keeps its own saved demo state in this browser.
   storageKey =
-    ctx.companyId === DEMO_COMPANY_ID
+    ctx.companyId === DEMO_COMPANY_IDS[0]
       ? DEMO_STORAGE_KEY
       : `${WORKSPACE_STORAGE_PREFIX}${ctx.companyId}`;
 
@@ -192,7 +200,7 @@ export function persist(): void {
 
 export function resetDemoStore(): void {
   // Demo company: back to the sample data. Any other company: back to empty.
-  if (activeCompanyId === DEMO_COMPANY_ID) {
+  if (isDemoCompany(activeCompanyId)) {
     Object.assign(store, seed());
   } else {
     const me = store.users[0];
