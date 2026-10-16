@@ -39,6 +39,7 @@ export function isDemoCompany(companyId: string | null | undefined): boolean {
 
 const DEMO_STORAGE_KEY = "adpilot_demo_store_v1";
 const WORKSPACE_STORAGE_PREFIX = "adpilot_ws_v1:";
+const DEMO_WORKSPACE_PREFIX = "adpilot_demo_ws_v2:";
 
 /** null = nothing is persisted (signed out). */
 let storageKey: string | null = null;
@@ -174,11 +175,15 @@ export function initWorkspace(ctx: { companyId: string; user: User } | null): vo
 
   activeCompanyId = ctx.companyId;
   activeUserId = ctx.user.id;
-  // Each demo company keeps its own saved demo state in this browser.
-  storageKey =
-    ctx.companyId === DEMO_COMPANY_IDS[0]
-      ? DEMO_STORAGE_KEY
-      : `${WORKSPACE_STORAGE_PREFIX}${ctx.companyId}`;
+  // Each company keeps its own saved state in this browser. Demo companies use
+  // their own key names so an old empty snapshot can never hide the demo data.
+  if (ctx.companyId === DEMO_COMPANY_IDS[0]) {
+    storageKey = DEMO_STORAGE_KEY;
+  } else if (isDemoCompany(ctx.companyId)) {
+    storageKey = `${DEMO_WORKSPACE_PREFIX}${ctx.companyId}`;
+  } else {
+    storageKey = `${WORKSPACE_STORAGE_PREFIX}${ctx.companyId}`;
+  }
 
   Object.assign(store, typeof window !== "undefined" ? loadSaved(storageKey, ctx.companyId, ctx.user) : baseFor(ctx.companyId, ctx.user));
 }
