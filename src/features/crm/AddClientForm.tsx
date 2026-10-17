@@ -5,7 +5,7 @@ export default function AddClientForm({ onClose }: { onClose: () => void }) {
     name: '', client_type: 'direct', industry: '', city: '', phone: '', email: '', credit_limit: 0, notes: ''
   });
 
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const res = await fetch('/api/crm/clients', {
@@ -35,14 +35,14 @@ export default function AddClientForm({ onClose }: { onClose: () => void }) {
         <div>
           <label className="text-sm text-gray-400">Client / Company Name *</label>
           <input required type="text" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none" 
-            onChange={(e: any) => setFormData({...formData, name: e.target.value})} placeholder="e.g. Coca Cola" />
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, name: e.target.value})} placeholder="e.g. Coca Cola" />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-sm text-gray-400">Client Type</label>
             <select className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none"
-              onChange={(e: any) => setFormData({...formData, client_type: e.target.value})}>
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({...formData, client_type: e.target.value})}>
               <option value="direct">Direct Brand</option>
               <option value="agency">Media Agency</option>
             </select>
@@ -50,7 +50,7 @@ export default function AddClientForm({ onClose }: { onClose: () => void }) {
           <div>
             <label className="text-sm text-gray-400">City</label>
             <input type="text" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none"
-              onChange={(e: any) => setFormData({...formData, city: e.target.value})} placeholder="e.g. Lahore" />
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, city: e.target.value})} placeholder="e.g. Lahore" />
           </div>
         </div>
 
@@ -58,25 +58,25 @@ export default function AddClientForm({ onClose }: { onClose: () => void }) {
           <div>
             <label className="text-sm text-gray-400">Email</label>
             <input type="email" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none"
-              onChange={(e: any) => setFormData({...formData, email: e.target.value})} />
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, email: e.target.value})} />
           </div>
           <div>
             <label className="text-sm text-gray-400">Phone</label>
             <input type="text" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none"
-              onChange={(e: any) => setFormData({...formData, phone: e.target.value})} />
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, phone: e.target.value})} />
           </div>
         </div>
 
         <div>
           <label className="text-sm text-gray-400">Credit Limit (PKR)</label>
           <input type="number" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none"
-            onChange={(e: any) => setFormData({...formData, credit_limit: Number(e.target.value)})} placeholder="0" />
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, credit_limit: Number(e.target.value)})} placeholder="0" />
         </div>
 
         <div>
           <label className="text-sm text-gray-400">Notes / Activity</label>
           <textarea className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none" rows={2}
-            onChange={(e: any) => setFormData({...formData, notes: e.target.value})} placeholder="Initial conversation details..."></textarea>
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData({...formData, notes: e.target.value})} placeholder="Initial conversation details..."></textarea>
         </div>
 
         <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
