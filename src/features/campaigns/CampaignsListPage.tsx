@@ -1,16 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { FiPlus } from "react-icons/fi";
 import { PageHeader } from "@/components/layout/AppShell";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { StatusBadge, campaignStatusTone } from "@/components/ui/StatusBadge";
 import { PermissionGate } from "@/components/ui/PermissionGate";
 import { StatCard } from "@/components/ui/StatCard";
-import { NewCampaignModal } from "./NewCampaignModal";
-import { useAsync } from "@/hooks/useAsync";
-import { repo } from "@/repositories/demo";
 import { useNavigate, useSearchParams } from "@/lib/router";
 import type { Campaign, CampaignStatus, Proposal, CurrencyCode } from "@/domain";
 import { CAMPAIGN_STATUS_LABELS, formatMoney, money } from "@/domain";
+import AddCampaignForm from "./AddCampaignForm"; // Naya form import kiya
 
 const STATUS_FILTERS: Array<CampaignStatus | "all"> = [
   "all", "draft", "proposal", "pending_approval", "booked", "scheduled", "live", "completed", "archived", "cancelled",
@@ -21,41 +19,67 @@ export const CampaignsListPage: React.FC = () => {
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [fromProposal, setFromProposal] = useState<Proposal | null>(null);
+  
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
 
-  const campaigns = useAsync(
-    () => repo.campaigns.listCampaigns({ search: search || undefined, status: statusFilter === "all" ? undefined : [statusFilter] }),
-    [search, statusFilter]
-  );
-  const clients = useAsync(() => repo.crm.listClients(), []);
+  // Real Data States
+  const [campaignsData, setCampaignsData] = useState<any[]>([]);
+  const [clientsData, setClientsData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Completes the "Convert to Campaign" link from an accepted Proposal.
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [campaignsRes, clientsRes] = await Promise.all([
+        fetch('/api/campaigns'),
+        fetch('/api/crm/clients')
+      ]);
+      const cData = await campaignsRes.json();
+      const clData = await clientsRes.json();
+
+      if (cData.ok) setCampaignsData(cData.data);
+      if (clData.ok) setClientsData(clData.data);
+    } catch (error) {
+      console.error("Error fetching campaigns:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Completes the "Convert to Campaign" link from an accepted Proposal. (Demo logic kept for now)
   useEffect(() => {
     const proposalId = params.get("fromProposal");
     if (proposalId) {
-      repo.proposals.getProposal(proposalId).then((p) => {
-        if (p) {
-          setFromProposal(p);
-          setModalOpen(true);
-        }
-      });
+      // Jab aap proposal module real banayenge, tab yahan API call aayegi
+      setFromProposal({ id: proposalId } as any);
+      setModalOpen(true);
       setParams({ fromProposal: null });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params]);
+  }, [params, setParams]);
 
-  function clientName(clientId: string): string {
-    return clients.data?.find((c) => c.id === clientId)?.name ?? "—";
-  }
+  const clientName = (clientId: string) => {
+    return clientsData.find((c) => c.id === clientId)?.name ?? "Unknown Client";
+  };
 
-  // High-Level Financial & P&L Portfolio Metrics
-  const campaignList = campaigns.data ?? [];
-  const totalGrossPipeline = campaignList.reduce((sum, c) => sum + c.budget.total.amountCents, 0);
-  
-  // Estimated Media/Operations Spend (~65%) vs Agency Profit Margin (~35%)
+  // Filtering Logic
+  const filteredCampaigns = useMemo(() => {
+    return campaignsData.filter(c => {
+      const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || 
+                          (c.client_name && c.client_name.toLowerCase().includes(search.toLowerCase()));
+      const matchStatus = statusFilter === "all" || c.status === statusFilter;
+      return matchSearch && matchStatus;
+    });
+  }, [campaignsData, search, statusFilter]);
+
+  // High-Level Financial & P&L Portfolio Metrics (Mapped from DB Real Data)
+  const totalGrossPipeline = filteredCampaigns.reduce((sum, c) => sum + (c.total_budget || 0), 0);
   const estimatedAgencyProfit = Math.round(totalGrossPipeline * 0.35);
-  const activeCampaignsCount = campaignList.filter((c) => c.status === "live" || c.status === "booked").length;
+  const activeCampaignsCount = filteredCampaigns.filter((c) => c.status === "live" || c.status === "booked").length;
 
   return (
     <div>
@@ -64,7 +88,8 @@ export const CampaignsListPage: React.FC = () => {
         description="Enterprise campaign portfolio performance, revenue tracking, and profitability analysis."
         actions={
           <PermissionGate permission="campaigns.manage" fallback={null}>
-            <button className="btn-primary" onClick={() => { setFromProposal(null); setModalOpen(true); }}>
+            <button className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors" 
+              onClick={() => { setFromProposal(null); setModalOpen(true); }}>
               <FiPlus size={15} /> New Campaign
             </button>
           </PermissionGate>
@@ -75,13 +100,13 @@ export const CampaignsListPage: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <StatCard
           label="Gross Portfolio Pipeline"
-          value={totalGrossPipeline / 100}
-          format={(n) => formatMoney(money(n * 100))}
+          value={totalGrossPipeline}
+          format={(n) => formatMoney(money(n * 100))} // Multiply by 100 for cents representation if needed
           tone="cyan"
         />
         <StatCard
           label="Est. Net Agency Revenue (35% Margin)"
-          value={estimatedAgencyProfit / 100}
+          value={estimatedAgencyProfit}
           format={(n) => formatMoney(money(n * 100))}
           tone="green"
         />
@@ -96,8 +121,8 @@ export const CampaignsListPage: React.FC = () => {
         <input
           value={search}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
-          placeholder="Search by code, campaign, or brand..."
-          className="input max-w-xs"
+          placeholder="Search by campaign or client..."
+          className="input max-w-xs bg-transparent border border-gray-600 rounded p-2 text-white"
         />
         <div className="flex-1" />
       </div>
@@ -116,75 +141,81 @@ export const CampaignsListPage: React.FC = () => {
         ))}
       </div>
 
-      <div className="panel">
-        <DataTable<Campaign>
-          columns={campaignColumns(clientName)}
-          rows={campaignList}
-          keyOf={(c) => c.id}
-          onRowClick={(c) => navigate(`/campaigns/${c.id}`)}
-          emptyTitle="No campaigns matching criteria"
-        />
-      </div>
+      {loading ? (
+        <div className="text-center text-gray-400 mt-10">Loading campaigns...</div>
+      ) : (
+        <div className="panel">
+          <DataTable<any>
+            columns={campaignColumns(clientName)}
+            rows={filteredCampaigns}
+            keyOf={(c) => c.id}
+            onRowClick={(c) => navigate(`/campaigns/${c.id}`)}
+            emptyTitle="No campaigns found. Create your first campaign!"
+          />
+        </div>
+      )}
 
-      <NewCampaignModal
-        open={modalOpen}
-        onClose={() => { setModalOpen(false); setFromProposal(null); }}
-        onCreated={(campaign) => {
-          setModalOpen(false);
-          campaigns.reload();
-          navigate(`/campaigns/${campaign.id}`);
-        }}
-        fromProposal={fromProposal}
-      />
+      {/* Naya Add Campaign Form Modal */}
+      {modalOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <AddCampaignForm
+            onClose={() => { 
+              setModalOpen(false); 
+              setFromProposal(null); 
+              fetchData(); // Form band hone par list refresh karein
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 };
 
-function campaignColumns(clientName: (id: string) => string): ColumnDef<Campaign>[] {
+function campaignColumns(clientName: (id: string) => string): ColumnDef<any>[] {
   return [
     { 
       key: "code", 
       header: "Code", 
-      sortValue: (c) => c.code, 
-      render: (c) => <span className="font-mono text-xs text-ink-400">{c.code}</span> 
+      sortValue: (c) => c.id.substring(0, 6).toUpperCase(), 
+      render: (c) => <span className="font-mono text-xs text-ink-400">CMP-{c.id.substring(0, 4).toUpperCase()}</span> 
     },
     { 
       key: "name", 
-      header: "Campaign & Brand", 
+      header: "Campaign", 
       sortValue: (c) => c.name, 
       render: (c) => (
         <div>
           <div className="font-medium text-ink-100">{c.name}</div>
-          <div className="text-xs text-ink-500">{c.brand}</div>
+          <div className="text-xs text-ink-500">{c.status}</div>
         </div>
       ) 
     },
     { 
       key: "client", 
       header: "Client", 
-      render: (c) => <span className="text-ink-300 text-sm font-medium">{clientName(c.clientId)}</span> 
+      render: (c) => <span className="text-ink-300 text-sm font-medium">{c.client_name || clientName(c.client_id)}</span> 
     },
     { 
       key: "dates", 
       header: "Schedule", 
-      render: (c) => <span className="text-ink-400 text-xs">{c.schedule.startDate} → {c.schedule.endDate}</span> 
+      render: (c) => <span className="text-ink-400 text-xs">{c.start_date} → {c.end_date}</span> 
     },
     { 
       key: "budget", 
       header: "Gross Budget", 
-      sortValue: (c) => c.budget.total.amountCents, 
-      render: (c) => <span className="text-ink-100 font-semibold">{formatMoney(c.budget.total)}</span> 
+      sortValue: (c) => c.total_budget, 
+      render: (c) => <span className="text-ink-100 font-semibold">{formatMoney(money(c.total_budget * 100, c.currency))}</span> 
     },
     {
       key: "profit",
       header: "Est. Net Profit",
-      sortValue: (c) => c.budget.total.amountCents * 0.35,
+      sortValue: (c) => c.total_budget * 0.35,
       render: (c) => {
-        const curr = (c.budget.total.currency || "PKR") as CurrencyCode;
-        const estProfitCents = Math.round(c.budget.total.amountCents * 0.35);
+        const curr = (c.currency || "PKR") as CurrencyCode;
+        const estProfit = Math.round((c.total_budget || 0) * 0.35);
         return (
           <span className="text-signal-green font-medium text-xs">
-            +{formatMoney(money(estProfitCents, curr))}
+            +{formatMoney(money(estProfit * 100, curr))}
           </span>
         );
       }
@@ -193,8 +224,7 @@ function campaignColumns(clientName: (id: string) => string): ColumnDef<Campaign
       key: "margin",
       header: "Margin %",
       render: (c) => {
-        // Standard Agency P&L margin indicator
-        const isHighMargin = c.budget.total.amountCents > 1000000;
+        const isHighMargin = (c.total_budget || 0) > 1000000;
         const marginPct = isHighMargin ? "38%" : "32%";
         return (
           <span className={`inline-block px-2 py-0.5 text-[11px] font-bold rounded ${
@@ -209,7 +239,7 @@ function campaignColumns(clientName: (id: string) => string): ColumnDef<Campaign
       key: "status", 
       header: "Status", 
       sortValue: (c) => c.status,
-      render: (c) => <StatusBadge label={CAMPAIGN_STATUS_LABELS[c.status]} tone={campaignStatusTone(c.status)} />,
+      render: (c) => <StatusBadge label={(CAMPAIGN_STATUS_LABELS as any)[c.status] || c.status} tone={campaignStatusTone(c.status)} />,
     },
   ];
 }
