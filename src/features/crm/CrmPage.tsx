@@ -16,12 +16,10 @@ export const CrmPage: React.FC = () => {
   const [search, setSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
-  // Real Data States
   const [leadsData, setLeadsData] = useState<any[]>([]);
   const [clientsData, setClientsData] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Modal States
   const [showClientForm, setShowClientForm] = useState(false);
   const [showLeadForm, setShowLeadForm] = useState(false);
 
@@ -47,7 +45,6 @@ export const CrmPage: React.FC = () => {
       }
 
       if (lData.ok) {
-        // Mapping database snake_case to frontend camelCase
         const mappedLeads = lData.data.map((l: any) => ({
           ...l,
           companyName: l.company_name,
@@ -139,13 +136,12 @@ export const CrmPage: React.FC = () => {
 
       <ClientDetailDrawer client={selectedClient} onClose={() => setSelectedClient(null)} />
 
-      {/* Forms Modals */}
       {showClientForm && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <AddClientForm 
             onClose={() => { 
               setShowClientForm(false); 
-              fetchData(); // Form band hone par data refresh karein
+              fetchData(); 
             }} 
           />
         </div>
@@ -156,7 +152,7 @@ export const CrmPage: React.FC = () => {
           <AddLeadForm 
             onClose={() => { 
               setShowLeadForm(false); 
-              fetchData(); // Form band hone par data refresh karein
+              fetchData(); 
             }} 
           />
         </div>
@@ -180,6 +176,15 @@ const clientColumns: ColumnDef<Client>[] = [
     ),
   },
   { key: "industry", header: "Industry", sortValue: (c) => c.industry, render: (c) => <span className="text-ink-300">{c.industry}</span> },
+  {
+    key: "credit_limit",
+    header: "Credit Limit",
+    render: (c: any) => (
+      <span className="text-emerald-400 text-sm font-medium">
+        {c.credit_limit ? c.credit_limit.toLocaleString() : '0'} <span className="text-xs text-ink-400">{c.currency || 'PKR'}</span>
+      </span>
+    ),
+  },
   {
     key: "portal",
     header: "Client Portal",
