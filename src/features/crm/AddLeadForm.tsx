@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, FormEvent } from 'react'; // Yahan bhi FormEvent import kiya
 
 export default function AddLeadForm({ onClose }: { onClose: () => void }) {
   const [formData, setFormData] = useState({
     company_name: '', contact_name: '', email: '', phone: '', estimated_value: 0, source: 'Referral', notes: ''
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => { // Yahan React. hata diya
     e.preventDefault();
     try {
       const res = await fetch('/api/crm/leads', {
@@ -17,7 +17,7 @@ export default function AddLeadForm({ onClose }: { onClose: () => void }) {
       if (res.ok) {
         alert('Lead Added Successfully!');
         onClose();
-        window.location.reload(); // Page refresh
+        window.location.reload();
       } else {
         alert('Error adding lead. Check console.');
       }
