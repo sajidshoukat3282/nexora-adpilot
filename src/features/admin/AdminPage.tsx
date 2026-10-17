@@ -1,6 +1,7 @@
 import React from "react";
 import { PageHeader } from "@/components/layout/AppShell";
 import { TeamPanel, PERMISSION_LABELS, ALL_PERMISSIONS } from "./TeamPanel";
+import { CompanyProfilePanel } from "./CompanyProfilePanel";
 import { PermissionGate } from "@/components/ui/PermissionGate";
 import { useSession } from "@/hooks/useSession";
 import { ROLE_LABELS, roleHasPermission } from "@/domain";
@@ -20,6 +21,8 @@ export const AdminPage: React.FC = () => {
           Invitations, seats and permissions are enforced by the server. Hiding pages from an employee is still done in the
           browser until each module (campaigns, finance, inventory…) moves to server-side data access.
         </div>
+
+        <CompanyProfilePanel />
 
         <TeamPanel />
 
@@ -68,7 +71,6 @@ export const AdminPage: React.FC = () => {
             <dt className="text-ink-500">Timezone</dt>
             <dd className="text-ink-100">{company?.timezone}</dd>
           </dl>
-          <p className="text-xs text-ink-500 mt-4">Editing company settings is not available yet.</p>
         </div>
       </div>
     </PermissionGate>
