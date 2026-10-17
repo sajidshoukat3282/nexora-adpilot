@@ -38,7 +38,7 @@ export interface Env {
   MAIL_FROM_EMAIL?: string;
   MAIL_FROM_NAME?: string;
   OWNER_MAGIC_LINK_EMAIL?: string;
-  GEOAPIFY_API_KEY?: string; // <--- YEH NAYI LINE ADD HUI HAI
+  GEOAPIFY_API_KEY?: string; 
 }
 
 function json(data: unknown, status = 200, setCookie?: string): Response {
@@ -139,7 +139,7 @@ async function requestPasswordReset(request: Request, env: Env): Promise<Respons
         try {
           const reset = await createPasswordResetToken(env.DB, account.id);
           await sendPasswordResetEmail(env, account.email, reset.token);
-        } catch { /* Keep generic */ }
+        } catch { }
       }
     }
     return json({ ok: true, message: genericMessage });
@@ -212,6 +212,7 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
+    // AUTH ROUTES
     if (url.pathname === '/api/auth/register' && request.method === 'POST') {
       try {
         const body = (await request.json()) as { email?: unknown; password?: unknown; companyName?: unknown; };
@@ -276,7 +277,7 @@ export default {
             await sendVerificationEmail(env, account.email, verification.token);
           }
         }
-      } catch { /* Keep generic */ }
+      } catch { }
       return json({ ok: true, message: genericMessage });
     }
 
@@ -342,14 +343,15 @@ export default {
       return new Response(JSON.stringify({ ok: true, authenticated: false, }), { status: 200, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'set-cookie': clearSessionCookie(), }, });
     }
 
+    // GEOGRAPHY & LOCATION SEARCH (UPDATED WITH LANG=EN)
     if (url.pathname === '/api/geography/search' && request.method === 'GET') {
       const query = url.searchParams.get('q')?.trim();
       if (!query) return json({ ok: false, error: 'INVALID_INPUT', message: 'Query parameter "q" is required.' }, 400);
       
       try {
-        // NAYA GEOAPIFY CODE
         if (env.GEOAPIFY_API_KEY) {
-          const geoRes = await fetch(`https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(query)}&limit=5&apiKey=${env.GEOAPIFY_API_KEY}`);
+          // Geoapify API ko call kiya, aur lang=en lagaya taake hamesha English mein aaye
+          const geoRes = await fetch(`https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(query)}&lang=en&limit=5&apiKey=${env.GEOAPIFY_API_KEY}`);
           const geoData = await geoRes.json();
           
           if (geoData && geoData.features) {
@@ -366,14 +368,33 @@ export default {
           }
         }
 
-        // Fallback to old Nominatim (agar API key nahi hai ya fail ho jaye)
+        // Fallback: Nominatim (Agar Geoapify fail ho, par yahan bhi accept-language=en lagaya hai)
         const repository = createGeographyRepository(env);
         const existing = await repository.search({ query });
         if (existing.length > 0) return json({ ok: true, source: 'database', persisted: true, results: existing });
-        const geocoded = await repository.forwardGeocode(query);
-        if (!geocoded) return json({ ok: true, source: 'nominatim', persisted: false, results: [] });
-        const persisted = await repository.persistGeocodingResult(geocoded);
-        return json({ ok: true, source: 'nominatim', persisted: true, results: [persisted] });
+        
+        // Nominatim API call with English language forced
+        const nominatimRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=5&accept-language=en`, {
+          headers: { 'User-Agent': 'NexoraAdPilot/1.0' }
+        });
+        const nominatimData = await nominatimRes.json();
+
+        if (!nominatimData || nominatimData.length === 0) {
+          return json({ ok: true, source: 'nominatim', persisted: false, results: [] });
+        }
+
+        const results = nominatimData.map((item: any) => ({
+          id: item.place_id.toString(),
+          name: item.display_name.split(',')[0],
+          displayName: item.display_name,
+          city: item.address?.city || item.address?.town || item.address?.state_district || "",
+          lat: item.lat,
+          lng: item.lon,
+          coordinates: { lat: Number(item.lat), lng: Number(item.lon) }
+        }));
+
+        return json({ ok: true, source: 'nominatim', persisted: false, results });
+
       } catch (error) {
         return json(errorPayload(error), errorStatus(error));
       }
