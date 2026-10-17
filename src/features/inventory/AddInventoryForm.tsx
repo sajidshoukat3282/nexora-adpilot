@@ -129,7 +129,7 @@ export default function AddInventoryForm({ onClose }: { onClose: () => void }) {
               {searchResults.map((loc: any, i: number) => (
                 <div key={i} onClick={() => selectLocation(loc)} className="p-2 text-sm border-b border-gray-700 hover:bg-[#1e293b] cursor-pointer text-gray-200">
                   {/* Yahan sab fallbacks laga diye hain */}
-                  {loc.displayName || loc.display_name || loc.name || loc.label || loc.properties?.formatted || loc.address?.displayName || "Location Found (Click to Select)"}
+                 {JSON.stringify(loc)}  
                 </div>
               ))}
             </div>
