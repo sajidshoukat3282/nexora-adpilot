@@ -22,12 +22,10 @@ export const InventoryPage: React.FC = () => {
   const [status, setStatus] = useState<AssetOperationalStatus | "">("");
   const [selected, setSelected] = useState<MediaAsset | null>(null);
 
-  // Real Data States
   const [assetsData, setAssetsData] = useState<MediaAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
 
-  // Fetch real data from Database
   const fetchInventory = async () => {
     setLoading(true);
     try {
@@ -35,23 +33,26 @@ export const InventoryPage: React.FC = () => {
       const result = await res.json();
       
       if (result.ok) {
-        // Database data ko purane UI format mein map kar rahe hain
         const mappedData = result.data.map((item: any) => ({
           id: item.id,
           name: item.name,
           code: `INV-${item.id.substring(0, 4).toUpperCase()}`,
-          mediaType: item.screen_type === 'digital' ? 'digital_billboard' : 'static_billboard', // Adjust based on your exact MediaType
+          mediaType: item.screen_type === 'digital' ? 'digital_billboard' : 'static_billboard', 
           location: {
             city: item.city || 'Unknown',
-            address: item.location || '',
+            address: item.location || 'No address provided',
             lat: item.latitude || 0,
             lng: item.longitude || 0,
           },
+          // Fallback values taake Drawer crash na ho
           pricing: {
             baseDailyRateCents: item.rate || 0,
             currency: item.currency || 'PKR',
+            premiumTimeMultiplier: 1,
           },
-          operationalStatus: item.status,
+          dimensions: { widthFt: 20, heightFt: 10 },
+          audience: { estimatedDailyImpressions: 15000, trafficNote: 'Estimated traffic data' },
+          operationalStatus: item.status || 'online',
         }));
         setAssetsData(mappedData as any);
       }
@@ -66,7 +67,6 @@ export const InventoryPage: React.FC = () => {
     fetchInventory();
   }, []);
 
-  // Local filtering logic (Kyunke backend mein filter nahi lagaya abhi)
   const filteredAssets = useMemo(() => {
     return assetsData.filter((a: any) => {
       const matchSearch = a.name.toLowerCase().includes(search.toLowerCase()) || a.code.toLowerCase().includes(search.toLowerCase());
@@ -91,7 +91,6 @@ export const InventoryPage: React.FC = () => {
     return counts;
   }, [filteredAssets, citiesList]);
 
-  // Completes the Notifications -> Inventory deep link.
   const [linkParams, setLinkParams] = useSearchParams();
   useEffect(() => {
     const assetId = linkParams.get("asset");
@@ -103,7 +102,6 @@ export const InventoryPage: React.FC = () => {
       }
       setLinkParams({ asset: null });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkParams, filteredAssets]);
 
   return (
@@ -204,13 +202,12 @@ export const InventoryPage: React.FC = () => {
 
       <AssetDetailDrawer asset={selected} onClose={() => setSelected(null)} />
 
-      {/* Add Screen Modal */}
       {showAddForm && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <AddInventoryForm 
             onClose={() => { 
               setShowAddForm(false); 
-              fetchInventory(); // Form save hone par data refresh karein
+              fetchInventory(); 
             }} 
           />
         </div>
