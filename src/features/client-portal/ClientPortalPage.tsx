@@ -6,6 +6,7 @@ import { useAsync } from "@/hooks/useAsync";
 import { repo } from "@/repositories/demo";
 import type { ApprovalStep, ProposalStatus } from "@/domain";
 import { CAMPAIGN_STATUS_LABELS, PROPOSAL_STATUS_LABELS, INVOICE_STATUS_LABELS, formatMoney } from "@/domain";
+import { Letterhead } from "@/components/ui/Letterhead";
 
 export const ClientPortalPage: React.FC = () => {
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -70,6 +71,8 @@ export const ClientPortalPage: React.FC = () => {
         title={`Welcome back${clientContext.data ? `, ${clientContext.data.client.name}` : ""}`}
         description="Your campaigns, approvals, reports and billing — visible only to your organization."
       />
+
+      <Letterhead title="Client Statement" printOnly />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
         <div className="panel p-5">
