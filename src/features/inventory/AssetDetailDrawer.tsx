@@ -29,6 +29,11 @@ export const AssetDetailDrawer: React.FC<{ asset: MediaAsset | null; onClose: ()
 
   const campaigns = useAsync(() => repo.campaigns.listCampaigns(), [asset?.id]);
 
+  // Crash se bachne ke liye safe variables
+  const safeDimensions = (asset as any)?.dimensions || { widthFt: "--", heightFt: "--" };
+  const safeAudience = (asset as any)?.audience || { estimatedDailyImpressions: 0, trafficNote: "" };
+  const safePricing = (asset as any)?.pricing || { baseDailyRateCents: 0, premiumTimeMultiplier: 1, currency: 'PKR' };
+
   async function checkAvailability() {
     if (!asset || !startDate || !endDate) return;
     setChecking(true);
@@ -36,6 +41,8 @@ export const AssetDetailDrawer: React.FC<{ asset: MediaAsset | null; onClose: ()
     try {
       const r = await repo.inventory.checkAvailability(asset.id, startDate, endDate);
       setResult(r);
+    } catch (e) {
+      alert("Availability check requires demo data which is not linked yet.");
     } finally {
       setChecking(false);
     }
@@ -56,48 +63,46 @@ export const AssetDetailDrawer: React.FC<{ asset: MediaAsset | null; onClose: ()
   }
 
   return (
-    <Drawer open={!!asset} onClose={onClose} title={asset?.name ?? ""} subtitle={asset?.code}>
+    <Drawer open={!!asset} onClose={onClose} title={asset?.name ?? ""} subtitle={(asset as any)?.code}>
       {asset && (
         <div className="space-y-6">
           <div className="flex items-center gap-2 flex-wrap">
-            <StatusBadge label={asset.operationalStatus} tone={assetOperationalTone(asset.operationalStatus)} />
+            <StatusBadge label={asset.operationalStatus || 'online'} tone={assetOperationalTone(asset.operationalStatus)} />
             <StatusBadge label={mediaCategory(asset.mediaType) === "digital" ? "Digital" : "Static"} tone="cyan" dot={false} />
-            <StatusBadge label={MEDIA_TYPE_LABELS[asset.mediaType]} tone="slate" dot={false} />
+            <StatusBadge label={MEDIA_TYPE_LABELS[asset.mediaType] || asset.mediaType} tone="slate" dot={false} />
           </div>
 
           <section className="space-y-3">
             <div className="flex items-start gap-2.5 text-sm">
               <FiMapPin className="text-ink-500 mt-0.5 shrink-0" size={15} />
               <div>
-                <div className="text-ink-100">{asset.location.address}</div>
-                <div className="text-ink-500 text-xs">{asset.location.city} · {asset.indoor ? "Indoor" : "Outdoor"}</div>
+                <div className="text-ink-100">{asset.location?.address || "Location not specified"}</div>
+                <div className="text-ink-500 text-xs">{asset.location?.city || "Unknown City"} · Outdoor</div>
               </div>
             </div>
             <div className="flex items-start gap-2.5 text-sm">
               <FiMonitor className="text-ink-500 mt-0.5 shrink-0" size={15} />
               <div className="text-ink-300">
-                {asset.dimensions.widthFt}ft × {asset.dimensions.heightFt}ft, {asset.orientation}
-                {asset.resolution && <> · {asset.resolution.widthPx}×{asset.resolution.heightPx}px</>}
+                {safeDimensions.widthFt}ft × {safeDimensions.heightFt}ft
               </div>
             </div>
             <div className="flex items-start gap-2.5 text-sm">
               <FiDollarSign className="text-ink-500 mt-0.5 shrink-0" size={15} />
               <div className="text-ink-300">
-                {formatMoney(money(asset.pricing.baseDailyRateCents))}/day
-                <span className="text-ink-500"> · {asset.pricing.premiumTimeMultiplier}× peak multiplier</span>
+                {formatMoney(money(safePricing.baseDailyRateCents, safePricing.currency))}/day
               </div>
             </div>
             <div className="flex items-start gap-2.5 text-sm">
               <FiUsers className="text-ink-500 mt-0.5 shrink-0" size={15} />
               <div className="text-ink-300">
-                {asset.audience.estimatedDailyImpressions.toLocaleString()} est. daily impressions
-                <div className="text-ink-500 text-xs">{asset.audience.trafficNote}</div>
+                {safeAudience.estimatedDailyImpressions.toLocaleString()} est. daily impressions
+                {safeAudience.trafficNote && <div className="text-ink-500 text-xs">{safeAudience.trafficNote}</div>}
               </div>
             </div>
           </section>
 
           <section className="panel p-4">
-            <h4 className="text-xs font-bold uppercase tracking-wide text-ink-400 mb-3">Check Availability</h4>
+            <h4 className="text-xs font-bold uppercase tracking-wide text-ink-400 mb-3">Check Availability (Demo)</h4>
             <div className="flex items-end gap-2 mb-3">
               <div className="flex-1">
                 <label className="label">From</label>
@@ -114,11 +119,6 @@ export const AssetDetailDrawer: React.FC<{ asset: MediaAsset | null; onClose: ()
             {result && (
               <div className="text-sm">
                 <StatusBadge {...availabilityDisplay(result)} />
-                {result.state === "partially_available" && (
-                  <p className="text-xs text-ink-500 mt-2">
-                    Some of this range overlaps an existing booking — free sub-ranges would be shown here in a full booking calendar.
-                  </p>
-                )}
               </div>
             )}
           </section>
