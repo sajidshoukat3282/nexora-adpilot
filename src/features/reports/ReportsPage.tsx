@@ -8,6 +8,7 @@ import { useAsync } from "@/hooks/useAsync";
 import { repo } from "@/repositories/demo";
 import { PermissionGate } from "@/components/ui/PermissionGate";
 import { useSession } from "@/hooks/useSession";
+import { Letterhead } from "@/components/ui/Letterhead";
 import { REPORT_DEFINITIONS } from "@/domain/reports";
 import type { PlaybackRecord } from "@/domain";
 
@@ -89,6 +90,8 @@ export const ReportsPage: React.FC = () => {
           </div>
         }
       />
+
+      <Letterhead title="Analytics & Reports" />
 
       <div className="panel p-5 mb-5">
         <div className="flex items-start justify-between gap-4 mb-4">
