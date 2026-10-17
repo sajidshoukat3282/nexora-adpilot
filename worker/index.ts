@@ -1731,6 +1731,27 @@ export default {
         return json({ ok: false, error: err.message }, 500);
       }
     }
+
+    if (
+      url.pathname === '/api/crm/contacts' &&
+      request.method === 'GET'
+    ) {
+      try {
+        const session = await resolveSession(request, env.DB);
+        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+
+        const clientId = url.searchParams.get('client_id');
+        if (!clientId) return json({ ok: false, error: 'CLIENT_ID_REQUIRED' }, 400);
+
+        const contacts = await env.DB.prepare(
+          `SELECT * FROM contacts WHERE client_id = ? AND company_id = ? ORDER BY created_at DESC`
+        ).bind(clientId, session.companyId).all();
+
+        return json({ ok: true, data: contacts.results });
+      } catch (err: any) {
+        return json({ ok: false, error: err.message }, 500);
+      }
+    }
     
     if (
       url.pathname === '/api/crm/clients' &&
@@ -1811,6 +1832,29 @@ export default {
     }
 
     if (
+      url.pathname.startsWith('/api/crm/leads/') &&
+      url.pathname.endsWith('/stage') &&
+      request.method === 'PUT'
+    ) {
+      try {
+        const session = await resolveSession(request, env.DB);
+        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+
+        const parts = url.pathname.split('/');
+        const leadId = parts[4];
+        const body = (await request.json()) as any;
+
+        await env.DB.prepare(
+          `UPDATE leads SET stage = ?, updated_at = datetime('now') WHERE id = ? AND company_id = ?`
+        ).bind(body.stage, leadId, session.companyId).run();
+
+        return json({ ok: true });
+      } catch (err: any) {
+        return json({ ok: false, error: err.message }, 500);
+      }
+    }
+
+    if (
       url.pathname.startsWith('/api/crm/leads/') && 
       url.pathname.endsWith('/convert') && 
       request.method === 'POST'
@@ -1822,7 +1866,7 @@ export default {
         }
 
         const parts = url.pathname.split('/');
-        const leadId = parts[4]; // Extract ID from /api/crm/leads/:id/convert
+        const leadId = parts[4]; 
         const company_id = session.companyId;
 
         const lead = await env.DB.prepare(`SELECT * FROM leads WHERE id = ? AND company_id = ?`).bind(leadId, company_id).first<any>();
