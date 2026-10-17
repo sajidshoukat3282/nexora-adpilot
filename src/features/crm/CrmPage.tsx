@@ -25,7 +25,6 @@ export const CrmPage: React.FC = () => {
   const [showClientForm, setShowClientForm] = useState(false);
   const [showLeadForm, setShowLeadForm] = useState(false);
 
-  // Fetch Data from Database
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -38,8 +37,7 @@ export const CrmPage: React.FC = () => {
       const lData = await leadsRes.json();
 
       if (cData.ok) {
-        // API data ko purane 'Client' type ke hisaab se map kar rahe hain
-        const mappedClients = cData.data.map((c: any) => ({
+        const mappedClients: any = cData.data.map((c: any) => ({
           ...c,
           logoInitial: c.name ? c.name.charAt(0).toUpperCase() : 'C',
           isPortalEnabled: c.portal_status === 'active',
@@ -49,7 +47,15 @@ export const CrmPage: React.FC = () => {
       }
 
       if (lData.ok) {
-        setLeadsData(lData.data);
+        // Mapping database snake_case to frontend camelCase
+        const mappedLeads = lData.data.map((l: any) => ({
+          ...l,
+          companyName: l.company_name,
+          contactName: l.contact_name,
+          estimatedValue: l.estimated_value,
+          convertedClientId: l.converted_client_id
+        }));
+        setLeadsData(mappedLeads);
       }
     } catch (error) {
       console.error("Error fetching CRM data:", error);
@@ -62,7 +68,6 @@ export const CrmPage: React.FC = () => {
     fetchData();
   }, []);
 
-  // Frontend Search Filter (Kyunke abhi backend search nahi hai)
   const filteredClients = clientsData.filter((c) => 
     c.name.toLowerCase().includes(search.toLowerCase())
   );
