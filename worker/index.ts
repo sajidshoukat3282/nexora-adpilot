@@ -172,7 +172,6 @@ async function sendMagicLinkEmail(
   }
 }
 
-
 async function sendVerificationEmail(
   env: Env,
   email: string,
@@ -1694,8 +1693,44 @@ export default {
     }
 
     // ==========================================
-    // CRM ROUTES (ADDED BY VERIFIED CODE)
+    // CRM ROUTES
     // ==========================================
+
+    if (
+      url.pathname === '/api/crm/clients' &&
+      request.method === 'GET'
+    ) {
+      try {
+        const session = await resolveSession(request, env.DB);
+        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+
+        const clients = await env.DB.prepare(
+          `SELECT * FROM clients WHERE company_id = ? ORDER BY created_at DESC`
+        ).bind(session.companyId).all();
+
+        return json({ ok: true, data: clients.results });
+      } catch (err: any) {
+        return json({ ok: false, error: err.message }, 500);
+      }
+    }
+
+    if (
+      url.pathname === '/api/crm/leads' &&
+      request.method === 'GET'
+    ) {
+      try {
+        const session = await resolveSession(request, env.DB);
+        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+
+        const leads = await env.DB.prepare(
+          `SELECT * FROM leads WHERE company_id = ? ORDER BY created_at DESC`
+        ).bind(session.companyId).all();
+
+        return json({ ok: true, data: leads.results });
+      } catch (err: any) {
+        return json({ ok: false, error: err.message }, 500);
+      }
+    }
     
     if (
       url.pathname === '/api/crm/clients' &&
