@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 
 export default function AddInventoryForm({ onClose }: { onClose: () => void }) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<any>({
     name: '', screen_type: 'digital', city: '', location: '', latitude: '', longitude: '',
     size: '', rate: 0, currency: 'PKR', status: 'online'
   });
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState<any>("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [searching, setSearching] = useState(false);
+  const [searching, setSearching] = useState<any>(false);
 
   const handleLocationSearch = async () => {
     if (!searchQuery) return;
@@ -37,7 +37,7 @@ export default function AddInventoryForm({ onClose }: { onClose: () => void }) {
     setSearchResults([]); 
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: any) => {
     e.preventDefault();
     try {
       const res = await fetch('/api/inventory', {
@@ -71,24 +71,23 @@ export default function AddInventoryForm({ onClose }: { onClose: () => void }) {
           <div>
             <label className="text-sm text-gray-400">Screen Name *</label>
             <input required type="text" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none" 
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, name: e.target.value})} placeholder="e.g. Gulberg Boulevard Screen" />
+              onChange={(e: any) => setFormData({...formData, name: e.target.value})} placeholder="e.g. Gulberg Boulevard Screen" />
           </div>
           <div>
             <label className="text-sm text-gray-400">Screen Type</label>
             <select className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none"
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({...formData, screen_type: e.target.value})}>
+              onChange={(e: any) => setFormData({...formData, screen_type: e.target.value})}>
               <option value="digital">Digital Screen</option>
               <option value="static">Static Billboard</option>
             </select>
           </div>
         </div>
 
-        {/* Location Search Integration */}
         <div className="border border-gray-600 p-3 rounded-lg bg-[#1e293b]/50">
           <label className="text-sm text-blue-400 font-semibold mb-2 block">Search Location (Google/Nominatim)</label>
           <div className="flex gap-2 mb-2">
             <input type="text" className="flex-1 bg-[#1e293b] border border-gray-600 rounded p-2 outline-none" 
-              placeholder="e.g. Dolmen Mall Karachi" value={searchQuery} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)} />
+              placeholder="e.g. Dolmen Mall Karachi" value={searchQuery} onChange={(e: any) => setSearchQuery(e.target.value)} />
             <button type="button" onClick={handleLocationSearch} disabled={searching} className="bg-blue-600 px-4 rounded text-sm hover:bg-blue-500">
               {searching ? "..." : "Search"}
             </button>
@@ -124,12 +123,12 @@ export default function AddInventoryForm({ onClose }: { onClose: () => void }) {
           <div>
             <label className="text-sm text-gray-400">Dimensions / Size</label>
             <input type="text" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none"
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, size: e.target.value})} placeholder="e.g. 20x10 ft" />
+              onChange={(e: any) => setFormData({...formData, size: e.target.value})} placeholder="e.g. 20x10 ft" />
           </div>
           <div>
             <label className="text-sm text-gray-400">Status</label>
             <select className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none"
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({...formData, status: e.target.value})}>
+              onChange={(e: any) => setFormData({...formData, status: e.target.value})}>
               <option value="online">Online</option>
               <option value="offline">Offline</option>
               <option value="maintenance">Maintenance</option>
@@ -141,12 +140,12 @@ export default function AddInventoryForm({ onClose }: { onClose: () => void }) {
           <div>
             <label className="text-sm text-gray-400">Base Rate *</label>
             <input required type="number" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none"
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, rate: Number(e.target.value)})} placeholder="0" />
+              onChange={(e: any) => setFormData({...formData, rate: Number(e.target.value)})} placeholder="0" />
           </div>
           <div>
             <label className="text-sm text-gray-400">Currency</label>
             <select className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none"
-              value={formData.currency} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({...formData, currency: e.target.value})}>
+              value={formData.currency} onChange={(e: any) => setFormData({...formData, currency: e.target.value})}>
               <option value="PKR">PKR</option>
               <option value="USD">USD</option>
               <option value="AED">AED</option>
