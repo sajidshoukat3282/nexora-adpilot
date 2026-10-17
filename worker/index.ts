@@ -343,37 +343,43 @@ export default {
       return new Response(JSON.stringify({ ok: true, authenticated: false, }), { status: 200, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'set-cookie': clearSessionCookie(), }, });
     }
 
-    // GEOGRAPHY & LOCATION SEARCH (UPDATED WITH LANG=EN)
+    // GEOGRAPHY & LOCATION SEARCH (SMART MAPPING)
     if (url.pathname === '/api/geography/search' && request.method === 'GET') {
       const query = url.searchParams.get('q')?.trim();
       if (!query) return json({ ok: false, error: 'INVALID_INPUT', message: 'Query parameter "q" is required.' }, 400);
       
       try {
         if (env.GEOAPIFY_API_KEY) {
-          // Geoapify API ko call kiya, aur lang=en lagaya taake hamesha English mein aaye
           const geoRes = await fetch(`https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(query)}&lang=en&limit=5&apiKey=${env.GEOAPIFY_API_KEY}`);
           const geoData = await geoRes.json();
           
           if (geoData && geoData.features) {
-            const results = geoData.features.map((f: any) => ({
-              id: f.properties.place_id || crypto.randomUUID(),
-              name: f.properties.name || f.properties.address_line1 || query,
-              displayName: f.properties.formatted,
-              city: f.properties.city || f.properties.town || f.properties.village,
-              lat: f.properties.lat,
-              lng: f.properties.lon,
-              coordinates: { lat: f.properties.lat, lng: f.properties.lon }
-            }));
+            const results = geoData.features.map((f: any) => {
+              const formatted = f.properties.formatted || "";
+              const addressParts = formatted.split(',').map((s: string) => s.trim());
+              const city = f.properties.city || f.properties.town || f.properties.village || addressParts[addressParts.length - 3] || addressParts[addressParts.length - 2] || "Unknown";
+              const lat = f.properties.lat || f.geometry?.coordinates?.[1] || null;
+              const lon = f.properties.lon || f.geometry?.coordinates?.[0] || null;
+
+              return {
+                id: f.properties.place_id || crypto.randomUUID(),
+                name: f.properties.name || f.properties.address_line1 || query,
+                displayName: formatted || query,
+                city: city,
+                lat: lat,
+                lng: lon,
+                coordinates: { lat: lat, lng: lon }
+              };
+            });
             return json({ ok: true, source: 'geoapify', results });
           }
         }
 
-        // Fallback: Nominatim (Agar Geoapify fail ho, par yahan bhi accept-language=en lagaya hai)
+        // Fallback to Nominatim
         const repository = createGeographyRepository(env);
         const existing = await repository.search({ query });
         if (existing.length > 0) return json({ ok: true, source: 'database', persisted: true, results: existing });
         
-        // Nominatim API call with English language forced
         const nominatimRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=5&accept-language=en`, {
           headers: { 'User-Agent': 'NexoraAdPilot/1.0' }
         });
@@ -383,18 +389,20 @@ export default {
           return json({ ok: true, source: 'nominatim', persisted: false, results: [] });
         }
 
-        const results = nominatimData.map((item: any) => ({
-          id: item.place_id.toString(),
-          name: item.display_name.split(',')[0],
-          displayName: item.display_name,
-          city: item.address?.city || item.address?.town || item.address?.state_district || "",
-          lat: item.lat,
-          lng: item.lon,
-          coordinates: { lat: Number(item.lat), lng: Number(item.lon) }
-        }));
-
+        const results = nominatimData.map((item: any) => {
+          const parts = item.display_name.split(',').map((s: string) => s.trim());
+          const city = item.address?.city || item.address?.town || item.address?.state_district || parts[parts.length - 3] || parts[parts.length - 2] || "Unknown";
+          return {
+            id: item.place_id.toString(),
+            name: parts[0],
+            displayName: item.display_name,
+            city: city,
+            lat: Number(item.lat),
+            lng: Number(item.lon),
+            coordinates: { lat: Number(item.lat), lng: Number(item.lon) }
+          };
+        });
         return json({ ok: true, source: 'nominatim', persisted: false, results });
-
       } catch (error) {
         return json(errorPayload(error), errorStatus(error));
       }
@@ -526,8 +534,99 @@ export default {
         return json({ ok: true, id });
       } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
     }
+
     // ==========================================
-    // END INVENTORY ROUTES
+    // CAMPAIGNS ROUTES (NEW)
+    // ==========================================
+    
+    // 1. Get All Campaigns
+    if (url.pathname === '/api/campaigns' && request.method === 'GET') {
+      try {
+        const session = await resolveSession(request, env.DB);
+        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+        
+        const campaigns = await env.DB.prepare(`
+          SELECT c.*, cl.name as client_name 
+          FROM campaigns c
+          JOIN clients cl ON c.client_id = cl.id
+          WHERE c.company_id = ? 
+          ORDER BY c.created_at DESC
+        `).bind(session.companyId).all();
+        
+        return json({ ok: true, data: campaigns.results });
+      } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+    }
+
+    // 2. Create Campaign (with screens and auto price)
+    if (url.pathname === '/api/campaigns' && request.method === 'POST') {
+      try {
+        const session = await resolveSession(request, env.DB);
+        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+        
+        const body = (await request.json()) as any;
+        const id = crypto.randomUUID();
+        
+        // Insert Campaign
+        await env.DB.prepare(`
+          INSERT INTO campaigns (id, company_id, client_id, name, status, start_date, end_date, total_budget, currency, creative_url) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          id, session.companyId, body.client_id, body.name, body.status || 'draft', 
+          body.start_date, body.end_date, body.total_budget || 0, body.currency || 'PKR', body.creative_url || null
+        ).run();
+
+        // Insert Selected Screens into campaign_screens
+        if (body.screens && Array.isArray(body.screens)) {
+          for (const screen of body.screens) {
+            const csId = crypto.randomUUID();
+            await env.DB.prepare(`
+              INSERT INTO campaign_screens (id, campaign_id, inventory_id, rate_applied) 
+              VALUES (?, ?, ?, ?)
+            `).bind(csId, id, screen.inventory_id, screen.rate_applied || 0).run();
+          }
+        }
+
+        return json({ ok: true, id });
+      } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+    }
+
+    // 3. Check Availability (Double Booking Warning)
+    if (url.pathname === '/api/campaigns/check-availability' && request.method === 'POST') {
+      try {
+        const session = await resolveSession(request, env.DB);
+        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+        
+        const body = (await request.json()) as any;
+        const inventory_ids = body.inventory_ids;
+        const start_date = body.start_date;
+        const end_date = body.end_date;
+
+        if (!inventory_ids || inventory_ids.length === 0 || !start_date || !end_date) {
+          return json({ ok: false, error: 'INVALID_INPUT', message: 'Missing screens or dates.' }, 400);
+        }
+
+        const placeholders = inventory_ids.map(() => '?').join(',');
+        
+        // Overlap logic: (NewStart <= ExistingEnd AND NewEnd >= ExistingStart)
+        const query = `
+          SELECT cs.inventory_id, c.name as campaign_name, c.start_date, c.end_date
+          FROM campaign_screens cs
+          JOIN campaigns c ON cs.campaign_id = c.id
+          WHERE cs.inventory_id IN (${placeholders})
+            AND c.company_id = ?
+            AND c.status NOT IN ('cancelled', 'completed')
+            AND (c.start_date <= ? AND c.end_date >= ?)
+        `;
+
+        const bindings = [...inventory_ids, session.companyId, end_date, start_date];
+        
+        const conflicts = await env.DB.prepare(query).bind(...bindings).all();
+        
+        return json({ ok: true, conflicts: conflicts.results });
+      } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+    }
+    // ==========================================
+    // END CAMPAIGNS ROUTES
     // ==========================================
 
     if (url.pathname.startsWith('/api/')) return json({ ok: false, error: 'NOT_FOUND', message: 'API route not found.', }, 404);
