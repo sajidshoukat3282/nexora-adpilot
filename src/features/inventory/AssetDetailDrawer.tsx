@@ -17,7 +17,6 @@ export const AssetDetailDrawer: React.FC<{ asset: MediaAsset | null; onClose: ()
   const [adding, setAdding] = useState(false);
   const [addedMsg, setAddedMsg] = useState<string | null>(null);
   
-  // Weather States
   const [weather, setWeather] = useState<any>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
 
@@ -29,7 +28,6 @@ export const AssetDetailDrawer: React.FC<{ asset: MediaAsset | null; onClose: ()
   const lat = (asset as any)?.location?.lat;
   const lng = (asset as any)?.location?.lng;
 
-  // Fetch Weather when asset changes
   useEffect(() => {
     if (asset && lat && lng && lat !== 0 && lng !== 0) {
       setWeatherLoading(true);
@@ -59,6 +57,20 @@ export const AssetDetailDrawer: React.FC<{ asset: MediaAsset | null; onClose: ()
     }
   }
 
+  async function addToCampaign() {
+    if (!asset || !selectedCampaignId) return;
+    setAdding(true);
+    setAddedMsg(null);
+    try {
+      const campaign = await repo.campaigns.addAssetToCampaign(selectedCampaignId, asset.id);
+      setAddedMsg(`Added to "${campaign.name}".`);
+    } catch (err) {
+      setAddedMsg(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAdding(false);
+    }
+  }
+
   return (
     <Drawer open={!!asset} onClose={onClose} title={asset?.name ?? ""} subtitle={(asset as any)?.code}>
       {asset && (
@@ -67,7 +79,6 @@ export const AssetDetailDrawer: React.FC<{ asset: MediaAsset | null; onClose: ()
             <StatusBadge label={asset.operationalStatus || 'online'} tone={assetOperationalTone(asset.operationalStatus)} />
             <StatusBadge label={mediaCategory(asset.mediaType) === "digital" ? "Digital" : "Static"} tone="cyan" dot={false} />
             
-            {/* WEATHER WIDGET */}
             {weatherLoading ? (
               <span className="text-xs text-gray-400">Loading weather...</span>
             ) : weather ? (
@@ -104,31 +115,34 @@ export const AssetDetailDrawer: React.FC<{ asset: MediaAsset | null; onClose: ()
             <div className="flex items-end gap-2 mb-3">
               <div className="flex-1">
                 <label className="label text-xs text-gray-500">From</label>
-                <input type="date" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 text-sm text-white" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                <input type="date" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 text-sm text-white" value={startDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStartDate(e.target.value)} />
               </div>
               <div className="flex-1">
                 <label className="label text-xs text-gray-500">To</label>
-                <input type="date" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 text-sm text-white" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                <input type="date" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 text-sm text-white" value={endDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEndDate(e.target.value)} />
               </div>
               <button className="bg-gray-700 px-4 py-2 rounded text-sm hover:bg-gray-600 disabled:opacity-50" disabled={!startDate || !endDate || checking} onClick={checkAvailability}>
                 {checking ? "..." : "Check"}
               </button>
             </div>
+            {result && (
+              <div className="text-sm text-green-400">Available (Demo)</div>
+            )}
           </section>
 
           <PermissionGate permission="inventory.manage" action="add inventory to a campaign">
             <section className="panel p-4">
               <h4 className="text-xs font-bold uppercase tracking-wide text-ink-400 mb-3">Add to Campaign</h4>
               <div className="flex items-center gap-2">
-                <select className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 text-sm text-white" value={selectedCampaignId} onChange={(e) => setSelectedCampaignId(e.target.value)}>
+                <select className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 text-sm text-white" value={selectedCampaignId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedCampaignId(e.target.value)}>
                   <option value="">Select campaign...</option>
                   {campaigns.data?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
-                <button className="bg-blue-600 px-4 py-2 rounded text-sm hover:bg-blue-500 disabled:opacity-50" disabled={!selectedCampaignId || adding}>
+                <button className="bg-blue-600 px-4 py-2 rounded text-sm hover:bg-blue-500 disabled:opacity-50" disabled={!selectedCampaignId || adding} onClick={addToCampaign}>
                   <FiPlus size={14} /> Add
                 </button>
               </div>
-            </div>
+              {addedMsg && <p className="text-xs text-green-400 mt-2">{addedMsg}</p>}
             </section>
           </PermissionGate>
         </div>
