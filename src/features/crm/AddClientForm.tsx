@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, FormEvent } from 'react'; // Yahan FormEvent import kiya hai
 
 export default function AddClientForm({ onClose }: { onClose: () => void }) {
   const [formData, setFormData] = useState({
     name: '', client_type: 'direct', industry: '', city: '', phone: '', email: '', credit_limit: 0, notes: ''
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => { // Yahan React. hata diya hai
     e.preventDefault();
     try {
       const res = await fetch('/api/crm/clients', {
@@ -17,7 +17,7 @@ export default function AddClientForm({ onClose }: { onClose: () => void }) {
       if (res.ok) {
         alert('Client Added Successfully!');
         onClose();
-        window.location.reload(); // Page refresh taake naya client list mein aaye
+        window.location.reload();
       } else {
         alert('Error adding client. Check console.');
       }
