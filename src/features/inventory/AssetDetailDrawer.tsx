@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-// FiCloud hata diya hai
-import { FiMapPin, FiMonitor, FiDollarSign, FiUsers, FiPlus, FiSun } from "react-icons/fi"; 
+// Sirf purane wale icons rakhe hain jo aapke project mein pehle se hain
+import { FiMapPin, FiMonitor, FiDollarSign, FiUsers, FiPlus } from "react-icons/fi"; 
 import { Drawer } from "@/components/ui/Drawer";
 import { StatusBadge, assetOperationalTone } from "@/components/ui/StatusBadge";
 import { PermissionGate } from "@/components/ui/PermissionGate";
@@ -84,8 +84,8 @@ export const AssetDetailDrawer: React.FC<{ asset: MediaAsset | null; onClose: ()
               <span className="text-xs text-gray-400">Loading weather...</span>
             ) : weather ? (
               <span className="text-xs bg-blue-900/50 text-blue-200 px-2 py-1 rounded flex items-center gap-1 border border-blue-700/50">
-                {/* FiCloud ki jagah FiSun use kiya hai */}
-                <FiSun /> {weather?.current?.temp_c || weather?.temperature || '--'}°C · {weather?.current?.condition?.text || weather?.condition || 'Clear'}
+                {/* Yahan Emoji use kiya hai taake koi icon error na aaye */}
+                ☀️ {weather?.current?.temp_c || weather?.temperature || '--'}°C · {weather?.current?.condition?.text || weather?.condition || 'Clear'}
               </span>
             ) : null}
           </div>
