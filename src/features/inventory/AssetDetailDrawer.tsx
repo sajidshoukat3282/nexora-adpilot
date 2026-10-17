@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { FiMapPin, FiMonitor, FiDollarSign, FiUsers, FiPlus, FiCloud } from "react-icons/fi";
+// FiCloud hata diya hai
+import { FiMapPin, FiMonitor, FiDollarSign, FiUsers, FiPlus, FiSun } from "react-icons/fi"; 
 import { Drawer } from "@/components/ui/Drawer";
 import { StatusBadge, assetOperationalTone } from "@/components/ui/StatusBadge";
 import { PermissionGate } from "@/components/ui/PermissionGate";
@@ -24,7 +25,7 @@ export const AssetDetailDrawer: React.FC<{ asset: MediaAsset | null; onClose: ()
 
   const safeDimensions = (asset as any)?.dimensions || { widthFt: "--", heightFt: "--" };
   const safeAudience = (asset as any)?.audience || { estimatedDailyImpressions: 0, trafficNote: "" };
-  const safePricing = (asset as any)?.pricing || { baseDailyRateCents: 0, premiumTimeMultiplier: 1, currency: 'PKR' };
+  const safePricing = (asset as any)?.pricing || { baseDailyRateCents: 0, currency: 'PKR' };
   const lat = (asset as any)?.location?.lat;
   const lng = (asset as any)?.location?.lng;
 
@@ -83,7 +84,8 @@ export const AssetDetailDrawer: React.FC<{ asset: MediaAsset | null; onClose: ()
               <span className="text-xs text-gray-400">Loading weather...</span>
             ) : weather ? (
               <span className="text-xs bg-blue-900/50 text-blue-200 px-2 py-1 rounded flex items-center gap-1 border border-blue-700/50">
-                <FiCloud /> {weather.current?.temp_c || weather.temperature || '--'}°C · {weather.current?.condition?.text || weather.condition || 'Clear'}
+                {/* FiCloud ki jagah FiSun use kiya hai */}
+                <FiSun /> {weather?.current?.temp_c || weather?.temperature || '--'}°C · {weather?.current?.condition?.text || weather?.condition || 'Clear'}
               </span>
             ) : null}
           </div>
@@ -92,8 +94,8 @@ export const AssetDetailDrawer: React.FC<{ asset: MediaAsset | null; onClose: ()
             <div className="flex items-start gap-2.5 text-sm">
               <FiMapPin className="text-ink-500 mt-0.5 shrink-0" size={15} />
               <div>
-                <div className="text-ink-100">{asset.location?.address || "Location not specified"}</div>
-                <div className="text-ink-500 text-xs">{asset.location?.city || "Unknown City"} · Outdoor</div>
+                <div className="text-ink-100">{(asset as any)?.location?.address || "Location not specified"}</div>
+                <div className="text-ink-500 text-xs">{(asset as any)?.location?.city || "Unknown City"} · Outdoor</div>
               </div>
             </div>
             <div className="flex items-start gap-2.5 text-sm">
@@ -102,7 +104,7 @@ export const AssetDetailDrawer: React.FC<{ asset: MediaAsset | null; onClose: ()
             </div>
             <div className="flex items-start gap-2.5 text-sm">
               <FiDollarSign className="text-ink-500 mt-0.5 shrink-0" size={15} />
-              <div className="text-ink-300">{formatMoney(money(safePricing.baseDailyRateCents, safePricing.currency))}/day</div>
+              <div className="text-ink-300">{formatMoney(money(safePricing.baseDailyRateCents))}/day</div>
             </div>
             <div className="flex items-start gap-2.5 text-sm">
               <FiUsers className="text-ink-500 mt-0.5 shrink-0" size={15} />
@@ -115,11 +117,11 @@ export const AssetDetailDrawer: React.FC<{ asset: MediaAsset | null; onClose: ()
             <div className="flex items-end gap-2 mb-3">
               <div className="flex-1">
                 <label className="label text-xs text-gray-500">From</label>
-                <input type="date" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 text-sm text-white" value={startDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStartDate(e.target.value)} />
+                <input type="date" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 text-sm text-white" value={startDate} onChange={(e: any) => setStartDate(e.target.value)} />
               </div>
               <div className="flex-1">
                 <label className="label text-xs text-gray-500">To</label>
-                <input type="date" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 text-sm text-white" value={endDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEndDate(e.target.value)} />
+                <input type="date" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 text-sm text-white" value={endDate} onChange={(e: any) => setEndDate(e.target.value)} />
               </div>
               <button className="bg-gray-700 px-4 py-2 rounded text-sm hover:bg-gray-600 disabled:opacity-50" disabled={!startDate || !endDate || checking} onClick={checkAvailability}>
                 {checking ? "..." : "Check"}
@@ -134,9 +136,9 @@ export const AssetDetailDrawer: React.FC<{ asset: MediaAsset | null; onClose: ()
             <section className="panel p-4">
               <h4 className="text-xs font-bold uppercase tracking-wide text-ink-400 mb-3">Add to Campaign</h4>
               <div className="flex items-center gap-2">
-                <select className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 text-sm text-white" value={selectedCampaignId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedCampaignId(e.target.value)}>
+                <select className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 text-sm text-white" value={selectedCampaignId} onChange={(e: any) => setSelectedCampaignId(e.target.value)}>
                   <option value="">Select campaign...</option>
-                  {campaigns.data?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {campaigns.data?.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
                 <button className="bg-blue-600 px-4 py-2 rounded text-sm hover:bg-blue-500 disabled:opacity-50" disabled={!selectedCampaignId || adding} onClick={addToCampaign}>
                   <FiPlus size={14} /> Add
