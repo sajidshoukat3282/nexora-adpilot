@@ -11,6 +11,7 @@ import { repo } from "@/repositories/demo";
 import { useSearchParams } from "@/lib/router";
 import type { Invoice } from "@/domain";
 import { INVOICE_STATUS_LABELS, formatMoney, money } from "@/domain";
+import { Letterhead } from "@/components/ui/Letterhead";
 
 export const FinancePage: React.FC = () => {
   const [selected, setSelected] = useState<Invoice | null>(null);
@@ -60,6 +61,8 @@ export const FinancePage: React.FC = () => {
     <PermissionGate permission="finance.view" action="view Finance">
       <div>
         <PageHeader title="Finance" description="Invoices, AR Aging, and revenue across all clients and campaigns." />
+
+        <Letterhead title="Finance Report" printOnly />
 
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
           <StatCard label="Revenue Collected" value={totalRevenue / 100} format={(n) => formatMoney(money(n * 100))} tone="green" />
