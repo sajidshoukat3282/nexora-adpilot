@@ -2,7 +2,10 @@ import React, { useState } from 'react';
 
 export default function AddClientForm({ onClose }: { onClose: () => void }) {
   const [formData, setFormData] = useState({
-    name: '', client_type: 'direct', industry: '', city: '', phone: '', email: '', credit_limit: 0, notes: ''
+    name: '', client_type: 'direct', industry: '', city: '', phone: '', email: '', 
+    credit_limit: 0, 
+    currency: 'PKR', // Default currency
+    notes: ''
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,7 +30,6 @@ export default function AddClientForm({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    // Yahan max-h aur overflow add kiya hai
     <div className="bg-[#0f172a] text-white p-6 rounded-xl border border-gray-700 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
       <h2 className="text-xl font-bold mb-4">Add New Client</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -67,10 +69,26 @@ export default function AddClientForm({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        <div>
-          <label className="text-sm text-gray-400">Credit Limit (PKR)</label>
-          <input type="number" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none"
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, credit_limit: Number(e.target.value)})} placeholder="0" />
+        {/* Naya Currency aur Credit Limit Section */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm text-gray-400">Credit Limit</label>
+            <input type="number" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none"
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, credit_limit: Number(e.target.value)})} placeholder="0" />
+          </div>
+          <div>
+            <label className="text-sm text-gray-400">Currency</label>
+            <select className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none"
+              value={formData.currency}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({...formData, currency: e.target.value})}>
+              <option value="PKR">PKR - Pakistani Rupee</option>
+              <option value="USD">USD - US Dollar</option>
+              <option value="AED">AED - UAE Dirham</option>
+              <option value="GBP">GBP - British Pound</option>
+              <option value="EUR">EUR - Euro</option>
+              <option value="SAR">SAR - Saudi Riyal</option>
+            </select>
+          </div>
         </div>
 
         <div>
