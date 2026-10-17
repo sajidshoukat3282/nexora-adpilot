@@ -1767,10 +1767,10 @@ export default {
         const id = crypto.randomUUID();
 
         await env.DB.prepare(
-          `INSERT INTO clients (id, company_id, name, client_type, industry, city, phone, email, credit_limit, notes) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO clients (id, company_id, name, client_type, industry, city, phone, email, credit_limit, currency, notes) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).bind(
-          id, session.companyId, body.name, body.client_type || 'direct', body.industry || null, body.city || null, body.phone || null, body.email || null, body.credit_limit || 0, body.notes || null
+          id, session.companyId, body.name, body.client_type || 'direct', body.industry || null, body.city || null, body.phone || null, body.email || null, body.credit_limit || 0, body.currency || 'PKR', body.notes || null
         ).run();
 
         return json({ ok: true, id });
