@@ -4,6 +4,8 @@ import { StatusBadge, invoiceStatusTone } from "@/components/ui/StatusBadge";
 import { PermissionGate } from "@/components/ui/PermissionGate";
 import { useAsync } from "@/hooks/useAsync";
 import { repo } from "@/repositories/demo";
+import { useCompanyProfile } from "@/hooks/useCompanyProfile";
+import { useSession } from "@/hooks/useSession";
 import type { Invoice, CurrencyCode } from "@/domain";
 import { INVOICE_STATUS_LABELS, formatMoney, money } from "@/domain";
 
@@ -13,6 +15,8 @@ export const InvoiceDetailDrawer: React.FC<{
   onRecordPayment: () => void;
 }> = ({ invoice, onClose, onRecordPayment }) => {
   const [copied, setCopied] = useState(false);
+  const { company } = useSession();
+  const { profile } = useCompanyProfile();
   const client = useAsync(() => (invoice ? repo.crm.getClient(invoice.clientId) : Promise.resolve(null)), [invoice?.id]);
   const payments = useAsync(() => (invoice ? repo.finance.listPaymentsForInvoice(invoice.id) : Promise.resolve([])), [invoice?.id]);
 
@@ -21,7 +25,8 @@ export const InvoiceDetailDrawer: React.FC<{
 
   // Financial & Tax Calculations
   const subtotalCents = invoice?.items.reduce((sum, item) => sum + item.totalCents, 0) ?? 0;
-  const estimatedGstCents = Math.round(subtotalCents * 0.18);
+  const gstRate = profile?.defaultTaxRate ?? 18;
+  const estimatedGstCents = Math.round(subtotalCents * (gstRate / 100));
   const estimatedWhtCents = Math.round(subtotalCents * 0.03);
 
   const handleCopyLink = () => {
@@ -76,12 +81,18 @@ export const InvoiceDetailDrawer: React.FC<{
             <div>
               <span className="text-ink-500 block">Billed To (Client):</span>
               <span className="font-semibold text-ink-200 block">{client.data?.name ?? "—"}</span>
-              <span className="text-ink-400 font-mono">NTN: 7492018-3</span>
             </div>
             <div>
               <span className="text-ink-500 block">Issued By:</span>
-              <span className="font-semibold text-ink-200 block">Nexora Media Pvt Ltd</span>
-              <span className="text-ink-400 font-mono">STRN: 3277876112911</span>
+              <span className="font-semibold text-ink-200 block">{profile?.legalName || company?.name || "—"}</span>
+              {profile?.address && (
+                <span className="text-ink-400 block">
+                  {[profile.address, profile.city, profile.country].filter(Boolean).join(", ")}
+                </span>
+              )}
+              {profile?.phone && <span className="text-ink-400 block">Tel: {profile.phone}</span>}
+              {profile?.ntn && <span className="text-ink-400 font-mono block">NTN: {profile.ntn}</span>}
+              {profile?.strn && <span className="text-ink-400 font-mono block">STRN: {profile.strn}</span>}
             </div>
           </div>
 
@@ -115,7 +126,7 @@ export const InvoiceDetailDrawer: React.FC<{
               <span>{formatMoney(money(subtotalCents, curr))}</span>
             </div>
             <div className="flex justify-between text-xs text-ink-400">
-              <span>Sales Tax / GST (18%)</span>
+              <span>Sales Tax / GST ({gstRate}%)</span>
               <span>+{formatMoney(money(estimatedGstCents, curr))}</span>
             </div>
             <div className="flex justify-between text-xs text-signal-amber">
@@ -141,17 +152,29 @@ export const InvoiceDetailDrawer: React.FC<{
           </div>
 
           {/* Wire Transfer Details */}
-          <div className="p-3 bg-surface-bg/30 rounded-lg border border-surface-border text-xs space-y-1">
-            <h5 className="font-semibold text-ink-300 uppercase tracking-wide mb-1">Bank Wire Transfer Info</h5>
-            <div className="flex justify-between text-ink-400">
-              <span>Bank Name:</span>
-              <span className="text-ink-200 font-mono">Meezan Bank Ltd</span>
+          {(profile?.bankName || profile?.bankIban) && (
+            <div className="p-3 bg-surface-bg/30 rounded-lg border border-surface-border text-xs space-y-1">
+              <h5 className="font-semibold text-ink-300 uppercase tracking-wide mb-1">Bank Wire Transfer Info</h5>
+              {profile?.bankName && (
+                <div className="flex justify-between text-ink-400">
+                  <span>Bank Name:</span>
+                  <span className="text-ink-200 font-mono">{profile.bankName}</span>
+                </div>
+              )}
+              {profile?.bankAccountTitle && (
+                <div className="flex justify-between text-ink-400">
+                  <span>Account Title:</span>
+                  <span className="text-ink-200 font-mono">{profile.bankAccountTitle}</span>
+                </div>
+              )}
+              {profile?.bankIban && (
+                <div className="flex justify-between text-ink-400">
+                  <span>IBAN:</span>
+                  <span className="text-ink-200 font-mono">{profile.bankIban}</span>
+                </div>
+              )}
             </div>
-            <div className="flex justify-between text-ink-400">
-              <span>IBAN:</span>
-              <span className="text-ink-200 font-mono">PK36MEZN000214010928</span>
-            </div>
-          </div>
+          )}
 
           {/* Payment History */}
           <section className="border-t border-ink-800 pt-3">
@@ -172,8 +195,9 @@ export const InvoiceDetailDrawer: React.FC<{
 
           {/* Terms & Conditions Disclaimer */}
           <div className="text-[10px] text-ink-500 border-t border-ink-800 pt-3 space-y-1">
-            <p><strong>Payment Terms:</strong> Net 30 Days from issuance date ({invoice.issueDate}).</p>
-            <p>Late payments are subject to a 1.5% monthly finance charge. Please quote invoice code <strong>{invoice.code}</strong> during bank transfers.</p>
+            <p><strong>Payment Terms:</strong> Net {profile?.paymentTermsDays ?? 30} days from issuance date ({invoice.issueDate}).</p>
+            <p>Please quote invoice code <strong>{invoice.code}</strong> during bank transfers.</p>
+            {profile?.invoiceFooter && <p>{profile.invoiceFooter}</p>}
           </div>
         </div>
       )}
