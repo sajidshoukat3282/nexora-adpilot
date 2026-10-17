@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useSession } from "@/hooks/useSession";
 import { isDemoCompany } from "@/repositories/demo/store";
 import { FiShield, FiAlertTriangle, FiDollarSign, FiUsers, FiSearch, FiDownload, FiEdit2, FiFilter } from "react-icons/fi";
+import { Letterhead } from "@/components/ui/Letterhead";
 
 interface ClientCredit {
   id: string;
@@ -66,6 +67,8 @@ export function CreditRiskDashboard() {
 
   return (
     <div className="space-y-6 p-4 md:p-6 text-ink-200">
+      <Letterhead title="Credit Risk Report" printOnly />
+
       {/* Header & PDF Export Button */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
