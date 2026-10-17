@@ -8,7 +8,7 @@ import { SkeletonCard } from "@/components/ui/Feedback";
 const STAGES: LeadStage[] = ["lead", "qualified", "proposal", "negotiation", "won", "lost"];
 
 export const LeadsBoard: React.FC<{
-  leads: any[]; // Yahan 'any' kiya hai taake database ka data easily map ho jaye
+  leads: any[];
   loading: boolean;
   onChanged: () => void;
 }> = ({ leads, loading, onChanged }) => {
@@ -35,7 +35,8 @@ export const LeadsBoard: React.FC<{
   }
 
   async function convertToClient(leadId: string) {
-    if (!confirm("Kya aap waqai is lead ko client mein convert karna chahte hain?")) return;
+    // Roman Urdu se English kar diya gaya hai
+    if (!confirm("Are you sure you want to convert this lead to a Client?")) return;
     
     setConverting(leadId);
     try {
@@ -44,8 +45,9 @@ export const LeadsBoard: React.FC<{
       });
       if (!res.ok) throw new Error("Failed to convert lead");
       
-      alert("Lead successfully converted to Client! Ab aap 'Clients' tab mein dekh sakte hain.");
-      onChanged(); // Data refresh karein
+      // Roman Urdu se English kar diya gaya hai
+      alert("Lead successfully converted to Client! You can view it in the Clients tab.");
+      onChanged(); 
     } catch (err) {
       alert(err instanceof Error ? err.message : String(err));
     } finally {
@@ -103,7 +105,6 @@ export const LeadsBoard: React.FC<{
                         </div>
                       )}
 
-                      {/* Convert Button for Won Leads */}
                       {lead.stage === 'won' && !lead.convertedClientId && !lead.converted_client_id && (
                         <button
                           disabled={converting === lead.id}
