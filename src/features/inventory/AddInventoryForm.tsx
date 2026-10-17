@@ -21,9 +21,6 @@ export default function AddInventoryForm({ onClose }: { onClose: () => void }) {
     try {
       const res = await fetch(`/api/geography/search?q=${encodeURIComponent(searchQuery)}`);
       const data = await res.json();
-      
-      // Debugging ke liye console mein print kar rahe hain
-      console.log("API SEARCH RESULT:", data);
 
       if (data.ok) {
         if (data.results && data.results.length > 0) {
@@ -43,15 +40,33 @@ export default function AddInventoryForm({ onClose }: { onClose: () => void }) {
   };
 
   const selectLocation = (loc: any) => {
-    // Har qisim ke data format ko handle kiya hai
-    const lat = loc.coordinates?.lat || loc.lat || loc.latitude || loc.properties?.lat || "";
-    const lng = loc.coordinates?.lng || loc.lon || loc.lng || loc.longitude || loc.properties?.lon || "";
-    const cityName = loc.city || loc.address?.city || loc.address?.town || loc.properties?.city || loc.properties?.town || "";
-    const locName = loc.displayName || loc.display_name || loc.name || loc.label || loc.properties?.formatted || loc.address?.displayName || searchQuery;
+    // 1. Coordinates nikalne ka Universal Tareeqa (Geoapify + Nominatim)
+    const lat = loc.coordinates?.latitude || loc.coordinates?.lat || loc.lat || loc.properties?.lat || loc.latitude || "";
+    const lng = loc.coordinates?.longitude || loc.coordinates?.lng || loc.lon || loc.longitude || loc.properties?.lon || "";
+    
+    // 2. Address nikalne ka Universal Tareeqa
+    // Geoapify hamesha 'formatted' deta hai. Nominatim 'display_name' deta hai.
+    // Agar wo na mile to hum khud fields jod lenge (Global Fallback).
+    let fullAddress = loc.formatted || loc.properties?.formatted || loc.display_name || loc.displayName;
+    
+    if (!fullAddress) {
+      const parts = [
+        loc.areaNeighborhood, 
+        loc.suburb,
+        loc.city || loc.town || loc.village, 
+        loc.countyDistrict || loc.county, 
+        loc.stateProvinceRegion || loc.state, 
+        loc.countryName || loc.country
+      ].filter(Boolean); // Jo fields mojood hain sirf unhe jodega
+      fullAddress = parts.join(", ") || searchQuery;
+    }
+
+    // 3. City nikalna
+    const cityName = loc.city || loc.town || loc.village || loc.countyDistrict || loc.properties?.city || loc.address?.city || "";
 
     setFormData({
       ...formData,
-      location: locName,
+      location: fullAddress,
       city: cityName,
       latitude: lat.toString(),
       longitude: lng.toString()
@@ -109,7 +124,7 @@ export default function AddInventoryForm({ onClose }: { onClose: () => void }) {
           <label className="text-sm text-blue-400 font-semibold mb-2 block">Search Location</label>
           <div className="flex gap-2 mb-2">
             <input type="text" className="flex-1 bg-[#1e293b] border border-gray-600 rounded p-2 outline-none" 
-              placeholder="e.g. Packages Mall Lahore" value={searchQuery} 
+              placeholder="e.g. Times Square New York" value={searchQuery} 
               onChange={(e: any) => setSearchQuery(e.target.value)} 
               onKeyDown={(e: any) => e.key === 'Enter' && (e.preventDefault(), handleLocationSearch())}
             />
@@ -128,8 +143,10 @@ export default function AddInventoryForm({ onClose }: { onClose: () => void }) {
             <div className="bg-[#0f172a] border border-gray-600 rounded max-h-40 overflow-y-auto mt-1">
               {searchResults.map((loc: any, i: number) => (
                 <div key={i} onClick={() => selectLocation(loc)} className="p-2 text-sm border-b border-gray-700 hover:bg-[#1e293b] cursor-pointer text-gray-200">
-                  {/* Yahan sab fallbacks laga diye hain */}
-                 {JSON.stringify(loc)}  
+                  {/* Universal Address Display */}
+                  {loc.formatted || loc.properties?.formatted || loc.display_name || loc.displayName || 
+                   [loc.areaNeighborhood, loc.suburb, loc.city, loc.countyDistrict, loc.stateProvinceRegion, loc.countryName].filter(Boolean).join(", ") || 
+                   "Select this location"}
                 </div>
               ))}
             </div>
@@ -181,6 +198,7 @@ export default function AddInventoryForm({ onClose }: { onClose: () => void }) {
               <option value="PKR">PKR</option>
               <option value="USD">USD</option>
               <option value="AED">AED</option>
+              <option value="GBP">GBP</option>
             </select>
           </div>
         </div>
