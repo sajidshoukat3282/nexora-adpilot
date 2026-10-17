@@ -9,46 +9,44 @@ export default function AddInventoryForm({ onClose }: { onClose: () => void }) {
   const [searchQuery, setSearchQuery] = useState<any>("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState<any>(false);
-  const [searchError, setSearchError] = useState<string | null>(null); // Error message ke liye naya state
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const handleLocationSearch = async () => {
     if (!searchQuery) return;
     
     setSearching(true);
     setSearchError(null);
-    setSearchResults([]); // Purane results clear karein
+    setSearchResults([]);
 
     try {
       const res = await fetch(`/api/geography/search?q=${encodeURIComponent(searchQuery)}`);
       const data = await res.json();
       
-      console.log("API Response:", data); // Debugging ke liye
-
       if (data.ok) {
         if (data.results && data.results.length > 0) {
           setSearchResults(data.results);
         } else {
-          setSearchError("No locations found for this search. Please try a different keyword.");
+          setSearchError("No locations found. Try a different search.");
         }
       } else {
-        setSearchError(data.message || "Failed to search location. Server error.");
+        setSearchError(data.message || "Failed to search location.");
       }
     } catch (error: any) {
       console.error("Search error:", error);
-      setSearchError("Network error. Could not connect to location service.");
+      setSearchError("Network error. Could not connect.");
     } finally {
       setSearching(false);
     }
   };
 
   const selectLocation = (loc: any) => {
-    console.log("Selected Location Data:", loc); // Debugging ke liye
+    console.log("Selected Location Data:", loc); // Check console to see actual data structure
     
-    // Alag alag API formats ko handle karne ke liye fallbacks
+    // Saare possible data structures ko handle kiya hai
     const lat = loc.coordinates?.lat || loc.lat || loc.latitude || "";
     const lng = loc.coordinates?.lng || loc.lng || loc.longitude || "";
     const cityName = loc.city || loc.address?.city || loc.address?.town || loc.cityName || "";
-    const locName = loc.displayName || loc.name || loc.address?.displayName || searchQuery;
+    const locName = loc.label || loc.displayName || loc.name || loc.address?.displayName || searchQuery;
 
     setFormData({
       ...formData,
@@ -106,12 +104,11 @@ export default function AddInventoryForm({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        {/* Location Search Integration */}
         <div className="border border-gray-600 p-3 rounded-lg bg-[#1e293b]/50">
-          <label className="text-sm text-blue-400 font-semibold mb-2 block">Search Location (Google/Nominatim)</label>
+          <label className="text-sm text-blue-400 font-semibold mb-2 block">Search Location</label>
           <div className="flex gap-2 mb-2">
             <input type="text" className="flex-1 bg-[#1e293b] border border-gray-600 rounded p-2 outline-none" 
-              placeholder="e.g. Dolmen Mall Karachi" value={searchQuery} 
+              placeholder="e.g. Packages Mall Lahore" value={searchQuery} 
               onChange={(e: any) => setSearchQuery(e.target.value)} 
               onKeyDown={(e: any) => e.key === 'Enter' && (e.preventDefault(), handleLocationSearch())}
             />
@@ -120,19 +117,18 @@ export default function AddInventoryForm({ onClose }: { onClose: () => void }) {
             </button>
           </div>
           
-          {/* Error Message Display */}
           {searchError && (
             <div className="text-xs text-red-400 mt-1 mb-2 bg-red-900/20 p-2 rounded border border-red-800">
               {searchError}
             </div>
           )}
 
-          {/* Search Results List */}
           {searchResults.length > 0 && (
             <div className="bg-[#0f172a] border border-gray-600 rounded max-h-40 overflow-y-auto mt-1">
               {searchResults.map((loc: any, i: number) => (
                 <div key={i} onClick={() => selectLocation(loc)} className="p-2 text-sm border-b border-gray-700 hover:bg-[#1e293b] cursor-pointer text-gray-200">
-                  {loc.displayName || loc.name || loc.address?.displayName || "Unknown Location"}
+                  {/* Yahan label, name aur displayName sab check kar rahe hain */}
+                  {loc.label || loc.displayName || loc.name || loc.address?.displayName || "Unknown Location"}
                 </div>
               ))}
             </div>
