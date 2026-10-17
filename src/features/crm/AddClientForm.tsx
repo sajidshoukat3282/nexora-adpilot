@@ -17,7 +17,6 @@ export default function AddClientForm({ onClose }: { onClose: () => void }) {
       if (res.ok) {
         alert('Client Added Successfully!');
         onClose();
-        window.location.reload();
       } else {
         alert('Error adding client.');
       }
@@ -28,7 +27,8 @@ export default function AddClientForm({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="bg-[#0f172a] text-white p-6 rounded-xl border border-gray-700 w-full max-w-md shadow-2xl">
+    // Yahan max-h aur overflow add kiya hai
+    <div className="bg-[#0f172a] text-white p-6 rounded-xl border border-gray-700 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
       <h2 className="text-xl font-bold mb-4">Add New Client</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         
