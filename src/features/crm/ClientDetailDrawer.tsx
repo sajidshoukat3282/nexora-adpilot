@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Drawer } from "@/components/ui/Drawer";
 import { StatusBadge, campaignStatusTone, proposalStatusTone, invoiceStatusTone } from "@/components/ui/StatusBadge";
 import { Skeleton } from "@/components/ui/Feedback";
@@ -7,9 +7,38 @@ import { repo } from "@/repositories/demo";
 import { Link } from "@/lib/router";
 import type { Client } from "@/domain";
 import { CAMPAIGN_STATUS_LABELS, PROPOSAL_STATUS_LABELS, INVOICE_STATUS_LABELS, formatMoney } from "@/domain";
+import AddContactForm from "./AddContactForm";
 
 export const ClientDetailDrawer: React.FC<{ client: Client | null; onClose: () => void }> = ({ client, onClose }) => {
-  const contacts = useAsync(() => (client ? repo.crm.listContactsForClient(client.id) : Promise.resolve([])), [client?.id]);
+  // Asli Contacts ka state
+  const [contactsData, setContactsData] = useState<any[]>([]);
+  const [loadingContacts, setLoadingContacts] = useState(false);
+  const [showContactForm, setShowContactForm] = useState(false);
+
+  // Contacts fetch karne ka function
+  const fetchContacts = async () => {
+    if (!client) return;
+    setLoadingContacts(true);
+    try {
+      const res = await fetch(`/api/crm/contacts?client_id=${client.id}`);
+      const data = await res.json();
+      if (data.ok) {
+        setContactsData(data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching contacts", error);
+    } finally {
+      setLoadingContacts(false);
+    }
+  };
+
+  useEffect(() => {
+    if (client) {
+      fetchContacts();
+    }
+  }, [client?.id]);
+
+  // Purane demo hooks (Baqi sections ke liye)
   const campaigns = useAsync(() => (client ? repo.campaigns.listCampaigns({ clientId: client.id }) : Promise.resolve([])), [client?.id]);
   const proposals = useAsync(() => repo.proposals.listProposals(), [client?.id]);
   const invoices = useAsync(() => repo.finance.listInvoices(), [client?.id]);
@@ -21,15 +50,23 @@ export const ClientDetailDrawer: React.FC<{ client: Client | null; onClose: () =
     <Drawer open={!!client} onClose={onClose} title={client?.name ?? ""} subtitle={client?.industry}>
       {client && (
         <div className="space-y-6">
+          
+          {/* CONTACTS SECTION (Updated) */}
           <section>
-            <h4 className="text-xs font-bold uppercase tracking-wide text-ink-400 mb-2">Contacts</h4>
-            {contacts.loading && <Skeleton className="h-14 w-full" />}
+            <div className="flex justify-between items-center mb-2">
+              <h4 className="text-xs font-bold uppercase tracking-wide text-ink-400">Contacts</h4>
+              <button onClick={() => setShowContactForm(true)} className="text-xs text-blue-400 hover:text-blue-300 font-semibold">
+                + Add Contact
+              </button>
+            </div>
+            
+            {loadingContacts && <Skeleton className="h-14 w-full" />}
             <div className="space-y-2">
-              {contacts.data?.map((c) => (
+              {contactsData.map((c) => (
                 <div key={c.id} className="panel p-3 flex items-center justify-between">
                   <div>
                     <div className="text-sm font-medium text-ink-100">
-                      {c.name} {c.primary && <span className="text-[10px] text-signal-cyan ml-1">PRIMARY</span>}
+                      {c.name} {c.is_primary === 1 && <span className="text-[10px] text-signal-cyan ml-1">PRIMARY</span>}
                     </div>
                     <div className="text-xs text-ink-500">{c.title}</div>
                   </div>
@@ -39,9 +76,13 @@ export const ClientDetailDrawer: React.FC<{ client: Client | null; onClose: () =
                   </div>
                 </div>
               ))}
+              {contactsData.length === 0 && !loadingContacts && (
+                <p className="text-xs text-ink-500">No contacts yet.</p>
+              )}
             </div>
           </section>
 
+          {/* CAMPAIGN HISTORY */}
           <section>
             <h4 className="text-xs font-bold uppercase tracking-wide text-ink-400 mb-2">Campaign History</h4>
             {campaigns.loading && <Skeleton className="h-10 w-full" />}
@@ -58,6 +99,7 @@ export const ClientDetailDrawer: React.FC<{ client: Client | null; onClose: () =
             </div>
           </section>
 
+          {/* PROPOSALS */}
           <section>
             <h4 className="text-xs font-bold uppercase tracking-wide text-ink-400 mb-2">Proposals</h4>
             <div className="space-y-1.5">
@@ -74,6 +116,7 @@ export const ClientDetailDrawer: React.FC<{ client: Client | null; onClose: () =
             </div>
           </section>
 
+          {/* INVOICES */}
           <section>
             <h4 className="text-xs font-bold uppercase tracking-wide text-ink-400 mb-2">Invoices</h4>
             <div className="space-y-1.5">
@@ -89,6 +132,19 @@ export const ClientDetailDrawer: React.FC<{ client: Client | null; onClose: () =
               {clientInvoices.length === 0 && <p className="text-xs text-ink-500">No invoices yet.</p>}
             </div>
           </section>
+        </div>
+      )}
+
+      {/* Contact Form Modal */}
+      {showContactForm && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60]">
+          <AddContactForm 
+            clientId={client!.id} 
+            onClose={() => { 
+              setShowContactForm(false); 
+              fetchContacts(); // Naya contact add hone par list refresh karein
+            }} 
+          />
         </div>
       )}
     </Drawer>
