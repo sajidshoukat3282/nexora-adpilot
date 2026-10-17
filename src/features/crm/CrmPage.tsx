@@ -1,14 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FiSearch } from "react-icons/fi";
 import { PageHeader } from "@/components/layout/AppShell";
 import { Tabs } from "@/components/ui/Tabs";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { LeadsBoard } from "./LeadsBoard";
 import { ClientDetailDrawer } from "./ClientDetailDrawer";
-import { useAsync } from "@/hooks/useAsync";
-import { repo } from "@/repositories/demo";
 import { useSession } from "@/hooks/useSession";
 import type { Client } from "@/domain";
+import AddClientForm from "./AddClientForm";
+import AddLeadForm from "./AddLeadForm";
 
 export const CrmPage: React.FC = () => {
   const { company } = useSession();
@@ -16,20 +16,84 @@ export const CrmPage: React.FC = () => {
   const [search, setSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
-  const leads = useAsync(() => repo.crm.listLeads(), []);
-  const clients = useAsync(() => repo.crm.listClients(search || undefined), [search]);
+  // Real Data States
+  const [leadsData, setLeadsData] = useState<any[]>([]);
+  const [clientsData, setClientsData] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Modal States
+  const [showClientForm, setShowClientForm] = useState(false);
+  const [showLeadForm, setShowLeadForm] = useState(false);
+
+  // Fetch Data from Database
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [clientsRes, leadsRes] = await Promise.all([
+        fetch('/api/crm/clients'),
+        fetch('/api/crm/leads')
+      ]);
+
+      const cData = await clientsRes.json();
+      const lData = await leadsRes.json();
+
+      if (cData.ok) {
+        // API data ko purane 'Client' type ke hisaab se map kar rahe hain
+        const mappedClients = cData.data.map((c: any) => ({
+          ...c,
+          logoInitial: c.name ? c.name.charAt(0).toUpperCase() : 'C',
+          isPortalEnabled: c.portal_status === 'active',
+          industry: c.industry || 'N/A'
+        }));
+        setClientsData(mappedClients);
+      }
+
+      if (lData.ok) {
+        setLeadsData(lData.data);
+      }
+    } catch (error) {
+      console.error("Error fetching CRM data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Frontend Search Filter (Kyunke abhi backend search nahi hai)
+  const filteredClients = clientsData.filter((c) => 
+    c.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div>
-      <PageHeader
-        title="CRM & Leads"
-        description={`Sales pipeline and client roster for ${company?.name ?? "your company"}.`}
-      />
+      <div className="flex justify-between items-center mb-4">
+        <PageHeader
+          title="CRM & Leads"
+          description={`Sales pipeline and client roster for ${company?.name ?? "your company"}.`}
+        />
+        <div className="flex gap-3">
+          <button 
+            onClick={() => setShowLeadForm(true)} 
+            className="bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+          >
+            + Add Lead
+          </button>
+          <button 
+            onClick={() => setShowClientForm(true)} 
+            className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
+          >
+            + Add Client
+          </button>
+        </div>
+      </div>
 
       <Tabs
         tabs={[
-          { key: "leads", label: "Pipeline", badge: leads.data?.filter((l) => !["won", "lost"].includes(l.stage)).length },
-          { key: "clients", label: "Clients", badge: clients.data?.length },
+          { key: "leads", label: "Pipeline", badge: leadsData.filter((l) => !["won", "lost"].includes(l.stage)).length },
+          { key: "clients", label: "Clients", badge: clientsData.length },
         ]}
         active={tab}
         onChange={(k) => setTab(k as "leads" | "clients")}
@@ -37,7 +101,11 @@ export const CrmPage: React.FC = () => {
 
       <div className="mt-5">
         {tab === "leads" && (
-          <LeadsBoard leads={leads.data ?? []} loading={leads.loading} onChanged={leads.reload} />
+          <LeadsBoard 
+            leads={leadsData} 
+            loading={loading} 
+            onChanged={fetchData} 
+          />
         )}
 
         {tab === "clients" && (
@@ -48,16 +116,16 @@ export const CrmPage: React.FC = () => {
                 value={search}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
                 placeholder="Search clients..."
-                className="input pl-9"
+                className="input pl-9 w-full bg-transparent border border-gray-600 rounded p-2 text-white"
               />
             </div>
             <div className="panel">
               <DataTable<Client>
                 columns={clientColumns}
-                rows={clients.data ?? []}
+                rows={filteredClients}
                 keyOf={(c) => c.id}
                 onRowClick={(c) => setSelectedClient(c)}
-                emptyTitle="No clients found"
+                emptyTitle={loading ? "Loading clients..." : "No clients found"}
               />
             </div>
           </div>
@@ -65,6 +133,29 @@ export const CrmPage: React.FC = () => {
       </div>
 
       <ClientDetailDrawer client={selectedClient} onClose={() => setSelectedClient(null)} />
+
+      {/* Forms Modals */}
+      {showClientForm && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <AddClientForm 
+            onClose={() => { 
+              setShowClientForm(false); 
+              fetchData(); // Form band hone par data refresh karein
+            }} 
+          />
+        </div>
+      )}
+
+      {showLeadForm && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <AddLeadForm 
+            onClose={() => { 
+              setShowLeadForm(false); 
+              fetchData(); // Form band hone par data refresh karein
+            }} 
+          />
+        </div>
+      )}
     </div>
   );
 };
