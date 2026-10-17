@@ -1,11 +1,11 @@
-import { useState, FormEvent } from 'react'; // Yahan FormEvent import kiya hai
+import React, { useState } from 'react';
 
 export default function AddClientForm({ onClose }: { onClose: () => void }) {
   const [formData, setFormData] = useState({
     name: '', client_type: 'direct', industry: '', city: '', phone: '', email: '', credit_limit: 0, notes: ''
   });
 
-  const handleSubmit = async (e: FormEvent) => { // Yahan React. hata diya hai
+  const handleSubmit = async (e: any) => {
     e.preventDefault();
     try {
       const res = await fetch('/api/crm/clients', {
@@ -19,7 +19,7 @@ export default function AddClientForm({ onClose }: { onClose: () => void }) {
         onClose();
         window.location.reload();
       } else {
-        alert('Error adding client. Check console.');
+        alert('Error adding client.');
       }
     } catch (error) {
       console.error(error);
@@ -34,54 +34,54 @@ export default function AddClientForm({ onClose }: { onClose: () => void }) {
         
         <div>
           <label className="text-sm text-gray-400">Client / Company Name *</label>
-          <input required type="text" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 focus:border-blue-500 outline-none" 
-            onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. Coca Cola" />
+          <input required type="text" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none" 
+            onChange={(e: any) => setFormData({...formData, name: e.target.value})} placeholder="e.g. Coca Cola" />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-sm text-gray-400">Client Type</label>
-            <select className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 focus:border-blue-500 outline-none"
-              onChange={e => setFormData({...formData, client_type: e.target.value})}>
+            <select className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none"
+              onChange={(e: any) => setFormData({...formData, client_type: e.target.value})}>
               <option value="direct">Direct Brand</option>
               <option value="agency">Media Agency</option>
             </select>
           </div>
           <div>
             <label className="text-sm text-gray-400">City</label>
-            <input type="text" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 focus:border-blue-500 outline-none"
-              onChange={e => setFormData({...formData, city: e.target.value})} placeholder="e.g. Lahore" />
+            <input type="text" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none"
+              onChange={(e: any) => setFormData({...formData, city: e.target.value})} placeholder="e.g. Lahore" />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-sm text-gray-400">Email</label>
-            <input type="email" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 focus:border-blue-500 outline-none"
-              onChange={e => setFormData({...formData, email: e.target.value})} />
+            <input type="email" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none"
+              onChange={(e: any) => setFormData({...formData, email: e.target.value})} />
           </div>
           <div>
             <label className="text-sm text-gray-400">Phone</label>
-            <input type="text" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 focus:border-blue-500 outline-none"
-              onChange={e => setFormData({...formData, phone: e.target.value})} />
+            <input type="text" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none"
+              onChange={(e: any) => setFormData({...formData, phone: e.target.value})} />
           </div>
         </div>
 
         <div>
           <label className="text-sm text-gray-400">Credit Limit (PKR)</label>
-          <input type="number" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 focus:border-blue-500 outline-none"
-            onChange={e => setFormData({...formData, credit_limit: Number(e.target.value)})} placeholder="0" />
+          <input type="number" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none"
+            onChange={(e: any) => setFormData({...formData, credit_limit: Number(e.target.value)})} placeholder="0" />
         </div>
 
         <div>
           <label className="text-sm text-gray-400">Notes / Activity</label>
-          <textarea className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 focus:border-blue-500 outline-none" rows={2}
-            onChange={e => setFormData({...formData, notes: e.target.value})} placeholder="Initial conversation details..."></textarea>
+          <textarea className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none" rows={2}
+            onChange={(e: any) => setFormData({...formData, notes: e.target.value})} placeholder="Initial conversation details..."></textarea>
         </div>
 
         <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-gray-400 hover:text-white transition-colors">Cancel</button>
-          <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded font-medium transition-colors">Save Client</button>
+          <button type="button" onClick={onClose} className="px-4 py-2 text-gray-400 hover:text-white">Cancel</button>
+          <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded font-medium">Save Client</button>
         </div>
       </form>
     </div>
