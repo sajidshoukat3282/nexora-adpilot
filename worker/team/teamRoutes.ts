@@ -5,6 +5,7 @@ import {
   type SessionContext,
 } from '../auth/session';
 import { hashPassword } from '../auth/password';
+import { handleCompanyRoutes } from '../company/companyRoutes';
 import {
   ROLE_PERMISSIONS,
   type Permission,
@@ -897,6 +898,10 @@ export async function handleTeamRoutes(
   url: URL,
 ): Promise<Response | null> {
   const path = url.pathname;
+
+  // Company profile routes (/api/company/profile) share this entry point.
+  const companyResponse = await handleCompanyRoutes(request, env, url);
+  if (companyResponse) return companyResponse;
 
   try {
     if (path === '/api/auth/invitation' && request.method === 'GET') {
