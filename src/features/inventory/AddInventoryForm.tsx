@@ -9,30 +9,53 @@ export default function AddInventoryForm({ onClose }: { onClose: () => void }) {
   const [searchQuery, setSearchQuery] = useState<any>("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState<any>(false);
+  const [searchError, setSearchError] = useState<string | null>(null); // Error message ke liye naya state
 
   const handleLocationSearch = async () => {
     if (!searchQuery) return;
+    
     setSearching(true);
+    setSearchError(null);
+    setSearchResults([]); // Purane results clear karein
+
     try {
       const res = await fetch(`/api/geography/search?q=${encodeURIComponent(searchQuery)}`);
       const data = await res.json();
+      
+      console.log("API Response:", data); // Debugging ke liye
+
       if (data.ok) {
-        setSearchResults(data.results || []);
+        if (data.results && data.results.length > 0) {
+          setSearchResults(data.results);
+        } else {
+          setSearchError("No locations found for this search. Please try a different keyword.");
+        }
+      } else {
+        setSearchError(data.message || "Failed to search location. Server error.");
       }
-    } catch (error) {
-      console.error("Location search failed", error);
+    } catch (error: any) {
+      console.error("Search error:", error);
+      setSearchError("Network error. Could not connect to location service.");
     } finally {
       setSearching(false);
     }
   };
 
   const selectLocation = (loc: any) => {
+    console.log("Selected Location Data:", loc); // Debugging ke liye
+    
+    // Alag alag API formats ko handle karne ke liye fallbacks
+    const lat = loc.coordinates?.lat || loc.lat || loc.latitude || "";
+    const lng = loc.coordinates?.lng || loc.lng || loc.longitude || "";
+    const cityName = loc.city || loc.address?.city || loc.address?.town || loc.cityName || "";
+    const locName = loc.displayName || loc.name || loc.address?.displayName || searchQuery;
+
     setFormData({
       ...formData,
-      location: loc.displayName || loc.name || searchQuery,
-      city: loc.city || loc.address?.city || loc.address?.town || "",
-      latitude: (loc.coordinates?.lat || loc.lat || "").toString(),
-      longitude: (loc.coordinates?.lng || loc.lng || "").toString()
+      location: locName,
+      city: cityName,
+      latitude: lat.toString(),
+      longitude: lng.toString()
     });
     setSearchResults([]); 
   };
@@ -83,21 +106,33 @@ export default function AddInventoryForm({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
+        {/* Location Search Integration */}
         <div className="border border-gray-600 p-3 rounded-lg bg-[#1e293b]/50">
           <label className="text-sm text-blue-400 font-semibold mb-2 block">Search Location (Google/Nominatim)</label>
           <div className="flex gap-2 mb-2">
             <input type="text" className="flex-1 bg-[#1e293b] border border-gray-600 rounded p-2 outline-none" 
-              placeholder="e.g. Dolmen Mall Karachi" value={searchQuery} onChange={(e: any) => setSearchQuery(e.target.value)} />
-            <button type="button" onClick={handleLocationSearch} disabled={searching} className="bg-blue-600 px-4 rounded text-sm hover:bg-blue-500">
-              {searching ? "..." : "Search"}
+              placeholder="e.g. Dolmen Mall Karachi" value={searchQuery} 
+              onChange={(e: any) => setSearchQuery(e.target.value)} 
+              onKeyDown={(e: any) => e.key === 'Enter' && (e.preventDefault(), handleLocationSearch())}
+            />
+            <button type="button" onClick={handleLocationSearch} disabled={searching} className="bg-blue-600 px-4 rounded text-sm hover:bg-blue-500 disabled:opacity-50">
+              {searching ? "Searching..." : "Search"}
             </button>
           </div>
           
+          {/* Error Message Display */}
+          {searchError && (
+            <div className="text-xs text-red-400 mt-1 mb-2 bg-red-900/20 p-2 rounded border border-red-800">
+              {searchError}
+            </div>
+          )}
+
+          {/* Search Results List */}
           {searchResults.length > 0 && (
-            <div className="bg-[#0f172a] border border-gray-600 rounded max-h-32 overflow-y-auto mt-1">
+            <div className="bg-[#0f172a] border border-gray-600 rounded max-h-40 overflow-y-auto mt-1">
               {searchResults.map((loc: any, i: number) => (
-                <div key={i} onClick={() => selectLocation(loc)} className="p-2 text-sm border-b border-gray-700 hover:bg-[#1e293b] cursor-pointer">
-                  {loc.displayName || loc.name}
+                <div key={i} onClick={() => selectLocation(loc)} className="p-2 text-sm border-b border-gray-700 hover:bg-[#1e293b] cursor-pointer text-gray-200">
+                  {loc.displayName || loc.name || loc.address?.displayName || "Unknown Location"}
                 </div>
               ))}
             </div>
@@ -106,15 +141,15 @@ export default function AddInventoryForm({ onClose }: { onClose: () => void }) {
           <div className="grid grid-cols-3 gap-2 mt-2">
              <div>
                <label className="text-xs text-gray-500">City</label>
-               <input type="text" className="w-full bg-[#1e293b] border border-gray-600 rounded p-1.5 text-sm" value={formData.city} readOnly />
+               <input type="text" className="w-full bg-[#1e293b] border border-gray-600 rounded p-1.5 text-sm text-gray-300" value={formData.city} readOnly placeholder="Auto-filled" />
              </div>
              <div>
                <label className="text-xs text-gray-500">Latitude</label>
-               <input type="text" className="w-full bg-[#1e293b] border border-gray-600 rounded p-1.5 text-sm" value={formData.latitude} readOnly />
+               <input type="text" className="w-full bg-[#1e293b] border border-gray-600 rounded p-1.5 text-sm text-gray-300" value={formData.latitude} readOnly placeholder="Auto-filled" />
              </div>
              <div>
                <label className="text-xs text-gray-500">Longitude</label>
-               <input type="text" className="w-full bg-[#1e293b] border border-gray-600 rounded p-1.5 text-sm" value={formData.longitude} readOnly />
+               <input type="text" className="w-full bg-[#1e293b] border border-gray-600 rounded p-1.5 text-sm text-gray-300" value={formData.longitude} readOnly placeholder="Auto-filled" />
              </div>
           </div>
         </div>
