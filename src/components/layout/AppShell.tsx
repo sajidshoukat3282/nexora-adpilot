@@ -2,6 +2,42 @@ import React, { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { MobileNav } from "./MobileNav";
+import { useSession } from "@/hooks/useSession";
+import { useCompanyProfile } from "@/hooks/useCompanyProfile";
+import { Link } from "@/lib/router";
+
+const PRINT_CSS = `
+@media print {
+  aside, header.sticky, [data-no-print] { display: none !important; }
+  body, main, .bg-ink-950 { background: #fff !important; }
+  main * { color: #111 !important; border-color: #ccc !important; box-shadow: none !important; }
+  .panel, .stat-card { background: #fff !important; }
+}
+`;
+
+const ProfileBanner: React.FC = () => {
+  const { can, session } = useSession();
+  const { profile } = useCompanyProfile();
+
+  if (!session || !can("company.manage") || !profile || profile.complete) {
+    return null;
+  }
+
+  return (
+    <div
+      data-no-print
+      className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-signal-amber/30 bg-signal-amber/10 px-4 py-3 text-sm text-signal-amber"
+    >
+      <span>
+        Please complete your company profile (name, address, phone, NTN). These
+        details are printed on your invoices and reports.
+      </span>
+      <Link to="/admin" className="btn-secondary text-xs">
+        Complete profile
+      </Link>
+    </div>
+  );
+};
 
 export const AppShell: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -10,6 +46,7 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <div className="min-h-screen bg-ink-950 text-ink-100">
+      <style>{PRINT_CSS}</style>
       <div className="flex min-h-screen">
         <Sidebar />
 
@@ -25,6 +62,7 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.035),transparent_32%)]" />
 
             <div className="relative mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-5 md:px-6 md:py-7 lg:px-8">
+              <ProfileBanner />
               {children}
             </div>
           </main>
