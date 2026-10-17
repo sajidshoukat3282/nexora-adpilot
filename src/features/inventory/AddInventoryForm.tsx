@@ -22,6 +22,9 @@ export default function AddInventoryForm({ onClose }: { onClose: () => void }) {
       const res = await fetch(`/api/geography/search?q=${encodeURIComponent(searchQuery)}`);
       const data = await res.json();
       
+      // Debugging ke liye console mein print kar rahe hain
+      console.log("API SEARCH RESULT:", data);
+
       if (data.ok) {
         if (data.results && data.results.length > 0) {
           setSearchResults(data.results);
@@ -40,13 +43,11 @@ export default function AddInventoryForm({ onClose }: { onClose: () => void }) {
   };
 
   const selectLocation = (loc: any) => {
-    console.log("Selected Location Data:", loc); // Check console to see actual data structure
-    
-    // Saare possible data structures ko handle kiya hai
-    const lat = loc.coordinates?.lat || loc.lat || loc.latitude || "";
-    const lng = loc.coordinates?.lng || loc.lng || loc.longitude || "";
-    const cityName = loc.city || loc.address?.city || loc.address?.town || loc.cityName || "";
-    const locName = loc.label || loc.displayName || loc.name || loc.address?.displayName || searchQuery;
+    // Har qisim ke data format ko handle kiya hai
+    const lat = loc.coordinates?.lat || loc.lat || loc.latitude || loc.properties?.lat || "";
+    const lng = loc.coordinates?.lng || loc.lon || loc.lng || loc.longitude || loc.properties?.lon || "";
+    const cityName = loc.city || loc.address?.city || loc.address?.town || loc.properties?.city || loc.properties?.town || "";
+    const locName = loc.displayName || loc.display_name || loc.name || loc.label || loc.properties?.formatted || loc.address?.displayName || searchQuery;
 
     setFormData({
       ...formData,
@@ -127,8 +128,8 @@ export default function AddInventoryForm({ onClose }: { onClose: () => void }) {
             <div className="bg-[#0f172a] border border-gray-600 rounded max-h-40 overflow-y-auto mt-1">
               {searchResults.map((loc: any, i: number) => (
                 <div key={i} onClick={() => selectLocation(loc)} className="p-2 text-sm border-b border-gray-700 hover:bg-[#1e293b] cursor-pointer text-gray-200">
-                  {/* Yahan label, name aur displayName sab check kar rahe hain */}
-                  {loc.label || loc.displayName || loc.name || loc.address?.displayName || "Unknown Location"}
+                  {/* Yahan sab fallbacks laga diye hain */}
+                  {loc.displayName || loc.display_name || loc.name || loc.label || loc.properties?.formatted || loc.address?.displayName || "Location Found (Click to Select)"}
                 </div>
               ))}
             </div>
