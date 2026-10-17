@@ -297,8 +297,8 @@ export function CreditRiskDashboard() {
 
       {/* Edit Modal */}
       {editingClient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-surface-card border border-border rounded-xl p-6 w-full max-w-md space-y-4 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="bg-ink-900 border border-ink-700 rounded-xl p-6 w-full max-w-md space-y-4 shadow-2xl shadow-black/50">
             <h3 className="text-lg font-bold text-ink-50">Edit Credit Limit</h3>
             <p className="text-sm text-ink-400">
               Update maximum credit threshold for <span className="text-ink-50 font-semibold">{editingClient.name}</span>.
@@ -309,7 +309,7 @@ export function CreditRiskDashboard() {
                 type="number"
                 value={newLimitInput}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewLimitInput(e.target.value)}
-                className="w-full bg-ink-900 border border-border rounded-lg px-3 py-2 text-sm text-ink-50 focus:outline-none focus:border-signal-blue"
+                className="w-full bg-ink-950 border border-ink-700 rounded-lg px-3 py-2 text-sm text-ink-50 focus:outline-none focus:border-signal-cyan"
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">
@@ -321,7 +321,7 @@ export function CreditRiskDashboard() {
               </button>
               <button
                 onClick={handleSaveLimit}
-                className="px-4 py-2 bg-signal-blue text-white rounded-lg text-sm hover:bg-signal-blue/90 transition-colors"
+                className="px-4 py-2 bg-signal-cyan text-ink-950 font-semibold rounded-lg text-sm hover:bg-signal-cyan/90 transition-colors"
               >
                 Save Changes
               </button>
