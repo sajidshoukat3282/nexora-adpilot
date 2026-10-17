@@ -13,12 +13,14 @@ import { useNavigate } from "@/lib/router";
 import { ROLE_LABELS } from "@/domain";
 import { repo } from "@/repositories/demo";
 import { useAsync } from "@/hooks/useAsync";
+import { useCompanyProfile } from "@/hooks/useCompanyProfile";
 
 export const TopBar: React.FC<{ onMobileMenu: () => void }> = ({
   onMobileMenu,
 }) => {
   const { user, session, company, signOut } = useSession();
   const navigate = useNavigate();
+  const { profile } = useCompanyProfile();
 
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -30,6 +32,12 @@ export const TopBar: React.FC<{ onMobileMenu: () => void }> = ({
   );
 
   const unread = notifications?.filter((notification) => !notification.read).length ?? 0;
+
+  // Owner sees the name entered in the company profile; the email address is never shown here.
+  const displayName =
+    (session?.accountType === "owner" && profile?.ownerName) ||
+    user?.name ||
+    "Loading...";
 
   const designation =
     session?.designation ??
@@ -65,6 +73,7 @@ export const TopBar: React.FC<{ onMobileMenu: () => void }> = ({
   };
 
   const initials =
+    (displayName !== "Loading..." ? displayName.charAt(0).toUpperCase() : null) ??
     user?.avatarInitial ??
     user?.name
       ?.split(" ")
@@ -86,8 +95,18 @@ export const TopBar: React.FC<{ onMobileMenu: () => void }> = ({
         <FiMenu size={19} />
       </button>
 
+      {/* Company (left) */}
+      <div className="flex items-center gap-2.5 min-w-0 max-w-[48vw] md:max-w-64 shrink-0">
+        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-signal-cyan/15 border border-signal-cyan/25 text-sm font-bold text-signal-cyan shrink-0">
+          {(profile?.legalName || company?.name || "A").charAt(0).toUpperCase()}
+        </div>
+        <div className="truncate text-sm font-semibold text-ink-50">
+          {profile?.legalName || company?.name || "Nexora AdPilot"}
+        </div>
+      </div>
+
       {/* Global search */}
-      <div className="relative flex-1 max-w-xl">
+      <div className="relative hidden sm:block flex-1 max-w-xl ml-2">
         <FiSearch
           className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-500 pointer-events-none"
           size={16}
@@ -156,7 +175,7 @@ export const TopBar: React.FC<{ onMobileMenu: () => void }> = ({
 
           <div className="hidden lg:block leading-tight text-left max-w-36">
             <div className="text-sm font-semibold text-ink-100 truncate">
-              {user?.name ?? "Loading..."}
+              {displayName}
             </div>
             <div className="text-[11px] text-ink-500 truncate">
               {designation}
@@ -185,11 +204,11 @@ export const TopBar: React.FC<{ onMobileMenu: () => void }> = ({
 
                 <div className="min-w-0">
                   <div className="font-semibold text-ink-100 truncate">
-                    {user?.name ?? "Account"}
+                    {displayName === "Loading..." ? "Account" : displayName}
                   </div>
 
                   <div className="text-xs text-ink-400 truncate mt-0.5">
-                    {user?.email ?? ""}
+                    {designation}
                   </div>
                 </div>
               </div>
