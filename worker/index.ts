@@ -343,7 +343,7 @@ export default {
       return new Response(JSON.stringify({ ok: true, authenticated: false, }), { status: 200, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'set-cookie': clearSessionCookie(), }, });
     }
 
-    // GEOGRAPHY & LOCATION SEARCH (SMART MAPPING)
+    // GEOGRAPHY & LOCATION SEARCH
     if (url.pathname === '/api/geography/search' && request.method === 'GET') {
       const query = url.searchParams.get('q')?.trim();
       if (!query) return json({ ok: false, error: 'INVALID_INPUT', message: 'Query parameter "q" is required.' }, 400);
@@ -375,7 +375,6 @@ export default {
           }
         }
 
-        // Fallback to Nominatim
         const repository = createGeographyRepository(env);
         const existing = await repository.search({ query });
         if (existing.length > 0) return json({ ok: true, source: 'database', persisted: true, results: existing });
@@ -536,15 +535,12 @@ export default {
     }
 
     // ==========================================
-    // CAMPAIGNS ROUTES (NEW)
+    // CAMPAIGNS ROUTES
     // ==========================================
-    
-    // 1. Get All Campaigns
     if (url.pathname === '/api/campaigns' && request.method === 'GET') {
       try {
         const session = await resolveSession(request, env.DB);
         if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
-        
         const campaigns = await env.DB.prepare(`
           SELECT c.*, cl.name as client_name 
           FROM campaigns c
@@ -552,21 +548,15 @@ export default {
           WHERE c.company_id = ? 
           ORDER BY c.created_at DESC
         `).bind(session.companyId).all();
-        
         return json({ ok: true, data: campaigns.results });
       } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
     }
-
-    // 2. Create Campaign (with screens and auto price)
     if (url.pathname === '/api/campaigns' && request.method === 'POST') {
       try {
         const session = await resolveSession(request, env.DB);
         if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
-        
         const body = (await request.json()) as any;
         const id = crypto.randomUUID();
-        
-        // Insert Campaign
         await env.DB.prepare(`
           INSERT INTO campaigns (id, company_id, client_id, name, status, start_date, end_date, total_budget, currency, creative_url) 
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -575,7 +565,6 @@ export default {
           body.start_date, body.end_date, body.total_budget || 0, body.currency || 'PKR', body.creative_url || null
         ).run();
 
-        // Insert Selected Screens into campaign_screens
         if (body.screens && Array.isArray(body.screens)) {
           for (const screen of body.screens) {
             const csId = crypto.randomUUID();
@@ -585,29 +574,20 @@ export default {
             `).bind(csId, id, screen.inventory_id, screen.rate_applied || 0).run();
           }
         }
-
         return json({ ok: true, id });
       } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
     }
-
-    // 3. Check Availability (Double Booking Warning)
     if (url.pathname === '/api/campaigns/check-availability' && request.method === 'POST') {
       try {
         const session = await resolveSession(request, env.DB);
         if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
-        
         const body = (await request.json()) as any;
         const inventory_ids = body.inventory_ids;
         const start_date = body.start_date;
         const end_date = body.end_date;
-
-        if (!inventory_ids || inventory_ids.length === 0 || !start_date || !end_date) {
-          return json({ ok: false, error: 'INVALID_INPUT', message: 'Missing screens or dates.' }, 400);
-        }
-
-        const placeholders = inventory_ids.map(() => '?').join(',');
+        if (!inventory_ids || inventory_ids.length === 0 || !start_date || !end_date) return json({ ok: false, error: 'INVALID_INPUT', message: 'Missing screens or dates.' }, 400);
         
-        // Overlap logic: (NewStart <= ExistingEnd AND NewEnd >= ExistingStart)
+        const placeholders = inventory_ids.map(() => '?').join(',');
         const query = `
           SELECT cs.inventory_id, c.name as campaign_name, c.start_date, c.end_date
           FROM campaign_screens cs
@@ -617,16 +597,216 @@ export default {
             AND c.status NOT IN ('cancelled', 'completed')
             AND (c.start_date <= ? AND c.end_date >= ?)
         `;
-
         const bindings = [...inventory_ids, session.companyId, end_date, start_date];
-        
         const conflicts = await env.DB.prepare(query).bind(...bindings).all();
-        
         return json({ ok: true, conflicts: conflicts.results });
       } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
     }
+
     // ==========================================
-    // END CAMPAIGNS ROUTES
+    // FINANCE / INVOICES ROUTES (PROFESSIONAL)
+    // ==========================================
+    
+    // 1. Get All Invoices
+    if (url.pathname === '/api/invoices' && request.method === 'GET') {
+      try {
+        const session = await resolveSession(request, env.DB);
+        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+        
+        const invoices = await env.DB.prepare(`
+          SELECT i.*, c.name as client_name 
+          FROM invoices i
+          JOIN clients c ON i.client_id = c.id
+          WHERE i.company_id = ? 
+          ORDER BY i.created_at DESC
+        `).bind(session.companyId).all();
+        
+        const today = new Date().toISOString().split('T')[0];
+        const processedInvoices = invoices.results.map((inv: any) => {
+          if (inv.status !== 'paid' && inv.status !== 'draft' && inv.due_date < today) {
+            return { ...inv, status: 'overdue' };
+          }
+          return inv;
+        });
+
+        return json({ ok: true, data: processedInvoices });
+      } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+    }
+
+    // 2. Create Invoice
+    if (url.pathname === '/api/invoices' && request.method === 'POST') {
+      try {
+        const session = await resolveSession(request, env.DB);
+        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+        
+        const body = (await request.json()) as any;
+        const id = crypto.randomUUID();
+        const invoice_number = `INV-${Math.floor(100000 + Math.random() * 900000)}`;
+        
+        let subtotal = 0;
+        if (body.items && Array.isArray(body.items)) {
+          body.items.forEach((item: any) => {
+            subtotal += (Number(item.quantity) * Number(item.rate));
+          });
+        }
+        
+        const discount_amount = Number(body.discount_amount) || 0;
+        const tax_rate = Number(body.tax_rate) || 0;
+        const taxable_amount = Math.max(0, subtotal - discount_amount);
+        const tax_amount = taxable_amount * (tax_rate / 100);
+        const total_amount = taxable_amount + tax_amount;
+
+        await env.DB.prepare(`
+          INSERT INTO invoices (id, company_id, client_id, campaign_id, invoice_number, issue_date, due_date, status, subtotal, discount_amount, tax_rate, tax_amount, total_amount, amount_paid, currency, notes) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+        `).bind(
+          id, session.companyId, body.client_id, body.campaign_id || null, invoice_number, 
+          body.issue_date, body.due_date, body.status || 'draft', 
+          subtotal, discount_amount, tax_rate, tax_amount, total_amount, body.currency || 'PKR', body.notes || null
+        ).run();
+
+        if (body.items && Array.isArray(body.items)) {
+          for (const item of body.items) {
+            const itemId = crypto.randomUUID();
+            const amount = Number(item.quantity) * Number(item.rate);
+            await env.DB.prepare(`
+              INSERT INTO invoice_items (id, invoice_id, description, quantity, rate, amount) 
+              VALUES (?, ?, ?, ?, ?, ?)
+            `).bind(itemId, id, item.description, item.quantity, item.rate, amount).run();
+          }
+        }
+        return json({ ok: true, id, invoice_number });
+      } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+    }
+
+    // 3. Get Single Invoice (With Items, Payments & Company Info)
+    if (url.pathname.startsWith('/api/invoices/') && request.method === 'GET') {
+      try {
+        const session = await resolveSession(request, env.DB);
+        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+        
+        const parts = url.pathname.split('/');
+        const invoiceId = parts[3]; 
+        
+        const invoice = await env.DB.prepare(`
+          SELECT i.*, 
+                 c.name as client_name, c.email as client_email, c.phone as client_phone, c.address as client_address,
+                 comp.name as company_name, comp.logo_initial as company_logo, comp.timezone
+          FROM invoices i
+          JOIN clients c ON i.client_id = c.id
+          JOIN companies comp ON i.company_id = comp.id
+          WHERE i.id = ? AND i.company_id = ?
+        `).bind(invoiceId, session.companyId).first<any>();
+        
+        if (!invoice) return json({ ok: false, error: 'NOT_FOUND' }, 404);
+        
+        const items = await env.DB.prepare(`SELECT * FROM invoice_items WHERE invoice_id = ?`).bind(invoiceId).all();
+        const payments = await env.DB.prepare(`SELECT * FROM invoice_payments WHERE invoice_id = ? ORDER BY payment_date DESC`).bind(invoiceId).all();
+        
+        const balance_due = invoice.total_amount - invoice.amount_paid;
+        
+        return json({ ok: true, data: { ...invoice, balance_due, items: items.results, payments: payments.results } });
+      } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+    }
+
+    // 4. Record Payment
+    if (url.pathname.startsWith('/api/invoices/') && url.pathname.endsWith('/payments') && request.method === 'POST') {
+      try {
+        const session = await resolveSession(request, env.DB);
+        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+        
+        const parts = url.pathname.split('/');
+        const invoiceId = parts[3]; 
+        const body = (await request.json()) as any;
+        
+        const invoice = await env.DB.prepare(`SELECT total_amount, amount_paid FROM invoices WHERE id = ? AND company_id = ?`).bind(invoiceId, session.companyId).first<any>();
+        if (!invoice) return json({ ok: false, error: 'NOT_FOUND' }, 404);
+
+        const paymentId = crypto.randomUUID();
+        const payment_amount = Number(body.amount);
+        
+        await env.DB.prepare(`
+          INSERT INTO invoice_payments (id, invoice_id, amount, payment_date, payment_method, reference_no, notes) 
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).bind(paymentId, invoiceId, payment_amount, body.payment_date, body.payment_method, body.reference_no || null, body.notes || null).run();
+
+        const new_amount_paid = invoice.amount_paid + payment_amount;
+        let new_status = 'partially_paid';
+        if (new_amount_paid >= invoice.total_amount) {
+          new_status = 'paid';
+        }
+
+        await env.DB.prepare(`
+          UPDATE invoices SET amount_paid = ?, status = ?, updated_at = datetime('now') WHERE id = ?
+        `).bind(new_amount_paid, new_status, invoiceId).run();
+
+        return json({ ok: true, id: paymentId });
+      } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+    }
+
+    // ==========================================
+    // EXPENSES ROUTES
+    // ==========================================
+    if (url.pathname === '/api/expenses' && request.method === 'GET') {
+      try {
+        const session = await resolveSession(request, env.DB);
+        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+        const expenses = await env.DB.prepare(`SELECT * FROM expenses WHERE company_id = ? ORDER BY expense_date DESC`).bind(session.companyId).all();
+        return json({ ok: true, data: expenses.results });
+      } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+    }
+    if (url.pathname === '/api/expenses' && request.method === 'POST') {
+      try {
+        const session = await resolveSession(request, env.DB);
+        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+        const body = (await request.json()) as any;
+        const id = crypto.randomUUID();
+        await env.DB.prepare(`
+          INSERT INTO expenses (id, company_id, category, description, amount, expense_date, payment_method, reference_no, campaign_id) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          id, session.companyId, body.category, body.description || null, body.amount, 
+          body.expense_date, body.payment_method || null, body.reference_no || null, body.campaign_id || null
+        ).run();
+        return json({ ok: true, id });
+      } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+    }
+
+    // ==========================================
+    // FINANCE METRICS / PROFIT & LOSS ROUTE
+    // ==========================================
+    if (url.pathname === '/api/finance/metrics' && request.method === 'GET') {
+      try {
+        const session = await resolveSession(request, env.DB);
+        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+        
+        // Total Revenue (Amount Paid by Clients)
+        const revenueRes = await env.DB.prepare(`SELECT SUM(amount_paid) as total_revenue FROM invoices WHERE company_id = ? AND status != 'cancelled'`).bind(session.companyId).first<any>();
+        const total_revenue = revenueRes?.total_revenue || 0;
+
+        // Total Expenses
+        const expenseRes = await env.DB.prepare(`SELECT SUM(amount) as total_expenses FROM expenses WHERE company_id = ?`).bind(session.companyId).first<any>();
+        const total_expenses = expenseRes?.total_expenses || 0;
+
+        // Pending / Unpaid Amount (Receivables)
+        const pendingRes = await env.DB.prepare(`SELECT SUM(total_amount - amount_paid) as total_pending FROM invoices WHERE company_id = ? AND status NOT IN ('paid', 'cancelled')`).bind(session.companyId).first<any>();
+        const total_pending = pendingRes?.total_pending || 0;
+
+        const net_profit = total_revenue - total_expenses;
+
+        return json({ 
+          ok: true, 
+          metrics: { 
+            total_revenue, 
+            total_expenses, 
+            net_profit, 
+            total_pending 
+          } 
+        });
+      } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+    }
+    // ==========================================
+    // END FINANCE ROUTES
     // ==========================================
 
     if (url.pathname.startsWith('/api/')) return json({ ok: false, error: 'NOT_FOUND', message: 'API route not found.', }, 404);
