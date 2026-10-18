@@ -996,7 +996,7 @@ async scheduled(event: any, env: Env, ctx: any) {
       JOIN company_memberships cm ON c.id = cm.company_id
       JOIN accounts a ON cm.account_id = a.id
       WHERE cm.account_type = 'owner' AND c.report_email_day = ?
-    `).bind(today).all();
+    `).bind(today).all<any>();
 
     if (!companiesToEmail.results || companiesToEmail.results.length === 0) {
       return; // Aaj kisi ko email nahi bhejni
@@ -1037,17 +1037,23 @@ async scheduled(event: any, env: Env, ctx: any) {
           </p>
         </div>
       `;
-// Emails ki list banayein (Owner + Extra Emails)
-const toEmails: { email: string }[] = [{ email: company.owner_email }];
 
-if (company.report_extra_emails) {
-  const extras = company.report_extra_emails.split(',').map((e: string) => e.trim()).filter((e: string) => e);
-  extras.forEach((email: string) => {
-    if (email) toEmails.push({ email });
-  });
-}
-      // 3. Email Bhejein (Brevo ke zariye)
-      if (env.BREVO_API_KEY) {
+      // 3. Emails ki list banayein (Owner + Extra Emails)
+      const toEmails: { email: string }[] = [];
+      
+      if (company.owner_email) {
+        toEmails.push({ email: String(company.owner_email) });
+      }
+      
+      if (company.report_extra_emails) {
+        const extras = String(company.report_extra_emails).split(',').map((e: string) => e.trim()).filter((e: string) => e);
+        extras.forEach((email: string) => {
+          if (email) toEmails.push({ email });
+        });
+      }
+
+      // 4. Email Bhejein (Brevo ke zariye)
+      if (env.BREVO_API_KEY && toEmails.length > 0) {
         await fetch('https://api.brevo.com/v3/smtp/email', {
           method: 'POST',
           headers: {
@@ -1056,16 +1062,17 @@ if (company.report_extra_emails) {
             'content-type': 'application/json',
           },
           body: JSON.stringify({
-    sender: { name: 'Nexora AdPilot', email: env.MAIL_FROM_EMAIL || 'hello@nexoratechnologies.pk' },
-    to: toEmails, // <-- Yahan purane owner email ki jagah toEmails array aayega
-    subject: `Weekly Report: ${company.name}`,
-    htmlContent: emailHtml,
-  }),
-});
+            sender: { name: 'Nexora AdPilot', email: env.MAIL_FROM_EMAIL || 'hello@nexoratechnologies.pk' },
+            to: toEmails, 
+            subject: `Weekly Report: ${company.name}`,
+            htmlContent: emailHtml,
+          }),
+        });
       }
     }
   } catch (error) {
     console.error("Cron Job Error:", error);
   }
+},
 },
 };
