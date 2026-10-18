@@ -4,7 +4,8 @@ import AddExpenseForm from "./AddExpenseForm";
 import AddInvoiceForm from "./AddInvoiceForm";
 import AddPaymentForm from "./AddPaymentForm";
 import { PaymentReceiptDrawer } from "./PaymentReceiptDrawer";
-import { InvoiceDetailDrawer } from "./InvoiceDetailDrawer"; // Naya Drawer Import kiya
+import { InvoiceDetailDrawer } from "./InvoiceDetailDrawer";
+import { ExpenseDetailDrawer } from "./ExpenseDetailDrawer"; // Naya import
 
 export const FinancePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'payments' | 'expenses'>('overview');
@@ -19,9 +20,10 @@ export const FinancePage: React.FC = () => {
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   
-  // Drawer States
+  // Drawers States
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
-  const [selectedInvoice, setSelectedInvoice] = useState<any>(null); // Naya State Invoice Preview ke liye
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const [selectedExpense, setSelectedExpense] = useState<any>(null); // Naya state expense ke liye
 
   const fetchFinanceData = async () => {
     setLoading(true);
@@ -123,11 +125,7 @@ export const FinancePage: React.FC = () => {
               {invoices.map((inv: any) => {
                 const balance = inv.total_amount - inv.amount_paid;
                 return (
-                  <tr 
-                    key={inv.id} 
-                    className="hover:bg-slate-50 cursor-pointer transition-colors"
-                    onClick={() => setSelectedInvoice(inv)} // Row Click par Drawer khulega
-                  >
+                  <tr key={inv.id} className="hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => setSelectedInvoice(inv)}>
                     <td className="p-4 font-mono text-sm text-emerald-600 font-medium">{inv.invoice_number}</td>
                     <td className="p-4">{inv.client_name}</td>
                     <td className="p-4 text-right font-medium">{formatCurrency(inv.total_amount)}</td>
@@ -141,9 +139,7 @@ export const FinancePage: React.FC = () => {
                       </span>
                     </td>
                     <td className="p-4 text-center">
-                      <button className="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded transition-colors font-medium">
-                        View / Print
-                      </button>
+                      <button className="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded transition-colors font-medium">View / Print</button>
                     </td>
                   </tr>
                 );
@@ -167,17 +163,14 @@ export const FinancePage: React.FC = () => {
             </thead>
             <tbody className="divide-y">
               {payments.map((p: any) => (
-                <tr key={p.id} className="hover:bg-slate-50">
+                <tr key={p.id} className="hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => setSelectedReceipt({ ...p, currency: 'PKR' })}>
                   <td className="p-4 text-sm">{p.payment_date}</td>
-                  <td className="p-4 font-mono text-sm">{p.invoice_number}</td>
+                  <td className="p-4 font-mono text-sm text-emerald-600 font-medium">{p.invoice_number}</td>
                   <td className="p-4">{p.client_name}</td>
                   <td className="p-4 text-sm">{p.payment_method}</td>
                   <td className="p-4 text-right text-emerald-600 font-bold">{formatCurrency(p.amount)}</td>
                   <td className="p-4 text-center">
-                    <button 
-                      onClick={() => setSelectedReceipt({ ...p, currency: 'PKR' })}
-                      className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-3 py-1.5 rounded transition-colors font-medium"
-                    >
+                    <button className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-3 py-1.5 rounded transition-colors font-medium">
                       Print Receipt
                     </button>
                   </td>
@@ -190,15 +183,32 @@ export const FinancePage: React.FC = () => {
 
         {activeTab === 'expenses' && (
           <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-50 text-xs text-slate-500 uppercase"><tr><th className="p-4">Category</th><th className="p-4">Date</th><th className="p-4">Method</th><th className="p-4 text-right">Amount</th></tr></thead>
+            <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+              <tr>
+                <th className="p-4">Category</th>
+                <th className="p-4">Description</th>
+                <th className="p-4">Date</th>
+                <th className="p-4">Method</th>
+                <th className="p-4 text-right">Amount</th>
+                <th className="p-4 text-center">Voucher</th>
+              </tr>
+            </thead>
             <tbody className="divide-y">
               {expenses.map((e: any) => (
-                <tr key={e.id} className="hover:bg-slate-50">
-                  <td className="p-4 font-medium">{e.category}</td><td className="p-4 text-sm">{e.expense_date}</td><td className="p-4 text-sm">{e.payment_method}</td>
+                <tr key={e.id} className="hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => setSelectedExpense(e)}>
+                  <td className="p-4 font-medium text-rose-600">{e.category}</td>
+                  <td className="p-4 text-sm text-slate-500">{e.description || '-'}</td>
+                  <td className="p-4 text-sm">{e.expense_date}</td>
+                  <td className="p-4 text-sm">{e.payment_method}</td>
                   <td className="p-4 text-right text-rose-600 font-bold">{formatCurrency(e.amount)}</td>
+                  <td className="p-4 text-center">
+                    <button className="text-xs bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-1.5 rounded transition-colors font-medium">
+                      View / Print
+                    </button>
+                  </td>
                 </tr>
               ))}
-              {expenses.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-slate-500">No expenses found</td></tr>}
+              {expenses.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-slate-500">No expenses found</td></tr>}
             </tbody>
           </table>
         )}
@@ -209,19 +219,11 @@ export const FinancePage: React.FC = () => {
       {showInvoiceForm && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><AddInvoiceForm onClose={() => { setShowInvoiceForm(false); fetchFinanceData(); }} /></div>}
       {showPaymentForm && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><AddPaymentForm onClose={() => setShowPaymentForm(false)} onSuccess={fetchFinanceData} /></div>}
       
-      {/* Invoice Preview Drawer */}
-      <InvoiceDetailDrawer 
-        invoice={selectedInvoice} 
-        onClose={() => setSelectedInvoice(null)} 
-        onRecordPayment={() => {
-          // Agar user Drawer se Receive Payment dabaye to form khule
-          setSelectedInvoice(null);
-          setShowPaymentForm(true);
-        }} 
-      />
-
-      {/* Receipt Drawer */}
+      <InvoiceDetailDrawer invoice={selectedInvoice} onClose={() => setSelectedInvoice(null)} onRecordPayment={() => { setSelectedInvoice(null); setShowPaymentForm(true); }} />
       <PaymentReceiptDrawer payment={selectedReceipt} onClose={() => setSelectedReceipt(null)} />
+      
+      {/* Naya Expense Drawer */}
+      <ExpenseDetailDrawer expense={selectedExpense} onClose={() => setSelectedExpense(null)} />
     </div>
   );
 };
