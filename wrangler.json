@@ -16,5 +16,8 @@
       "database_name": "nexora-adpilot",
       "database_id": "414619f0-93fc-4d9b-9a78-211a970e8647"
     }
-  ]
+  ],
+  "triggers": {
+  "crons": ["0 0 * * *"]
+}
 }
