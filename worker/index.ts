@@ -873,4 +873,83 @@ if (url.pathname === '/api/payments' && request.method === 'POST') {
 
     return env.ASSETS.fetch(request);
   },
+  // ==========================================
+// CRON JOB: AUTOMATED WEEKLY REPORTS
+// ==========================================
+async scheduled(event: any, env: Env, ctx: any) {
+  try {
+    // Aaj ka din check karein (e.g., 'Monday')
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+    
+    // Un companies ko dhoondein jinka aaj report bhejne ka din hai
+    const companiesToEmail = await env.DB.prepare(`
+      SELECT c.id, c.name, c.report_email_day, a.email as owner_email
+      FROM companies c
+      JOIN company_memberships cm ON c.id = cm.company_id
+      JOIN accounts a ON cm.account_id = a.id
+      WHERE cm.account_type = 'owner' AND c.report_email_day = ?
+    `).bind(today).all();
+
+    if (!companiesToEmail.results || companiesToEmail.results.length === 0) {
+      return; // Aaj kisi ko email nahi bhejni
+    }
+
+    for (const company of companiesToEmail.results) {
+      // 1. Pichlay 7 din ka data fetch karein
+      const revenue = await env.DB.prepare(`SELECT SUM(amount_paid) as total FROM invoices WHERE company_id = ? AND updated_at >= date('now', '-7 days')`).bind(company.id).first<any>();
+      const expenses = await env.DB.prepare(`SELECT SUM(amount) as total FROM expenses WHERE company_id = ? AND expense_date >= date('now', '-7 days')`).bind(company.id).first<any>();
+      const activeCamps = await env.DB.prepare(`SELECT COUNT(*) as count FROM campaigns WHERE company_id = ? AND status IN ('live', 'booked')`).bind(company.id).first<any>();
+      const newLeads = await env.DB.prepare(`SELECT COUNT(*) as count FROM leads WHERE company_id = ? AND created_at >= date('now', '-7 days')`).bind(company.id).first<any>();
+
+      const revAmount = revenue?.total || 0;
+      const expAmount = expenses?.total || 0;
+      const profit = revAmount - expAmount;
+
+      // 2. HTML Email tayyar karein
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+          <h2 style="color: #0f172a; text-align: center;">Weekly Business Digest 📊</h2>
+          <p style="text-align: center; color: #666;">Here is what happened at <b>${company.name}</b> in the last 7 days.</p>
+          
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0;">
+            <h3 style="border-bottom: 2px solid #cbd5e1; padding-bottom: 10px; margin-top: 0;">Financial Summary</h3>
+            <p><b>Revenue Collected:</b> <span style="color: #10b981; float: right;">PKR ${revAmount.toLocaleString()}</span></p>
+            <p><b>Total Expenses:</b> <span style="color: #f43f5e; float: right;">PKR ${expAmount.toLocaleString()}</span></p>
+            <p style="font-size: 18px; margin-top: 15px;"><b>Net Profit:</b> <span style="color: ${profit >= 0 ? '#0ea5e9' : '#f43f5e'}; float: right; font-weight: bold;">PKR ${profit.toLocaleString()}</span></p>
+          </div>
+
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0;">
+            <h3 style="border-bottom: 2px solid #cbd5e1; padding-bottom: 10px; margin-top: 0;">Operations & Sales</h3>
+            <p><b>Active Campaigns:</b> <span style="float: right; font-weight: bold;">${activeCamps?.count || 0}</span></p>
+            <p><b>New Leads Generated:</b> <span style="float: right; font-weight: bold;">${newLeads?.count || 0}</span></p>
+          </div>
+
+          <p style="text-align: center; font-size: 12px; color: #94a3b8; margin-top: 30px;">
+            This is an automated email from Nexora AdPilot.
+          </p>
+        </div>
+      `;
+
+      // 3. Email Bhejein (Brevo ke zariye)
+      if (env.BREVO_API_KEY) {
+        await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            accept: 'application/json',
+            'api-key': env.BREVO_API_KEY,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            sender: { name: 'Nexora AdPilot', email: env.MAIL_FROM_EMAIL || 'hello@nexoratechnologies.pk' },
+            to: [{ email: company.owner_email }],
+            subject: `Weekly Report: ${company.name}`,
+            htmlContent: emailHtml,
+          }),
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Cron Job Error:", error);
+  }
+},
 };
