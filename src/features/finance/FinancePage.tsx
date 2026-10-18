@@ -129,39 +129,40 @@ export const FinancePage: React.FC = () => {
     <div className="min-h-screen bg-slate-50 text-slate-800 p-4 rounded-xl">
       
       <style>{`
-        @media print {
-          @page { size: A4; margin: 0; }
-          body, html { margin: 0; padding: 0; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          body * { visibility: hidden; }
-          #printable-area, #printable-area * { visibility: visible; }
-          
-          #printable-area {
-            position: absolute; left: 0; top: 0; width: 100%;
-            min-height: 100vh;
-            padding-top: 25mm !important; 
-            padding-left: 15mm !important;
-            padding-right: 15mm !important;
-            padding-bottom: 20mm !important;
-            background: white !important; color: black !important;
-          }
-          
-          .no-print { display: none !important; }
-          table { width: 100% !important; border-collapse: collapse !important; }
-          th, td { border-bottom: 1px solid #e2e8f0 !important; padding: 8px !important; color: black !important; font-size: 12px !important; }
-          thead { background-color: #f1f5f9 !important; }
-          tfoot { background-color: #f8fafc !important; font-weight: bold !important; }
+  @media print {
+    @page { size: A4; margin: 0; }
+    body, html { margin: 0; padding: 0; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body * { visibility: hidden; }
+    
+    /* Agar koi Drawer khula hai (Invoice/Receipt/Expense), to list ko print mat karo */
+    ${selectedInvoice || selectedReceipt || selectedExpense ? '#printable-area { display: none !important; }' : '#printable-area, #printable-area * { visibility: visible; }'}
+    
+    #printable-area {
+      position: absolute; left: 0; top: 0; width: 100%;
+      min-height: 100vh;
+      padding-top: 25mm !important; 
+      padding-left: 15mm !important;
+      padding-right: 15mm !important;
+      padding-bottom: 20mm !important;
+      background: white !important; color: black !important;
+    }
+    
+    .no-print { display: none !important; }
+    table { width: 100% !important; border-collapse: collapse !important; }
+    th, td { border-bottom: 1px solid #e2e8f0 !important; padding: 8px !important; color: black !important; font-size: 12px !important; }
+    thead { background-color: #f1f5f9 !important; }
 
-          .print-footer {
-            position: absolute;
-            bottom: 10mm;
-            left: 15mm;
-            right: 15mm;
-            text-align: center;
-            border-top: 1px solid #e2e8f0;
-            padding-top: 10px;
-          }
-        }
-      `}</style>
+    .print-footer {
+      position: absolute;
+      bottom: 10mm;
+      left: 15mm;
+      right: 15mm;
+      text-align: center;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 10px;
+    }
+  }
+`}</style>
 
       <div className="flex justify-between items-center mb-6 no-print">
         <div>
