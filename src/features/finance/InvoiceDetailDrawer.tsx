@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { Drawer } from "@/components/ui/Drawer";
-import { FiPrinter, FiCheckCircle } from "react-icons/fi";
 
 export const InvoiceDetailDrawer: React.FC<{
   invoice: any | null;
@@ -71,8 +70,8 @@ export const InvoiceDetailDrawer: React.FC<{
                 <button onClick={handleCopyLink} className="text-xs px-3 py-1.5 bg-gray-800 text-white rounded-md hover:bg-gray-700 transition">
                   {copied ? "✓ Copied" : "Share"}
                 </button>
-                <button onClick={handlePrint} className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-500 transition flex items-center gap-1">
-                  <FiPrinter /> Print / PDF
+                <button onClick={handlePrint} className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-500 transition flex items-center gap-1 font-medium">
+                  🖨️ Print / PDF
                 </button>
               </div>
             </div>
