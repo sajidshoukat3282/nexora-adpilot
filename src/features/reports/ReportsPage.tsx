@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useSession } from "@/hooks/useSession";
 import { useCompanyProfile } from "@/hooks/useCompanyProfile";
-import { FiPrinter, FiDownload, FiUsers, FiTarget, FiDollarSign, FiMap, FiMail, FiSave, FiCheckCircle } from "react-icons/fi";
+import { FiDownload, FiUsers, FiTarget, FiDollarSign, FiMap, FiMail, FiCheckCircle } from "react-icons/fi";
 
 const REPORT_TYPES = [
   { id: 'finance', title: 'Finance', icon: <FiDollarSign /> },
@@ -168,7 +168,7 @@ export const ReportsPage: React.FC = () => {
             <label className="block text-xs font-bold text-slate-600 mb-1 uppercase">Select Day</label>
             <select 
               value={emailDay} 
-              onChange={(e) => setEmailDay(e.target.value)}
+              onChange={(e: any) => setEmailDay(e.target.value)}
               className="w-full bg-white border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none"
             >
               <option value="Monday">Every Monday</option>
@@ -187,7 +187,7 @@ export const ReportsPage: React.FC = () => {
               type="text"
               placeholder="director@company.com, gm@company.com"
               value={extraEmails}
-              onChange={(e) => setExtraEmails(e.target.value)}
+              onChange={(e: any) => setExtraEmails(e.target.value)}
               className="w-full bg-white border border-slate-300 text-slate-700 text-sm rounded-lg p-2.5 outline-none"
             />
             <p className="text-[10px] text-slate-400 mt-1">Separate multiple emails with a comma (,)</p>
@@ -201,7 +201,7 @@ export const ReportsPage: React.FC = () => {
                 settingsSaved ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700 text-white'
               }`}
             >
-              {settingsSaved ? <><FiCheckCircle /> Settings Saved</> : savingSettings ? 'Saving...' : <><FiSave /> Save Settings</>}
+              {settingsSaved ? <><FiCheckCircle /> Settings Saved</> : savingSettings ? 'Saving...' : '💾 Save Settings'}
             </button>
           </div>
         </div>
@@ -226,9 +226,9 @@ export const ReportsPage: React.FC = () => {
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-300 shadow-sm">
             <span className="text-xs font-bold text-slate-500">FROM</span>
-            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="text-sm outline-none bg-transparent" />
+            <input type="date" value={startDate} onChange={(e: any) => setStartDate(e.target.value)} className="text-sm outline-none bg-transparent" />
             <span className="text-xs font-bold text-slate-500 ml-2">TO</span>
-            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="text-sm outline-none bg-transparent" />
+            <input type="date" value={endDate} onChange={(e: any) => setEndDate(e.target.value)} className="text-sm outline-none bg-transparent" />
           </div>
           
           <button onClick={handleExportExcel} className="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 shadow-sm hover:bg-slate-50 transition">
@@ -236,7 +236,7 @@ export const ReportsPage: React.FC = () => {
           </button>
           
           <button onClick={handlePrint} className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 shadow-sm hover:bg-emerald-700 transition">
-            <FiPrinter /> Print / PDF
+            🖨️ Print / PDF
           </button>
         </div>
       </div>
