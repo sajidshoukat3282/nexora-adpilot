@@ -4,11 +4,10 @@ import { PageHeader } from "@/components/layout/AppShell";
 import { DataTable, ColumnDef } from "@/components/ui/DataTable";
 import { StatusBadge, campaignStatusTone } from "@/components/ui/StatusBadge";
 import { PermissionGate } from "@/components/ui/PermissionGate";
-import { StatCard } from "@/components/ui/StatCard";
 import { useNavigate, useSearchParams } from "@/lib/router";
 import type { Campaign, CampaignStatus, Proposal, CurrencyCode } from "@/domain";
 import { CAMPAIGN_STATUS_LABELS, formatMoney, money } from "@/domain";
-import AddCampaignForm from "./AddCampaignForm"; // Naya form import kiya
+import AddCampaignForm from "./AddCampaignForm";
 
 const STATUS_FILTERS: Array<CampaignStatus | "all"> = [
   "all", "draft", "proposal", "pending_approval", "booked", "scheduled", "live", "completed", "archived", "cancelled",
@@ -51,11 +50,9 @@ export const CampaignsListPage: React.FC = () => {
     fetchData();
   }, []);
 
-  // Completes the "Convert to Campaign" link from an accepted Proposal. (Demo logic kept for now)
   useEffect(() => {
     const proposalId = params.get("fromProposal");
     if (proposalId) {
-      // Jab aap proposal module real banayenge, tab yahan API call aayegi
       setFromProposal({ id: proposalId } as any);
       setModalOpen(true);
       setParams({ fromProposal: null });
@@ -66,7 +63,6 @@ export const CampaignsListPage: React.FC = () => {
     return clientsData.find((c) => c.id === clientId)?.name ?? "Unknown Client";
   };
 
-  // Filtering Logic
   const filteredCampaigns = useMemo(() => {
     return campaignsData.filter(c => {
       const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || 
@@ -76,16 +72,11 @@ export const CampaignsListPage: React.FC = () => {
     });
   }, [campaignsData, search, statusFilter]);
 
-  // High-Level Financial & P&L Portfolio Metrics (Mapped from DB Real Data)
-  const totalGrossPipeline = filteredCampaigns.reduce((sum, c) => sum + (c.total_budget || 0), 0);
-  const estimatedAgencyProfit = Math.round(totalGrossPipeline * 0.35);
-  const activeCampaignsCount = filteredCampaigns.filter((c) => c.status === "live" || c.status === "booked").length;
-
   return (
     <div>
       <PageHeader
-        title="Campaigns & P&L Overview"
-        description="Enterprise campaign portfolio performance, revenue tracking, and profitability analysis."
+        title="Campaigns"
+        description="Manage your ad campaigns, bookings, and schedules."
         actions={
           <PermissionGate permission="campaigns.manage" fallback={null}>
             <button className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors" 
@@ -96,28 +87,7 @@ export const CampaignsListPage: React.FC = () => {
         }
       />
 
-      {/* Financial Portfolio Executive Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <StatCard
-          label="Gross Portfolio Pipeline"
-          value={totalGrossPipeline}
-          format={(n) => formatMoney(money(n * 100))} // Multiply by 100 for cents representation if needed
-          tone="cyan"
-        />
-        <StatCard
-          label="Est. Net Agency Revenue (35% Margin)"
-          value={estimatedAgencyProfit}
-          format={(n) => formatMoney(money(n * 100))}
-          tone="green"
-        />
-        <StatCard
-          label="Active / Booked Campaigns"
-          value={activeCampaignsCount}
-          tone={activeCampaignsCount > 0 ? "amber" : "default"}
-        />
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 mb-4">
+      <div className="flex flex-wrap items-center gap-2 mb-4 mt-6">
         <input
           value={search}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
@@ -155,14 +125,13 @@ export const CampaignsListPage: React.FC = () => {
         </div>
       )}
 
-      {/* Naya Add Campaign Form Modal */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <AddCampaignForm
             onClose={() => { 
               setModalOpen(false); 
               setFromProposal(null); 
-              fetchData(); // Form band hone par list refresh karein
+              fetchData(); 
             }}
           />
         </div>
@@ -205,35 +174,6 @@ function campaignColumns(clientName: (id: string) => string): ColumnDef<any>[] {
       header: "Gross Budget", 
       sortValue: (c) => c.total_budget, 
       render: (c) => <span className="text-ink-100 font-semibold">{formatMoney(money(c.total_budget * 100, c.currency))}</span> 
-    },
-    {
-      key: "profit",
-      header: "Est. Net Profit",
-      sortValue: (c) => c.total_budget * 0.35,
-      render: (c) => {
-        const curr = (c.currency || "PKR") as CurrencyCode;
-        const estProfit = Math.round((c.total_budget || 0) * 0.35);
-        return (
-          <span className="text-signal-green font-medium text-xs">
-            +{formatMoney(money(estProfit * 100, curr))}
-          </span>
-        );
-      }
-    },
-    {
-      key: "margin",
-      header: "Margin %",
-      render: (c) => {
-        const isHighMargin = (c.total_budget || 0) > 1000000;
-        const marginPct = isHighMargin ? "38%" : "32%";
-        return (
-          <span className={`inline-block px-2 py-0.5 text-[11px] font-bold rounded ${
-            isHighMargin ? "bg-signal-green/10 text-signal-green border border-signal-green/20" : "bg-signal-amber/10 text-signal-amber border border-signal-amber/20"
-          }`}>
-            {marginPct}
-          </span>
-        );
-      }
     },
     {
       key: "status", 
