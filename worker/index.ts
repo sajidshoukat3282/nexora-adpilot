@@ -868,7 +868,38 @@ if (url.pathname === '/api/payments' && request.method === 'POST') {
     // ==========================================
     // END FINANCE ROUTES
     // ==========================================
+// ==========================================
+// CREDIT RISK ROUTE
+// ==========================================
+if (url.pathname === '/api/credit-risk' && request.method === 'GET') {
+  try {
+    const session = await resolveSession(request, env.DB);
+    if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
 
+    // Har client ka total unpaid balance nikalain
+    const clients = await env.DB.prepare(`
+      SELECT 
+        c.id, 
+        c.name, 
+        c.credit_limit,
+        COALESCE(SUM(
+          CASE 
+            WHEN i.status != 'paid' AND i.status != 'cancelled' 
+            THEN (i.total_amount - i.amount_paid) 
+            ELSE 0 
+          END
+        ), 0) as outstanding_balance
+      FROM clients c
+      LEFT JOIN invoices i ON c.id = i.client_id AND i.company_id = c.company_id
+      WHERE c.company_id = ?
+      GROUP BY c.id
+    `).bind(session.companyId).all();
+
+    return json({ ok: true, data: clients.results });
+  } catch (err: any) {
+    return json({ ok: false, error: err.message }, 500);
+  }
+}
     if (url.pathname.startsWith('/api/')) return json({ ok: false, error: 'NOT_FOUND', message: 'API route not found.', }, 404);
 
     return env.ASSETS.fetch(request);
