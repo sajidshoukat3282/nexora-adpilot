@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FiDollarSign, FiTrendingUp, FiTrendingDown, FiCreditCard, FiPlus } from "react-icons/fi";
+import { FiDollarSign, FiTrendingUp, FiArrowDown, FiCreditCard, FiPlus } from "react-icons/fi";
 import AddExpenseForm from "./AddExpenseForm";
 
 export const FinancePage: React.FC = () => {
@@ -78,7 +78,8 @@ export const FinancePage: React.FC = () => {
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm relative overflow-hidden">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
-              <FiTrendingDown size={16} />
+              {/* Yahan FiArrowDown laga diya hai */}
+              <FiArrowDown size={16} />
             </div>
             <p className="text-sm text-slate-500 font-medium">Total Expenses</p>
           </div>
