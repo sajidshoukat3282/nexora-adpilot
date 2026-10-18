@@ -7,10 +7,13 @@ import { PaymentReceiptDrawer } from "./PaymentReceiptDrawer";
 import { InvoiceDetailDrawer } from "./InvoiceDetailDrawer";
 import { ExpenseDetailDrawer } from "./ExpenseDetailDrawer";
 import { useSession } from "@/hooks/useSession";
+import { useCompanyProfile } from "@/hooks/useCompanyProfile"; // Company details ke liye import
 
 export const FinancePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'payments' | 'expenses'>('overview');
+  
   const { company } = useSession();
+  const { profile } = useCompanyProfile(); // Profile data
   
   const [metrics, setMetrics] = useState<any>({ total_revenue: 0, total_expenses: 0, net_profit: 0, total_pending: 0 });
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -135,13 +138,27 @@ export const FinancePage: React.FC = () => {
               </button>
             </div>
 
-            {/* Printable P&L Statement */}
+            {/* Printable P&L Statement with Company Details */}
             <div id="printable-pnl" className="max-w-4xl mx-auto bg-white text-slate-900 p-8 border border-slate-200 rounded-lg shadow-sm">
               
-              <div className="text-center border-b-2 border-slate-800 pb-4 mb-6">
-                <h1 className="text-3xl font-bold uppercase tracking-widest text-slate-900">Profit & Loss Statement</h1>
-                <p className="text-slate-600 mt-1 font-medium">{company?.name || 'Nexora Technologies'}</p>
-                <p className="text-sm text-slate-500 mt-1">Generated on: {new Date().toLocaleDateString()}</p>
+              {/* Header with Company Details */}
+              <div className="flex justify-between items-start border-b-2 border-slate-800 pb-6 mb-6">
+                <div>
+                  <h1 className="text-3xl font-bold uppercase tracking-widest text-slate-900">Profit & Loss</h1>
+                  <p className="text-slate-500 mt-1 font-medium">Financial Statement</p>
+                </div>
+                <div className="text-right">
+                  <h2 className="text-lg font-bold text-slate-800">
+                    {profile?.legalName || company?.name || "Nexora Technologies"}
+                  </h2>
+                  {profile?.address && (
+                    <p className="text-sm text-slate-500">{[profile.address, profile.city, profile.country].filter(Boolean).join(", ")}</p>
+                  )}
+                  {profile?.phone && <p className="text-sm text-slate-500">Tel: {profile.phone}</p>}
+                  {profile?.ntn && <p className="text-sm text-slate-500 font-mono">NTN: {profile.ntn}</p>}
+                  {profile?.strn && <p className="text-sm text-slate-500 font-mono">STRN: {profile.strn}</p>}
+                  <p className="text-sm text-slate-500 mt-2">Generated on: {new Date().toLocaleDateString()}</p>
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -197,7 +214,6 @@ export const FinancePage: React.FC = () => {
         {/* INVOICES TAB */}
         {activeTab === 'invoices' && (
           <table className="w-full text-left border-collapse">
-            {/* ... Table code stays same as before ... */}
             <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
               <tr>
                 <th className="p-4">Invoice #</th>
