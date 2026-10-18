@@ -124,10 +124,19 @@ export const FinancePage: React.FC = () => {
       
       <style>{`
         @media print {
+          @page { size: A4; margin: 10mm; }
+          html, body { width: 100%; height: 100%; margin: 0; padding: 0; background: white; }
           body * { visibility: hidden; }
           #printable-area, #printable-area * { visibility: visible; }
-          #printable-area { position: absolute; left: 0; top: 0; width: 100%; background: white !important; color: black !important; padding: 20px; }
+          #printable-area {
+            position: absolute; left: 0; top: 0; width: 100%; min-height: auto;
+            background: white !important; color: black !important;
+            padding: 0 !important; 
+            page-break-after: avoid;
+            page-break-inside: avoid;
+          }
           .no-print { display: none !important; }
+          .min-h-screen { min-height: 0 !important; }
         }
       `}</style>
 
