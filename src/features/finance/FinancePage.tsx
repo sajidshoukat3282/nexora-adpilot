@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { FiDollarSign, FiTrendingUp, FiTrendingDown, FiFileText, FiCreditCard, FiPlus } from "react-icons/fi";
-import { PageHeader } from "@/components/layout/AppShell";
-import AddExpenseForm from "./AddExpenseForm"; // Naya Form import kiya
+import { FiDollarSign, FiTrendingUp, FiTrendingDown, FiCreditCard, FiPlus } from "react-icons/fi";
+import AddExpenseForm from "./AddExpenseForm";
 
 export const FinancePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'expenses'>('overview');
@@ -11,7 +10,6 @@ export const FinancePage: React.FC = () => {
   const [expenses, setExpenses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Modal State
   const [showExpenseForm, setShowExpenseForm] = useState(false);
 
   const fetchFinanceData = async () => {
@@ -66,7 +64,6 @@ export const FinancePage: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm relative overflow-hidden">
           <div className="flex items-center gap-3 mb-2">
@@ -111,7 +108,6 @@ export const FinancePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex border-b border-slate-200 mb-6 bg-white px-2 rounded-t-xl">
         <button onClick={() => setActiveTab('overview')} className={`px-6 py-4 text-sm font-semibold transition-colors border-b-2 ${activeTab === 'overview' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Profit & Loss</button>
         <button onClick={() => setActiveTab('invoices')} className={`px-6 py-4 text-sm font-semibold transition-colors border-b-2 ${activeTab === 'invoices' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>Invoices ({invoices.length})</button>
@@ -205,13 +201,12 @@ export const FinancePage: React.FC = () => {
         )}
       </div>
 
-      {/* Add Expense Modal */}
       {showExpenseForm && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50">
           <AddExpenseForm 
             onClose={() => { 
               setShowExpenseForm(false); 
-              fetchFinanceData(); // Naya kharcha add hone par dashboard refresh karein
+              fetchFinanceData(); 
             }} 
           />
         </div>
