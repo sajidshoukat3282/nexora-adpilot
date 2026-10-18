@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 
 export default function AddPaymentForm({ onClose, onSuccess }: { onClose: () => void, onSuccess: () => void }) {
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  
   const [formData, setFormData] = useState<any>({
     invoice_id: '', amount: 0, payment_date: new Date().toISOString().split('T')[0],
     payment_method: 'Bank Transfer', received_by: '', reference_no: ''
@@ -16,7 +18,14 @@ export default function AddPaymentForm({ onClose, onSuccess }: { onClose: () => 
 
   const handleInvoiceSelect = (e: any) => {
     const inv = invoices.find(i => i.id === e.target.value);
-    setFormData({ ...formData, invoice_id: e.target.value, amount: inv ? (inv.total_amount - inv.amount_paid) : 0 });
+    setSelectedInvoice(inv);
+    
+    // Default amount balance due set karein, lekin user isko kam kar sakta hai
+    setFormData({ 
+      ...formData, 
+      invoice_id: e.target.value, 
+      amount: inv ? (inv.total_amount - inv.amount_paid) : 0 
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,7 +50,6 @@ export default function AddPaymentForm({ onClose, onSuccess }: { onClose: () => 
         onSuccess(); 
         onClose(); 
       } else {
-        // Agar backend se error aaye to yahan show hoga
         alert(`Error: ${data.message || data.error || 'Failed to save payment'}`);
       }
     } catch (error: any) {
@@ -70,10 +78,29 @@ export default function AddPaymentForm({ onClose, onSuccess }: { onClose: () => 
           </select>
         </div>
 
+        {/* Invoice Summary Box (Jab invoice select ho) */}
+        {selectedInvoice && (
+          <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg text-sm space-y-1">
+            <div className="flex justify-between">
+              <span className="text-slate-500">Total Invoice Amount:</span>
+              <span className="font-semibold">{selectedInvoice.total_amount.toLocaleString()} {selectedInvoice.currency}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">Already Paid:</span>
+              <span className="font-semibold text-emerald-600">{selectedInvoice.amount_paid.toLocaleString()} {selectedInvoice.currency}</span>
+            </div>
+            <div className="flex justify-between border-t border-slate-200 pt-1 mt-1">
+              <span className="text-slate-700 font-medium">Balance Due:</span>
+              <span className="font-bold text-rose-600">{(selectedInvoice.total_amount - selectedInvoice.amount_paid).toLocaleString()} {selectedInvoice.currency}</span>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-medium text-slate-600">Amount Received *</label>
             <input required type="number" min="1" step="any" className="w-full bg-white text-slate-900 border border-slate-300 rounded-lg p-2 mt-1 outline-none focus:border-emerald-500 font-bold" value={formData.amount} onChange={(e: any) => setFormData({...formData, amount: Number(e.target.value)})} />
+            <p className="text-[11px] text-slate-400 mt-1">Aap yahan partial amount bhi daal sakte hain.</p>
           </div>
           <div>
             <label className="text-sm font-medium text-slate-600">Date *</label>
