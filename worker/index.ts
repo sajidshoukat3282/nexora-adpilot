@@ -954,8 +954,8 @@ const payments = await env.DB.prepare(`
   WHERE i.company_id = ? ${payFilter}
 `).bind(...payBindings).all();
       
-      WHERE i.company_id = ? ${clientFilter.replace('client_id', 'i.client_id')}
-    `).bind(...bindings).all();
+      
+    
 
     let expensesData: any[] = [];
     if (!clientId || clientId === 'all') {
