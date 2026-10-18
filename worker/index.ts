@@ -991,7 +991,7 @@ async scheduled(event: any, env: Env, ctx: any) {
     
     // Un companies ko dhoondein jinka aaj report bhejne ka din hai
     const companiesToEmail = await env.DB.prepare(`
-      SELECT c.id, c.name, c.report_email_day, a.email as owner_email
+      SELECT c.id, c.name, c.report_email_day, c.report_extra_emails, a.email as owner_email
       FROM companies c
       JOIN company_memberships cm ON c.id = cm.company_id
       JOIN accounts a ON cm.account_id = a.id
@@ -1037,7 +1037,15 @@ async scheduled(event: any, env: Env, ctx: any) {
           </p>
         </div>
       `;
+// Emails ki list banayein (Owner + Extra Emails)
+const toEmails: { email: string }[] = [{ email: company.owner_email }];
 
+if (company.report_extra_emails) {
+  const extras = company.report_extra_emails.split(',').map((e: string) => e.trim()).filter((e: string) => e);
+  extras.forEach((email: string) => {
+    if (email) toEmails.push({ email });
+  });
+}
       // 3. Email Bhejein (Brevo ke zariye)
       if (env.BREVO_API_KEY) {
         await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -1048,12 +1056,12 @@ async scheduled(event: any, env: Env, ctx: any) {
             'content-type': 'application/json',
           },
           body: JSON.stringify({
-            sender: { name: 'Nexora AdPilot', email: env.MAIL_FROM_EMAIL || 'hello@nexoratechnologies.pk' },
-            to: [{ email: company.owner_email }],
-            subject: `Weekly Report: ${company.name}`,
-            htmlContent: emailHtml,
-          }),
-        });
+    sender: { name: 'Nexora AdPilot', email: env.MAIL_FROM_EMAIL || 'hello@nexoratechnologies.pk' },
+    to: toEmails, // <-- Yahan purane owner email ki jagah toEmails array aayega
+    subject: `Weekly Report: ${company.name}`,
+    htmlContent: emailHtml,
+  }),
+});
       }
     }
   } catch (error) {
