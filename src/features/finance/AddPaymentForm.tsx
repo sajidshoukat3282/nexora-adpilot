@@ -28,33 +28,33 @@ export default function AddPaymentForm({ onClose, onSuccess }: { onClose: () => 
 
   return (
     <div className="bg-white p-6 rounded-xl border w-full max-w-lg shadow-2xl">
-      <h2 className="text-xl font-bold mb-4 border-b pb-2">Receive Payment</h2>
+      <h2 className="text-xl font-bold mb-4 border-b pb-2 text-slate-800">Receive Payment</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="text-sm font-medium">Select Unpaid Invoice</label>
-          <select required className="w-full border rounded-lg p-2 mt-1" onChange={handleInvoiceSelect}>
+          <label className="text-sm font-medium text-slate-600">Select Unpaid Invoice</label>
+          <select required className="w-full border rounded-lg p-2 mt-1 outline-none" onChange={handleInvoiceSelect}>
             <option value="">-- Choose Invoice --</option>
             {invoices.map(inv => <option key={inv.id} value={inv.id}>{inv.invoice_number} - {inv.client_name} (Due: {inv.total_amount - inv.amount_paid})</option>)}
           </select>
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <div><label className="text-sm font-medium">Amount Received</label><input required type="number" className="w-full border rounded-lg p-2 mt-1" value={formData.amount} onChange={(e: any) => setFormData({...formData, amount: Number(e.target.value)})} /></div>
-          <div><label className="text-sm font-medium">Date</label><input required type="date" className="w-full border rounded-lg p-2 mt-1" value={formData.payment_date} onChange={(e: any) => setFormData({...formData, payment_date: e.target.value})} /></div>
+          <div><label className="text-sm font-medium text-slate-600">Amount Received</label><input required type="number" className="w-full border rounded-lg p-2 mt-1 outline-none" value={formData.amount} onChange={(e: any) => setFormData({...formData, amount: Number(e.target.value)})} /></div>
+          <div><label className="text-sm font-medium text-slate-600">Date</label><input required type="date" className="w-full border rounded-lg p-2 mt-1 outline-none" value={formData.payment_date} onChange={(e: any) => setFormData({...formData, payment_date: e.target.value})} /></div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-sm font-medium">Method</label>
-            <select className="w-full border rounded-lg p-2 mt-1" onChange={(e: any) => setFormData({...formData, payment_method: e.target.value})}>
+            <label className="text-sm font-medium text-slate-600">Method</label>
+            <select className="w-full border rounded-lg p-2 mt-1 outline-none" onChange={(e: any) => setFormData({...formData, payment_method: e.target.value})}>
               <option value="Bank Transfer">Bank Transfer</option>
               <option value="Cash">Cash</option>
               <option value="Cheque">Cheque</option>
               <option value="IBFT">IBFT / Online</option>
             </select>
           </div>
-          <div><label className="text-sm font-medium">Received By (Employee)</label><input required type="text" className="w-full border rounded-lg p-2 mt-1" onChange={(e: any) => setFormData({...formData, received_by: e.target.value})} placeholder="e.g. Ali" /></div>
+          <div><label className="text-sm font-medium text-slate-600">Received By (Employee)</label><input required type="text" className="w-full border rounded-lg p-2 mt-1 outline-none" onChange={(e: any) => setFormData({...formData, received_by: e.target.value})} placeholder="e.g. Ali" /></div>
         </div>
         <div className="flex justify-end gap-3 mt-4 border-t pt-4">
-          <button type="button" onClick={onClose} className="px-4 py-2">Cancel</button>
+          <button type="button" onClick={onClose} className="px-4 py-2 text-slate-500">Cancel</button>
           <button type="submit" className="px-6 py-2 bg-emerald-600 text-white rounded-lg">Save Payment</button>
         </div>
       </form>
