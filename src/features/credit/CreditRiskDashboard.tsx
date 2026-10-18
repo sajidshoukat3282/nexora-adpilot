@@ -1,24 +1,53 @@
 import React, { useState, useEffect } from "react";
-import { FiShield, FiAlertTriangle, FiDollarSign } from "react-icons/fi";
+import { FiShield, FiAlertTriangle, FiDollarSign, FiEdit2, FiX } from "react-icons/fi";
 
 export const CreditRiskDashboard: React.FC = () => {
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Edit Limit States
+  const [editingClient, setEditingClient] = useState<any>(null);
+  const [newLimit, setNewLimit] = useState<number>(0);
+  const [saving, setSaving] = useState(false);
+
+  const fetchRiskData = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/credit-risk');
+      const data = await res.json();
+      if (data.ok) setClients(data.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchRiskData = async () => {
-      try {
-        const res = await fetch('/api/credit-risk');
-        const data = await res.json();
-        if (data.ok) setClients(data.data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchRiskData();
   }, []);
+
+  const handleUpdateLimit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/crm/clients/${editingClient.id}/credit-limit`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credit_limit: newLimit })
+      });
+      if (res.ok) {
+        setEditingClient(null);
+        fetchRiskData(); // Data refresh karein
+      } else {
+        alert("Failed to update limit");
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-PK', { style: 'currency', currency: 'PKR', minimumFractionDigits: 0 }).format(amount);
@@ -33,7 +62,7 @@ export const CreditRiskDashboard: React.FC = () => {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 p-6 rounded-xl">
+    <div className="min-h-screen bg-slate-50 text-slate-800 p-6 rounded-xl relative">
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -49,7 +78,7 @@ export const CreditRiskDashboard: React.FC = () => {
           <div>
             <h3 className="text-rose-800 font-bold">Credit Limit Alert</h3>
             <p className="text-rose-700 text-sm mt-1">
-              You have <b>{highRiskClients.length} client(s)</b> approaching or exceeding their credit limits. Immediate review recommended.
+              You have <b>{highRiskClients.length} client(s)</b> approaching or exceeding their credit limits.
             </p>
           </div>
         </div>
@@ -131,7 +160,17 @@ export const CreditRiskDashboard: React.FC = () => {
                 return (
                   <tr key={client.id} className="hover:bg-slate-50">
                     <td className="p-4 font-medium text-slate-900">{client.name}</td>
-                    <td className="p-4 text-right font-mono text-sm">{formatCurrency(limit)}</td>
+                    <td className="p-4 text-right font-mono text-sm">
+                      {formatCurrency(limit)}
+                      {/* Edit Button */}
+                      <button 
+                        onClick={() => { setEditingClient(client); setNewLimit(limit); }}
+                        className="ml-2 text-blue-500 hover:text-blue-700 inline-flex items-center"
+                        title="Increase/Edit Credit Limit"
+                      >
+                        <FiEdit2 size={14} />
+                      </button>
+                    </td>
                     <td className="p-4 text-right font-mono text-sm text-slate-700">{formatCurrency(balance)}</td>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
@@ -152,13 +191,43 @@ export const CreditRiskDashboard: React.FC = () => {
                   </tr>
                 );
               })}
-              {clients.length === 0 && (
-                <tr><td colSpan={5} className="p-10 text-center text-slate-500">No clients found.</td></tr>
-              )}
             </tbody>
           </table>
         )}
       </div>
+
+      {/* Edit Limit Modal */}
+      {editingClient && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-lg text-slate-800">Update Credit Limit</h3>
+              <button onClick={() => setEditingClient(null)} className="text-slate-400 hover:text-slate-700">
+                <FiX size={20} />
+              </button>
+            </div>
+            <p className="text-sm text-slate-500 mb-4">Client: <span className="font-semibold text-slate-800">{editingClient.name}</span></p>
+            
+            <form onSubmit={handleUpdateLimit}>
+              <label className="block text-sm font-medium text-slate-600 mb-1">New Credit Limit</label>
+              <input 
+                type="number" 
+                value={newLimit}
+                onChange={(e) => setNewLimit(Number(e.target.value))}
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-lg font-bold text-slate-800 outline-none focus:border-emerald-500 mb-6"
+                required
+              />
+              <div className="flex justify-end gap-3">
+                <button type="button" onClick={() => setEditingClient(null)} className="px-4 py-2 text-slate-500 font-medium">Cancel</button>
+                <button type="submit" disabled={saving} className="px-6 py-2 bg-emerald-600 text-white rounded-lg font-medium">
+                  {saving ? "Saving..." : "Update Limit"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
