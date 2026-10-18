@@ -919,10 +919,7 @@ if (url.pathname.startsWith('/api/crm/clients/') && url.pathname.endsWith('/cred
 }
     
 
-// Yahan se Ledger ka code paste karein 👇
-// ==========================================
-// LEDGER ROUTE
-// ==========================================
+// LEDGER ROUTE (FIXED)
 if (url.pathname === '/api/ledger' && request.method === 'GET') {
   try {
     const session = await resolveSession(request, env.DB);
@@ -931,49 +928,53 @@ if (url.pathname === '/api/ledger' && request.method === 'GET') {
     const clientId = url.searchParams.get('client_id');
     const companyId = session.companyId;
 
-    let clientFilter = "";
-    const bindings: any[] = [companyId];
+    let invQuery = `
+      SELECT i.id, i.issue_date as date, i.invoice_number as reference, c.name as client_name, 'Invoice' as type, i.total_amount as amount, 'Debit' as entry_type
+      FROM invoices i
+      JOIN clients c ON i.client_id = c.id
+      WHERE i.company_id = ? AND i.status != 'cancelled'
+    `;
+    let invParams: any[] = [companyId];
+
+    let payQuery = `
+      SELECT p.id, p.payment_date as date, i.invoice_number as reference, c.name as client_name, 'Payment' as type, p.amount, 'Credit' as entry_type, p.payment_method as method
+      FROM invoice_payments p
+      JOIN invoices i ON p.invoice_id = i.id
+      JOIN clients c ON i.client_id = c.id
+      WHERE i.company_id = ?
+    `;
+    let payParams: any[] = [companyId];
 
     if (clientId && clientId !== 'all') {
-      clientFilter = " AND client_id = ?";
-      bindings.push(clientId);
+      invQuery += ` AND i.client_id = ?`;
+      invParams.push(clientId);
+      payQuery += ` AND i.client_id = ?`;
+      payParams.push(clientId);
     }
 
-    const invoices = await env.DB.prepare(`
-  SELECT i.id, i.issue_date as date, i.invoice_number as reference, c.name as client_name, 'Invoice' as type, i.total_amount as amount, 'Debit' as entry_type
-  FROM invoices i
-  JOIN clients c ON i.client_id = c.id
-  WHERE i.company_id = ? AND i.status != 'cancelled' ${invFilter}
-`).bind(...invBindings).all();
-
-const payments = await env.DB.prepare(`
-  SELECT p.id, p.payment_date as date, i.invoice_number as reference, c.name as client_name, 'Payment' as type, p.amount, 'Credit' as entry_type, p.payment_method as method
-  FROM invoice_payments p
-  JOIN invoices i ON p.invoice_id = i.id
-  JOIN clients c ON i.client_id = c.id
-  WHERE i.company_id = ? ${payFilter}
-`).bind(...payBindings).all();
-      
-      
-    
+    const invoices = await env.DB.prepare(invQuery).bind(...invParams).all();
+    const payments = await env.DB.prepare(payQuery).bind(...payParams).all();
 
     let expensesData: any[] = [];
     if (!clientId || clientId === 'all') {
-       const exp = await env.DB.prepare(`
-         SELECT id, expense_date as date, category as reference, 'Expense' as type, amount, 'Debit' as entry_type
-         FROM expenses WHERE company_id = ?
-       `).bind(companyId).all();
-       expensesData = exp.results || [];
+      const exp = await env.DB.prepare(`
+        SELECT id, expense_date as date, category as reference, 'General' as client_name, 'Expense' as type, amount, 'Debit' as entry_type
+        FROM expenses WHERE company_id = ?
+      `).bind(companyId).all();
+      expensesData = exp.results || [];
     }
 
-    const ledger = [...(invoices.results || []), ...(payments.results || []), ...expensesData].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const ledger = [
+      ...(invoices.results || []),
+      ...(payments.results || []),
+      ...expensesData
+    ].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     return json({ ok: true, data: ledger });
   } catch (err: any) {
     return json({ ok: false, error: err.message }, 500);
   }
 }
-// Yahan tak 👆
 
 
     if (url.pathname.startsWith('/api/')) return json({ ok: false, error: 'NOT_FOUND', message: 'API route not found.', }, 404);
