@@ -6,6 +6,7 @@ export default function AddPaymentForm({ onClose, onSuccess }: { onClose: () => 
     invoice_id: '', amount: 0, payment_date: new Date().toISOString().split('T')[0],
     payment_method: 'Bank Transfer', received_by: '', reference_no: ''
   });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetch('/api/invoices').then(r => r.json()).then(d => {
@@ -18,12 +19,37 @@ export default function AddPaymentForm({ onClose, onSuccess }: { onClose: () => 
     setFormData({ ...formData, invoice_id: e.target.value, amount: inv ? (inv.total_amount - inv.amount_paid) : 0 });
   };
 
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch('/api/payments', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData)
-    });
-    if (res.ok) { alert('Payment Recorded!'); onSuccess(); onClose(); }
+    
+    if (!formData.invoice_id) return alert("Please select an invoice.");
+    if (formData.amount <= 0) return alert("Amount must be greater than 0.");
+    if (!formData.received_by) return alert("Please enter who received the payment.");
+
+    setSaving(true);
+    try {
+      const res = await fetch('/api/payments', {
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify(formData)
+      });
+      
+      const data = await res.json();
+
+      if (res.ok && data.ok) { 
+        alert('Payment Recorded Successfully!'); 
+        onSuccess(); 
+        onClose(); 
+      } else {
+        // Agar backend se error aaye to yahan show hoga
+        alert(`Error: ${data.message || data.error || 'Failed to save payment'}`);
+      }
+    } catch (error: any) {
+      console.error(error);
+      alert('Network error. Check console for details.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -33,7 +59,7 @@ export default function AddPaymentForm({ onClose, onSuccess }: { onClose: () => 
       <form onSubmit={handleSubmit} className="space-y-4">
         
         <div>
-          <label className="text-sm font-medium text-slate-600">Select Unpaid Invoice</label>
+          <label className="text-sm font-medium text-slate-600">Select Unpaid Invoice *</label>
           <select required className="w-full bg-white text-slate-900 border border-slate-300 rounded-lg p-2 mt-1 outline-none focus:border-emerald-500" onChange={handleInvoiceSelect}>
             <option value="">-- Choose Invoice --</option>
             {invoices.map((inv: any) => (
@@ -46,11 +72,11 @@ export default function AddPaymentForm({ onClose, onSuccess }: { onClose: () => 
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-sm font-medium text-slate-600">Amount Received</label>
-            <input required type="number" className="w-full bg-white text-slate-900 border border-slate-300 rounded-lg p-2 mt-1 outline-none focus:border-emerald-500" value={formData.amount} onChange={(e: any) => setFormData({...formData, amount: Number(e.target.value)})} />
+            <label className="text-sm font-medium text-slate-600">Amount Received *</label>
+            <input required type="number" min="1" step="any" className="w-full bg-white text-slate-900 border border-slate-300 rounded-lg p-2 mt-1 outline-none focus:border-emerald-500 font-bold" value={formData.amount} onChange={(e: any) => setFormData({...formData, amount: Number(e.target.value)})} />
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-600">Date</label>
+            <label className="text-sm font-medium text-slate-600">Date *</label>
             <input required type="date" className="w-full bg-white text-slate-900 border border-slate-300 rounded-lg p-2 mt-1 outline-none focus:border-emerald-500" value={formData.payment_date} onChange={(e: any) => setFormData({...formData, payment_date: e.target.value})} />
           </div>
         </div>
@@ -67,7 +93,7 @@ export default function AddPaymentForm({ onClose, onSuccess }: { onClose: () => 
             </select>
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-600">Received By (Employee)</label>
+            <label className="text-sm font-medium text-slate-600">Received By (Employee) *</label>
             <input required type="text" className="w-full bg-white text-slate-900 border border-slate-300 rounded-lg p-2 mt-1 outline-none focus:border-emerald-500" onChange={(e: any) => setFormData({...formData, received_by: e.target.value})} placeholder="e.g. Ali" />
           </div>
         </div>
@@ -79,7 +105,9 @@ export default function AddPaymentForm({ onClose, onSuccess }: { onClose: () => 
 
         <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-200">
           <button type="button" onClick={onClose} className="px-4 py-2 text-slate-500 hover:text-slate-800 font-medium">Cancel</button>
-          <button type="submit" className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium shadow-sm transition-colors">Save Payment</button>
+          <button type="submit" disabled={saving} className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg font-medium shadow-sm transition-colors">
+            {saving ? "Saving..." : "Save Payment"}
+          </button>
         </div>
       </form>
     </div>
