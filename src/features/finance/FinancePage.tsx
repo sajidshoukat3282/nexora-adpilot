@@ -3,7 +3,8 @@ import { FiDollarSign, FiTrendingUp, FiArrowDown, FiCreditCard, FiPlus } from "r
 import AddExpenseForm from "./AddExpenseForm";
 import AddInvoiceForm from "./AddInvoiceForm";
 import AddPaymentForm from "./AddPaymentForm";
-import { PaymentReceiptDrawer } from "./PaymentReceiptDrawer"; // Nayi file import ki
+import { PaymentReceiptDrawer } from "./PaymentReceiptDrawer";
+import { InvoiceDetailDrawer } from "./InvoiceDetailDrawer"; // Naya Drawer Import kiya
 
 export const FinancePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'payments' | 'expenses'>('overview');
@@ -18,8 +19,9 @@ export const FinancePage: React.FC = () => {
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   
-  // Receipt State
+  // Drawer States
   const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null); // Naya State Invoice Preview ke liye
 
   const fetchFinanceData = async () => {
     setLoading(true);
@@ -114,14 +116,19 @@ export const FinancePage: React.FC = () => {
                 <th className="p-4 text-right">Received</th>
                 <th className="p-4 text-right">Balance Due</th>
                 <th className="p-4 text-center">Status</th>
+                <th className="p-4 text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {invoices.map((inv: any) => {
                 const balance = inv.total_amount - inv.amount_paid;
                 return (
-                  <tr key={inv.id} className="hover:bg-slate-50">
-                    <td className="p-4 font-mono text-sm">{inv.invoice_number}</td>
+                  <tr 
+                    key={inv.id} 
+                    className="hover:bg-slate-50 cursor-pointer transition-colors"
+                    onClick={() => setSelectedInvoice(inv)} // Row Click par Drawer khulega
+                  >
+                    <td className="p-4 font-mono text-sm text-emerald-600 font-medium">{inv.invoice_number}</td>
                     <td className="p-4">{inv.client_name}</td>
                     <td className="p-4 text-right font-medium">{formatCurrency(inv.total_amount)}</td>
                     <td className="p-4 text-right text-emerald-600">{formatCurrency(inv.amount_paid)}</td>
@@ -133,10 +140,15 @@ export const FinancePage: React.FC = () => {
                         {inv.status.replace('_', ' ')}
                       </span>
                     </td>
+                    <td className="p-4 text-center">
+                      <button className="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded transition-colors font-medium">
+                        View / Print
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
-              {invoices.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-slate-500">No invoices found</td></tr>}
+              {invoices.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-slate-500">No invoices found</td></tr>}
             </tbody>
           </table>
         )}
@@ -192,12 +204,23 @@ export const FinancePage: React.FC = () => {
         )}
       </div>
 
-      {/* Modals */}
+      {/* Modals & Drawers */}
       {showExpenseForm && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><AddExpenseForm onClose={() => { setShowExpenseForm(false); fetchFinanceData(); }} /></div>}
       {showInvoiceForm && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><AddInvoiceForm onClose={() => { setShowInvoiceForm(false); fetchFinanceData(); }} /></div>}
       {showPaymentForm && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><AddPaymentForm onClose={() => setShowPaymentForm(false)} onSuccess={fetchFinanceData} /></div>}
       
-      {/* Receipt Modal */}
+      {/* Invoice Preview Drawer */}
+      <InvoiceDetailDrawer 
+        invoice={selectedInvoice} 
+        onClose={() => setSelectedInvoice(null)} 
+        onRecordPayment={() => {
+          // Agar user Drawer se Receive Payment dabaye to form khule
+          setSelectedInvoice(null);
+          setShowPaymentForm(true);
+        }} 
+      />
+
+      {/* Receipt Drawer */}
       <PaymentReceiptDrawer payment={selectedReceipt} onClose={() => setSelectedReceipt(null)} />
     </div>
   );
