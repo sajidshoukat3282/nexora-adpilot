@@ -213,7 +213,7 @@ export const CreditRiskDashboard: React.FC = () => {
               <input 
                 type="number" 
                 value={newLimit}
-                onChange={(e) => setNewLimit(Number(e.target.value))}
+                onChange={(e: any) => setNewLimit(Number(e.target.value))}
                 className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-lg font-bold text-slate-800 outline-none focus:border-emerald-500 mb-6"
                 required
               />
