@@ -900,6 +900,23 @@ if (url.pathname === '/api/credit-risk' && request.method === 'GET') {
     return json({ ok: false, error: err.message }, 500);
   }
 }
+    // Credit Limit Update Route
+if (url.pathname.startsWith('/api/crm/clients/') && url.pathname.endsWith('/credit-limit') && request.method === 'PUT') {
+  try {
+    const session = await resolveSession(request, env.DB);
+    if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+    
+    const parts = url.pathname.split('/');
+    const clientId = parts[4]; // URL se client ID nikalain
+    const body = (await request.json()) as any;
+    
+    await env.DB.prepare(`
+      UPDATE clients SET credit_limit = ?, updated_at = datetime('now') WHERE id = ? AND company_id = ?
+    `).bind(body.credit_limit, clientId, session.companyId).run();
+    
+    return json({ ok: true });
+  } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+}
     if (url.pathname.startsWith('/api/')) return json({ ok: false, error: 'NOT_FOUND', message: 'API route not found.', }, 404);
 
     return env.ASSETS.fetch(request);
