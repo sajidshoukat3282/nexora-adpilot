@@ -102,27 +102,59 @@ export const FinancePage: React.FC = () => {
 
         {activeTab === 'invoices' && (
           <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-50 text-xs text-slate-500 uppercase"><tr><th className="p-4">Invoice #</th><th className="p-4">Client</th><th className="p-4 text-right">Total</th><th className="p-4 text-right">Paid</th><th className="p-4 text-center">Status</th></tr></thead>
+            <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+              <tr>
+                <th className="p-4">Invoice #</th>
+                <th className="p-4">Client</th>
+                <th className="p-4 text-right">Total Amount</th>
+                <th className="p-4 text-right">Received</th>
+                <th className="p-4 text-right">Balance Due</th>
+                <th className="p-4 text-center">Status</th>
+              </tr>
+            </thead>
             <tbody className="divide-y">
-              {invoices.map((inv: any) => (
-                <tr key={inv.id} className="hover:bg-slate-50">
-                  <td className="p-4 font-mono text-sm">{inv.invoice_number}</td><td className="p-4">{inv.client_name}</td>
-                  <td className="p-4 text-right">{formatCurrency(inv.total_amount)}</td><td className="p-4 text-right text-emerald-600">{formatCurrency(inv.amount_paid)}</td>
-                  <td className="p-4 text-center"><span className={`px-2 py-1 rounded text-xs font-bold ${inv.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{inv.status}</span></td>
-                </tr>
-              ))}
-              {invoices.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-slate-500">No invoices found</td></tr>}
+              {invoices.map((inv: any) => {
+                const balance = inv.total_amount - inv.amount_paid;
+                return (
+                  <tr key={inv.id} className="hover:bg-slate-50">
+                    <td className="p-4 font-mono text-sm">{inv.invoice_number}</td>
+                    <td className="p-4">{inv.client_name}</td>
+                    <td className="p-4 text-right font-medium">{formatCurrency(inv.total_amount)}</td>
+                    <td className="p-4 text-right text-emerald-600">{formatCurrency(inv.amount_paid)}</td>
+                    <td className={`p-4 text-right font-bold ${balance > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                      {formatCurrency(balance)}
+                    </td>
+                    <td className="p-4 text-center">
+                      <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${inv.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : inv.status === 'overdue' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {inv.status.replace('_', ' ')}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+              {invoices.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-slate-500">No invoices found</td></tr>}
             </tbody>
           </table>
         )}
 
         {activeTab === 'payments' && (
           <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-50 text-xs text-slate-500 uppercase"><tr><th className="p-4">Date</th><th className="p-4">Invoice</th><th className="p-4">Client</th><th className="p-4">Method</th><th className="p-4 text-right">Amount</th></tr></thead>
+            <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+              <tr>
+                <th className="p-4">Date</th>
+                <th className="p-4">Invoice</th>
+                <th className="p-4">Client</th>
+                <th className="p-4">Method</th>
+                <th className="p-4 text-right">Amount Received</th>
+              </tr>
+            </thead>
             <tbody className="divide-y">
               {payments.map((p: any) => (
                 <tr key={p.id} className="hover:bg-slate-50">
-                  <td className="p-4 text-sm">{p.payment_date}</td><td className="p-4 font-mono text-sm">{p.invoice_number}</td><td className="p-4">{p.client_name}</td><td className="p-4 text-sm">{p.payment_method}</td>
+                  <td className="p-4 text-sm">{p.payment_date}</td>
+                  <td className="p-4 font-mono text-sm">{p.invoice_number}</td>
+                  <td className="p-4">{p.client_name}</td>
+                  <td className="p-4 text-sm">{p.payment_method}</td>
                   <td className="p-4 text-right text-emerald-600 font-bold">{formatCurrency(p.amount)}</td>
                 </tr>
               ))}
