@@ -3,6 +3,7 @@ import { FiDollarSign, FiTrendingUp, FiArrowDown, FiCreditCard, FiPlus } from "r
 import AddExpenseForm from "./AddExpenseForm";
 import AddInvoiceForm from "./AddInvoiceForm";
 import AddPaymentForm from "./AddPaymentForm";
+import { PaymentReceiptDrawer } from "./PaymentReceiptDrawer"; // Nayi file import ki
 
 export const FinancePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'payments' | 'expenses'>('overview');
@@ -16,6 +17,9 @@ export const FinancePage: React.FC = () => {
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  
+  // Receipt State
+  const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
 
   const fetchFinanceData = async () => {
     setLoading(true);
@@ -146,6 +150,7 @@ export const FinancePage: React.FC = () => {
                 <th className="p-4">Client</th>
                 <th className="p-4">Method</th>
                 <th className="p-4 text-right">Amount Received</th>
+                <th className="p-4 text-center">Receipt</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -156,9 +161,17 @@ export const FinancePage: React.FC = () => {
                   <td className="p-4">{p.client_name}</td>
                   <td className="p-4 text-sm">{p.payment_method}</td>
                   <td className="p-4 text-right text-emerald-600 font-bold">{formatCurrency(p.amount)}</td>
+                  <td className="p-4 text-center">
+                    <button 
+                      onClick={() => setSelectedReceipt({ ...p, currency: 'PKR' })}
+                      className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-3 py-1.5 rounded transition-colors font-medium"
+                    >
+                      Print Receipt
+                    </button>
+                  </td>
                 </tr>
               ))}
-              {payments.length === 0 && <tr><td colSpan={5} className="p-6 text-center text-slate-500">No payments found</td></tr>}
+              {payments.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-slate-500">No payments found</td></tr>}
             </tbody>
           </table>
         )}
@@ -179,9 +192,13 @@ export const FinancePage: React.FC = () => {
         )}
       </div>
 
+      {/* Modals */}
       {showExpenseForm && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><AddExpenseForm onClose={() => { setShowExpenseForm(false); fetchFinanceData(); }} /></div>}
       {showInvoiceForm && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><AddInvoiceForm onClose={() => { setShowInvoiceForm(false); fetchFinanceData(); }} /></div>}
       {showPaymentForm && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><AddPaymentForm onClose={() => setShowPaymentForm(false)} onSuccess={fetchFinanceData} /></div>}
+      
+      {/* Receipt Modal */}
+      <PaymentReceiptDrawer payment={selectedReceipt} onClose={() => setSelectedReceipt(null)} />
     </div>
   );
 };
