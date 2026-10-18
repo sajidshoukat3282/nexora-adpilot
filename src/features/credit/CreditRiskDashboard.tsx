@@ -1,334 +1,166 @@
-import React, { useState } from "react";
-import { useSession } from "@/hooks/useSession";
-import { isDemoCompany } from "@/repositories/demo/store";
-import { FiShield, FiAlertTriangle, FiDollarSign, FiUsers, FiSearch, FiDownload, FiEdit2, FiFilter } from "react-icons/fi";
-import { Letterhead } from "@/components/ui/Letterhead";
+import React, { useState, useEffect } from "react";
+import { FiShield, FiAlertTriangle, FiDollarSign } from "react-icons/fi";
 
-interface ClientCredit {
-  id: string;
-  name: string;
-  creditLimit: number;
-  currentBalance: number;
-  riskLevel: "Low" | "Medium" | "High";
-  status: "Active" | "Warning" | "Blocked";
-}
+export const CreditRiskDashboard: React.FC = () => {
+  const [clients, setClients] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-// Sample data shown ONLY for the Nexora owner demo company. Every other
-// company starts with an empty portfolio.
-const DEMO_PORTFOLIO: ClientCredit[] = [
-  { id: "c-101", name: "Alpha Media Group", creditLimit: 60000, currentBalance: 42000, riskLevel: "Medium", status: "Active" },
-  { id: "c-102", name: "Vertex Advertising", creditLimit: 35000, currentBalance: 34500, riskLevel: "High", status: "Warning" },
-  { id: "c-103", name: "Pioneer Brand Co.", creditLimit: 80000, currentBalance: 18000, riskLevel: "Low", status: "Active" },
-  { id: "c-104", name: "Nexus Global Ltd.", creditLimit: 45000, currentBalance: 45000, riskLevel: "High", status: "Blocked" },
-  { id: "c-105", name: "Vantage Outdoor Media", creditLimit: 100000, currentBalance: 25000, riskLevel: "Low", status: "Active" },
-];
+  useEffect(() => {
+    const fetchRiskData = async () => {
+      try {
+        const res = await fetch('/api/credit-risk');
+        const data = await res.json();
+        if (data.ok) setClients(data.data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRiskData();
+  }, []);
 
-export function CreditRiskDashboard() {
-  const { session } = useSession();
-  const [portfolio, setPortfolio] = useState<ClientCredit[]>(
-    isDemoCompany(session?.companyId) ? DEMO_PORTFOLIO : [],
-  );
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [riskFilter, setRiskFilter] = useState<string>("All");
-  const [editingClient, setEditingClient] = useState<ClientCredit | null>(null);
-  const [newLimitInput, setNewLimitInput] = useState<string>("");
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-PK', { style: 'currency', currency: 'PKR', minimumFractionDigits: 0 }).format(amount);
+  };
 
-  // Calculations
-  const totalLimit = portfolio.reduce((acc, curr) => acc + curr.creditLimit, 0);
-  const totalBalance = portfolio.reduce((acc, curr) => acc + curr.currentBalance, 0);
-  const highRiskCount = portfolio.filter((curr) => curr.riskLevel === "High").length;
-  const mediumRiskCount = portfolio.filter((curr) => curr.riskLevel === "Medium").length;
-  const lowRiskCount = portfolio.filter((curr) => curr.riskLevel === "Low").length;
-
-  // Filter logic
-  const filteredPortfolio = portfolio.filter((client) => {
-    const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRisk = riskFilter === "All" || client.riskLevel === riskFilter;
-    return matchesSearch && matchesRisk;
+  const totalLimit = clients.reduce((sum, c) => sum + (c.credit_limit || 0), 0);
+  const totalOutstanding = clients.reduce((sum, c) => sum + (c.outstanding_balance || 0), 0);
+  
+  const highRiskClients = clients.filter(c => {
+    if (!c.credit_limit || c.credit_limit === 0) return c.outstanding_balance > 0;
+    return (c.outstanding_balance / c.credit_limit) >= 0.8;
   });
 
-  // Print / Save to PDF Function
-  const handlePrintPDF = () => {
-    window.print();
-  };
-
-  // Handle Save Limit Update
-  const handleSaveLimit = () => {
-    if (!editingClient) return;
-    const updatedLimit = parseFloat(newLimitInput);
-    if (isNaN(updatedLimit)) return;
-
-    setPortfolio((prev: ClientCredit[]) =>
-      prev.map((c) => (c.id === editingClient.id ? { ...c, creditLimit: updatedLimit } : c))
-    );
-    setEditingClient(null);
-    setNewLimitInput("");
-  };
-
   return (
-    <div className="space-y-6 p-4 md:p-6 text-ink-200">
-      <Letterhead title="Credit Risk Report" printOnly />
-
-      {/* Header & PDF Export Button */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="min-h-screen bg-slate-50 text-slate-800 p-6 rounded-xl">
+      <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-ink-50">
-            Client Credit Limit & Risk Alerts
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <FiShield className="text-rose-600" /> Client Credit Risk
           </h1>
-          <p className="text-sm text-ink-400">Advanced credit exposure monitoring and risk management portfolio.</p>
+          <p className="text-sm text-slate-500 mt-1">Monitor client credit limits, outstanding balances, and risk exposure.</p>
         </div>
-        <button
-          onClick={handlePrintPDF}
-          className="flex items-center gap-2 px-4 py-2 bg-signal-blue text-white rounded-lg text-sm font-medium hover:bg-signal-blue/90 transition-colors shadow-sm"
-        >
-          <FiDownload size={16} />
-          Save to PDF / Print Report
-        </button>
       </div>
 
-      {/* Dynamic Alert Banner */}
-      {highRiskCount > 0 && (
-        <div className="bg-rose-500/10 border border-rose-500/30 p-4 rounded-xl flex items-center gap-3 text-rose-300">
-          <FiAlertTriangle size={20} className="shrink-0 text-rose-400" />
-          <div className="text-sm">
-            <span className="font-semibold">Security Alert:</span> There are <span className="font-bold underline">{highRiskCount} high-risk clients</span> currently approaching or exceeding credit limitations. Immediate financial review recommended.
+      {highRiskClients.length > 0 && (
+        <div className="bg-rose-50 border-l-4 border-rose-500 p-4 mb-6 rounded-r-lg flex items-start gap-3">
+          <FiAlertTriangle className="text-rose-600 mt-0.5" size={20} />
+          <div>
+            <h3 className="text-rose-800 font-bold">Credit Limit Alert</h3>
+            <p className="text-rose-700 text-sm mt-1">
+              You have <b>{highRiskClients.length} client(s)</b> approaching or exceeding their credit limits. Immediate review recommended.
+            </p>
           </div>
         </div>
       )}
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="bg-surface-card p-5 rounded-xl border border-border flex items-center gap-4">
-          <div className="p-3 rounded-lg bg-signal-blue/10 text-signal-blue">
-            <FiDollarSign size={24} />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600"><FiDollarSign size={16} /></div>
+            <p className="text-sm text-slate-500 font-medium">Total Credit Limit</p>
           </div>
-          <div>
-            <div className="text-xs text-ink-400 font-medium">TOTAL CREDIT LIMIT</div>
-            <div className="text-lg md:text-xl font-bold text-ink-50">${totalLimit.toLocaleString()}</div>
-          </div>
+          <h3 className="text-2xl font-bold text-slate-900">{formatCurrency(totalLimit)}</h3>
         </div>
 
-        <div className="bg-surface-card p-5 rounded-xl border border-border flex items-center gap-4">
-          <div className="p-3 rounded-lg bg-amber-500/10 text-amber-500">
-            <FiUsers size={24} />
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-600"><FiShield size={16} /></div>
+            <p className="text-sm text-slate-500 font-medium">Total Outstanding Balance</p>
           </div>
-          <div>
-            <div className="text-xs text-ink-400 font-medium">OUTSTANDING BALANCE</div>
-            <div className="text-lg md:text-xl font-bold text-ink-50">${totalBalance.toLocaleString()}</div>
-          </div>
+          <h3 className="text-2xl font-bold text-slate-900">{formatCurrency(totalOutstanding)}</h3>
         </div>
 
-        <div className="bg-surface-card p-5 rounded-xl border border-border flex items-center gap-4">
-          <div className="p-3 rounded-lg bg-rose-500/10 text-rose-500">
-            <FiAlertTriangle size={24} />
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-rose-600"><FiAlertTriangle size={16} /></div>
+            <p className="text-sm text-slate-500 font-medium">High Risk Clients</p>
           </div>
-          <div>
-            <div className="text-xs text-ink-400 font-medium">HIGH RISK CLIENTS</div>
-            <div className="text-lg md:text-xl font-bold text-rose-400">{highRiskCount}</div>
-          </div>
+          <h3 className="text-2xl font-bold text-slate-900">{highRiskClients.length}</h3>
         </div>
       </div>
 
-      {/* Risk Breakdown Quick Filters */}
-      <div className="grid grid-cols-3 gap-3">
-        <button
-          onClick={() => setRiskFilter("Low")}
-          className={`p-3 rounded-xl border text-left transition-all ${riskFilter === "Low" ? "bg-emerald-500/20 border-emerald-500/50" : "bg-surface-card border-border hover:bg-ink-800/40"}`}
-        >
-          <div className="text-xs text-ink-400 font-medium">Low Risk</div>
-          <div className="text-lg font-bold text-emerald-400">{lowRiskCount} Clients</div>
-        </button>
-        <button
-          onClick={() => setRiskFilter("Medium")}
-          className={`p-3 rounded-xl border text-left transition-all ${riskFilter === "Medium" ? "bg-amber-500/20 border-amber-500/50" : "bg-surface-card border-border hover:bg-ink-800/40"}`}
-        >
-          <div className="text-xs text-ink-400 font-medium">Medium Risk</div>
-          <div className="text-lg font-bold text-amber-400">{mediumRiskCount} Clients</div>
-        </button>
-        <button
-          onClick={() => setRiskFilter("High")}
-          className={`p-3 rounded-xl border text-left transition-all ${riskFilter === "High" ? "bg-rose-500/20 border-rose-500/50" : "bg-surface-card border-border hover:bg-ink-800/40"}`}
-        >
-          <div className="text-xs text-ink-400 font-medium">High Risk</div>
-          <div className="text-lg font-bold text-rose-400">{highRiskCount} Clients</div>
-        </button>
-      </div>
-
-      {/* Search and Filter Controls */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-surface-card p-4 rounded-xl border border-border">
-        <div className="relative w-full sm:w-72">
-          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" size={16} />
-          <input
-            type="text"
-            placeholder="Search client name..."
-            value={searchTerm}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
-            className="w-full bg-ink-900/60 border border-border rounded-lg pl-9 pr-4 py-2 text-sm text-ink-50 focus:outline-none focus:border-signal-blue"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <FiFilter size={16} className="text-ink-400" />
-          <span className="text-xs text-ink-400 font-medium">Risk Filter:</span>
-          <select
-            value={riskFilter}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRiskFilter(e.target.value)}
-            className="bg-ink-900/60 border border-border rounded-lg px-3 py-2 text-sm text-ink-50 focus:outline-none focus:border-signal-blue"
-          >
-            <option value="All">All Risks</option>
-            <option value="Low">Low Risk</option>
-            <option value="Medium">Medium Risk</option>
-            <option value="High">High Risk</option>
-          </select>
-          {riskFilter !== "All" && (
-            <button
-              onClick={() => setRiskFilter("All")}
-              className="text-xs text-signal-blue underline ml-2"
-            >
-              Reset
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Data Table */}
-      <div className="bg-surface-card rounded-xl border border-border overflow-hidden">
-        <div className="p-4 border-b border-border font-semibold text-ink-50 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FiShield size={18} />
-            Client Credit Portfolio ({filteredPortfolio.length})
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-border bg-ink-900/40 text-ink-400">
-                <th className="p-3 font-medium">Client Name</th>
-                <th className="p-3 font-medium">Credit Limit</th>
-                <th className="p-3 font-medium">Current Balance</th>
-                <th className="p-3 font-medium">Credit Utilization</th>
-                <th className="p-3 font-medium">Risk Level</th>
-                <th className="p-3 font-medium">Status</th>
-                <th className="p-3 font-medium text-right">Actions</th>
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+        {loading ? (
+          <div className="p-10 text-center text-slate-500">Loading credit portfolio...</div>
+        ) : (
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+              <tr>
+                <th className="p-4 font-semibold">Client Name</th>
+                <th className="p-4 font-semibold text-right">Credit Limit</th>
+                <th className="p-4 font-semibold text-right">Outstanding Balance</th>
+                <th className="p-4 font-semibold">Credit Utilization</th>
+                <th className="p-4 font-semibold text-center">Risk Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
-              {filteredPortfolio.length > 0 ? (
-                filteredPortfolio.map((client) => {
-                  const utilization = client.creditLimit > 0 ? Math.min(Math.round((client.currentBalance / client.creditLimit) * 100), 100) : 0;
-                  return (
-                    <tr key={client.id} className="hover:bg-ink-800/30">
-                      <td className="p-3 font-medium text-ink-50">{client.name}</td>
-                      <td className="p-3">${client.creditLimit.toLocaleString()}</td>
-                      <td className="p-3">${client.currentBalance.toLocaleString()}</td>
-                      <td className="p-3 w-36">
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-xs text-ink-400">
-                            <span>{utilization}%</span>
-                          </div>
-                          <div className="w-full bg-ink-900 rounded-full h-2 overflow-hidden border border-border">
-                            <div
-                              className={`h-full rounded-full ${
-                                utilization >= 90
-                                  ? "bg-rose-500"
-                                  : utilization >= 70
-                                  ? "bg-amber-500"
-                                  : "bg-signal-blue"
-                              }`}
-                              style={{ width: `${utilization}%` }}
-                            ></div>
-                          </div>
+            <tbody className="divide-y divide-slate-100">
+              {clients.map((client: any) => {
+                const limit = client.credit_limit || 0;
+                const balance = client.outstanding_balance || 0;
+                
+                let utilization = 0;
+                if (limit > 0) utilization = Math.round((balance / limit) * 100);
+                else if (balance > 0) utilization = 100;
+
+                let statusColor = "bg-slate-100 text-slate-600";
+                let statusText = "No Limit Set";
+                let barColor = "bg-slate-300";
+
+                if (limit > 0) {
+                  if (utilization >= 100) {
+                    statusColor = "bg-rose-100 text-rose-700 border border-rose-200";
+                    statusText = "Blocked";
+                    barColor = "bg-rose-500";
+                  } else if (utilization >= 80) {
+                    statusColor = "bg-amber-100 text-amber-700 border border-amber-200";
+                    statusText = "High Risk";
+                    barColor = "bg-amber-500";
+                  } else if (utilization >= 50) {
+                    statusColor = "bg-blue-100 text-blue-700 border border-blue-200";
+                    statusText = "Medium";
+                    barColor = "bg-blue-500";
+                  } else {
+                    statusColor = "bg-emerald-100 text-emerald-700 border border-emerald-200";
+                    statusText = "Low Risk";
+                    barColor = "bg-emerald-500";
+                  }
+                }
+
+                return (
+                  <tr key={client.id} className="hover:bg-slate-50">
+                    <td className="p-4 font-medium text-slate-900">{client.name}</td>
+                    <td className="p-4 text-right font-mono text-sm">{formatCurrency(limit)}</td>
+                    <td className="p-4 text-right font-mono text-sm text-slate-700">{formatCurrency(balance)}</td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full ${barColor}`} 
+                            style={{ width: `${Math.min(utilization, 100)}%` }}
+                          ></div>
                         </div>
-                      </td>
-                      <td className="p-3">
-                        <span
-                          className={`px-2 py-1 rounded text-xs font-semibold ${
-                            client.riskLevel === "High"
-                              ? "bg-rose-500/10 text-rose-400"
-                              : client.riskLevel === "Medium"
-                              ? "bg-amber-500/10 text-amber-400"
-                              : "bg-emerald-500/10 text-emerald-400"
-                          }`}
-                        >
-                          {client.riskLevel}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        <span
-                          className={`px-2 py-1 rounded text-xs font-semibold ${
-                            client.status === "Blocked"
-                              ? "bg-rose-500/10 text-rose-400"
-                              : client.status === "Warning"
-                              ? "bg-amber-500/10 text-amber-400"
-                              : "bg-emerald-500/10 text-emerald-400"
-                          }`}
-                        >
-                          {client.status}
-                        </span>
-                      </td>
-                      <td className="p-3 text-right">
-                        <button
-                          onClick={() => {
-                            setEditingClient(client);
-                            setNewLimitInput(client.creditLimit.toString());
-                          }}
-                          className="p-1.5 hover:bg-ink-800 rounded text-ink-400 hover:text-ink-50 transition-colors"
-                          title="Edit Credit Limit"
-                        >
-                          <FiEdit2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan={7} className="p-6 text-center text-ink-400">
-                    {portfolio.length === 0
-                      ? "No clients with credit limits yet."
-                      : "No matching clients found in portfolio."}
-                  </td>
-                </tr>
+                        <span className="text-xs font-semibold text-slate-500 w-10">{utilization}%</span>
+                      </div>
+                    </td>
+                    <td className="p-4 text-center">
+                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${statusColor}`}>
+                        {statusText}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+              {clients.length === 0 && (
+                <tr><td colSpan={5} className="p-10 text-center text-slate-500">No clients found.</td></tr>
               )}
             </tbody>
           </table>
-        </div>
+        )}
       </div>
-
-      {/* Edit Modal */}
-      {editingClient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="bg-ink-900 border border-ink-700 rounded-xl p-6 w-full max-w-md space-y-4 shadow-2xl shadow-black/50">
-            <h3 className="text-lg font-bold text-ink-50">Edit Credit Limit</h3>
-            <p className="text-sm text-ink-400">
-              Update maximum credit threshold for <span className="text-ink-50 font-semibold">{editingClient.name}</span>.
-            </p>
-            <div>
-              <label className="block text-xs font-medium text-ink-400 mb-1">New Credit Limit ($)</label>
-              <input
-                type="number"
-                value={newLimitInput}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewLimitInput(e.target.value)}
-                className="w-full bg-ink-950 border border-ink-700 rounded-lg px-3 py-2 text-sm text-ink-50 focus:outline-none focus:border-signal-cyan"
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => setEditingClient(null)}
-                className="px-4 py-2 bg-ink-800 text-ink-300 rounded-lg text-sm hover:bg-ink-700 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveLimit}
-                className="px-4 py-2 bg-signal-cyan text-ink-950 font-semibold rounded-lg text-sm hover:bg-signal-cyan/90 transition-colors"
-              >
-                Save Changes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
-}
+};
+
+export default CreditRiskDashboard;
