@@ -1,206 +1,200 @@
 import React, { useState } from "react";
 import { Drawer } from "@/components/ui/Drawer";
-import { StatusBadge, invoiceStatusTone } from "@/components/ui/StatusBadge";
-import { PermissionGate } from "@/components/ui/PermissionGate";
-import { useAsync } from "@/hooks/useAsync";
-import { repo } from "@/repositories/demo";
-import { useCompanyProfile } from "@/hooks/useCompanyProfile";
-import { useSession } from "@/hooks/useSession";
-import type { Invoice, CurrencyCode } from "@/domain";
-import { INVOICE_STATUS_LABELS, formatMoney, money } from "@/domain";
+import { FiPrinter, FiCheckCircle } from "react-icons/fi";
 
 export const InvoiceDetailDrawer: React.FC<{
-  invoice: Invoice | null;
+  invoice: any | null;
   onClose: () => void;
-  onRecordPayment: () => void;
+  onRecordPayment?: () => void;
 }> = ({ invoice, onClose, onRecordPayment }) => {
   const [copied, setCopied] = useState(false);
-  const { company } = useSession();
-  const { profile } = useCompanyProfile();
-  const client = useAsync(() => (invoice ? repo.crm.getClient(invoice.clientId) : Promise.resolve(null)), [invoice?.id]);
-  const payments = useAsync(() => (invoice ? repo.finance.listPaymentsForInvoice(invoice.id) : Promise.resolve([])), [invoice?.id]);
 
-  const curr = (invoice?.total.currency || "PKR") as CurrencyCode;
-  const outstandingCents = invoice ? invoice.total.amountCents - invoice.amountPaid.amountCents : 0;
-
-  // Financial & Tax Calculations
-  const subtotalCents = invoice?.items.reduce((sum, item) => sum + item.totalCents, 0) ?? 0;
-  const gstRate = profile?.defaultTaxRate ?? 18;
-  const estimatedGstCents = Math.round(subtotalCents * (gstRate / 100));
-  const estimatedWhtCents = Math.round(subtotalCents * 0.03);
-
+  // Safe Data Access (Kyunke DB se snake_case aa raha hai)
+  const totalAmount = invoice?.total_amount || 0;
+  const amountPaid = invoice?.amount_paid || 0;
+  const balanceDue = totalAmount - amountPaid;
+  const currency = invoice?.currency || 'PKR';
+  
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDownloadPdf = () => {
+  const handlePrint = () => {
     window.print();
   };
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-PK', { style: 'currency', currency: currency, minimumFractionDigits: 0 }).format(amount);
+  };
+
   return (
-    <Drawer
-      open={!!invoice}
-      onClose={onClose}
-      title={invoice?.code ?? ""}
-      subtitle={client.data?.name}
-      footer={
-        invoice && outstandingCents > 0 ? (
-          <PermissionGate permission="finance.manage" fallback={null}>
-            <button className="btn-primary w-full" onClick={onRecordPayment}>
-              Record Payment ({formatMoney(money(outstandingCents, curr))})
-            </button>
-          </PermissionGate>
-        ) : undefined
-      }
-    >
-      {invoice && (
-        <div className="space-y-6">
-          {/* Top Actions & Header Status */}
-          <div className="flex items-center justify-between pb-3 border-b border-panel-border">
-            <StatusBadge label={INVOICE_STATUS_LABELS[invoice.status]} tone={invoiceStatusTone(invoice.status)} />
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleCopyLink}
-                className="text-xs px-2.5 py-1 bg-surface-bg border border-surface-border rounded-md text-ink-300 hover:text-ink-100 transition"
-              >
-                {copied ? "✓ Copied" : "Share Link"}
-              </button>
-              <button
-                onClick={handleDownloadPdf}
-                className="text-xs px-2.5 py-1 bg-surface-bg border border-surface-border rounded-md text-ink-300 hover:text-ink-100 transition"
-              >
-                📄 PDF
-              </button>
-            </div>
-          </div>
+    <>
+      {/* CSS for Print View */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #printable-invoice, #printable-invoice * {
+            visibility: visible;
+          }
+          #printable-invoice {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white !important;
+            color: black !important;
+            padding: 20px;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
 
-          {/* Tax Identification Details */}
-          <div className="grid grid-cols-2 gap-3 text-xs p-3 bg-surface-bg/40 rounded-lg border border-surface-border">
-            <div>
-              <span className="text-ink-500 block">Billed To (Client):</span>
-              <span className="font-semibold text-ink-200 block">{client.data?.name ?? "—"}</span>
+      <Drawer open={!!invoice} onClose={onClose} title={invoice?.invoice_number ?? ""} subtitle={invoice?.client_name}>
+        {invoice && (
+          <div className="space-y-6">
+            
+            {/* Top Actions (Hide during print) */}
+            <div className="flex items-center justify-between pb-3 border-b border-gray-700 no-print">
+              <span className={`px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wide
+                ${invoice.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 
+                  invoice.status === 'overdue' ? 'bg-rose-100 text-rose-700' : 
+                  'bg-amber-100 text-amber-700'}`}>
+                {invoice.status.replace('_', ' ')}
+              </span>
+              <div className="flex items-center gap-2">
+                <button onClick={handleCopyLink} className="text-xs px-3 py-1.5 bg-gray-800 text-white rounded-md hover:bg-gray-700 transition">
+                  {copied ? "✓ Copied" : "Share"}
+                </button>
+                <button onClick={handlePrint} className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-500 transition flex items-center gap-1">
+                  <FiPrinter /> Print / PDF
+                </button>
+              </div>
             </div>
-            <div>
-              <span className="text-ink-500 block">Issued By:</span>
-              <span className="font-semibold text-ink-200 block">{profile?.legalName || company?.name || "—"}</span>
-              {profile?.address && (
-                <span className="text-ink-400 block">
-                  {[profile.address, profile.city, profile.country].filter(Boolean).join(", ")}
-                </span>
-              )}
-              {profile?.phone && <span className="text-ink-400 block">Tel: {profile.phone}</span>}
-              {profile?.ntn && <span className="text-ink-400 font-mono block">NTN: {profile.ntn}</span>}
-              {profile?.strn && <span className="text-ink-400 font-mono block">STRN: {profile.strn}</span>}
-            </div>
-          </div>
 
-          {/* Line Items Table */}
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-ink-400 mb-2">Itemized Breakdown</h4>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-panel-border text-xs text-ink-500 text-left">
-                  <th className="py-1">Description</th>
-                  <th className="py-1 text-right">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoice.items.map((item) => (
-                  <tr key={item.id} className="border-b border-ink-800/60">
-                    <td className="py-2.5 text-ink-200">{item.description}</td>
-                    <td className="py-2.5 text-right text-ink-100 font-medium">
-                      {formatMoney(money(item.totalCents, curr))}
-                    </td>
+            {/* ================= PRINTABLE AREA ================= */}
+            <div id="printable-invoice" className="bg-white text-slate-900 p-8 rounded-lg shadow-sm">
+              
+              {/* Header: Company & Invoice Info */}
+              <div className="flex justify-between items-start border-b border-slate-200 pb-6 mb-6">
+                <div>
+                  <h1 className="text-2xl font-bold text-slate-900">INVOICE</h1>
+                  <p className="text-slate-500 font-mono mt-1">{invoice.invoice_number}</p>
+                </div>
+                <div className="text-right">
+                  <h2 className="text-lg font-bold text-slate-800">Nexora Technologies</h2>
+                  <p className="text-sm text-slate-500">123 Business Avenue, Lahore</p>
+                  <p className="text-sm text-slate-500">NTN: 1234567-8 | STRN: 0987654321</p>
+                  <p className="text-sm text-slate-500">hello@nexoratechnologies.pk</p>
+                </div>
+              </div>
+
+              {/* Bill To & Dates */}
+              <div className="flex justify-between mb-8">
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Billed To</p>
+                  <p className="font-bold text-slate-900">{invoice.client_name}</p>
+                  <p className="text-sm text-slate-500">{invoice.client_email || 'Client Email'}</p>
+                  <p className="text-sm text-slate-500">{invoice.client_address || 'Client Address'}</p>
+                </div>
+                <div className="text-right space-y-1">
+                  <p className="text-sm"><span className="text-slate-500">Issue Date:</span> <span className="font-medium">{invoice.issue_date}</span></p>
+                  <p className="text-sm"><span className="text-slate-500">Due Date:</span> <span className="font-medium">{invoice.due_date}</span></p>
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <table className="w-full mb-8">
+                <thead>
+                  <tr className="border-b-2 border-slate-800 text-left">
+                    <th className="py-2 text-sm font-bold text-slate-800">Description</th>
+                    <th className="py-2 text-sm font-bold text-slate-800 text-right">Amount</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-slate-200">
+                    <td className="py-3 text-sm text-slate-700">
+                      Advertising Campaign Services <br/>
+                      <span className="text-xs text-slate-500">Ref: Campaign ID {invoice.campaign_id || 'N/A'}</span>
+                    </td>
+                    <td className="py-3 text-sm text-slate-900 text-right font-medium">{formatCurrency(totalAmount)}</td>
+                  </tr>
+                </tbody>
+              </table>
 
-          {/* Enterprise Tax & Net Payable Summary */}
-          <div className="p-3.5 bg-surface-bg/60 rounded-xl border border-surface-border space-y-2 text-sm">
-            <div className="flex justify-between text-xs text-ink-400">
-              <span>Subtotal (Excl. Tax)</span>
-              <span>{formatMoney(money(subtotalCents, curr))}</span>
-            </div>
-            <div className="flex justify-between text-xs text-ink-400">
-              <span>Sales Tax / GST ({gstRate}%)</span>
-              <span>+{formatMoney(money(estimatedGstCents, curr))}</span>
-            </div>
-            <div className="flex justify-between text-xs text-signal-amber">
-              <span>Withholding Tax / WHT (3% Deductible)</span>
-              <span>-{formatMoney(money(estimatedWhtCents, curr))}</span>
-            </div>
-            <div className="border-t border-panel-border pt-2 flex justify-between font-bold text-base">
-              <span className="text-ink-200">Total Net Payable</span>
-              <span className="text-ink-50">{formatMoney(invoice.total)}</span>
-            </div>
-          </div>
-
-          {/* Payment Status Summary */}
-          <div className="space-y-2 text-sm border-t border-ink-800 pt-3">
-            <div className="flex justify-between">
-              <span className="text-ink-400">Amount Received</span>
-              <span className="text-signal-green font-semibold">{formatMoney(invoice.amountPaid)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-ink-400">Remaining Balance</span>
-              <span className="text-signal-amber font-semibold">{formatMoney(money(outstandingCents, curr))}</span>
-            </div>
-          </div>
-
-          {/* Wire Transfer Details */}
-          {(profile?.bankName || profile?.bankIban) && (
-            <div className="p-3 bg-surface-bg/30 rounded-lg border border-surface-border text-xs space-y-1">
-              <h5 className="font-semibold text-ink-300 uppercase tracking-wide mb-1">Bank Wire Transfer Info</h5>
-              {profile?.bankName && (
-                <div className="flex justify-between text-ink-400">
-                  <span>Bank Name:</span>
-                  <span className="text-ink-200 font-mono">{profile.bankName}</span>
-                </div>
-              )}
-              {profile?.bankAccountTitle && (
-                <div className="flex justify-between text-ink-400">
-                  <span>Account Title:</span>
-                  <span className="text-ink-200 font-mono">{profile.bankAccountTitle}</span>
-                </div>
-              )}
-              {profile?.bankIban && (
-                <div className="flex justify-between text-ink-400">
-                  <span>IBAN:</span>
-                  <span className="text-ink-200 font-mono">{profile.bankIban}</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Payment History */}
-          <section className="border-t border-ink-800 pt-3">
-            <h4 className="text-xs font-bold uppercase tracking-wide text-ink-400 mb-2">Payment History</h4>
-            <div className="space-y-2">
-              {payments.data?.map((p) => (
-                <div key={p.id} className="flex items-center justify-between text-sm panel p-3">
-                  <div>
-                    <div className="text-ink-100 font-semibold">{formatMoney(p.amount)}</div>
-                    <div className="text-xs text-ink-500 capitalize">{p.method.replace("_", " ")} · Ref: {p.reference}</div>
+              {/* Totals Section */}
+              <div className="flex justify-end mb-8">
+                <div className="w-1/2 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-500">Subtotal</span>
+                    <span className="font-medium">{formatCurrency(totalAmount)}</span>
                   </div>
-                  <span className="text-xs text-ink-500">{new Date(p.paidAt).toLocaleDateString()}</span>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-500">Tax</span>
+                    <span className="font-medium">Included</span>
+                  </div>
+                  <div className="flex justify-between text-base font-bold border-t border-slate-300 pt-2 mt-2">
+                    <span>Total Amount</span>
+                    <span>{formatCurrency(totalAmount)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-emerald-600 font-medium">
+                    <span>Amount Paid</span>
+                    <span>-{formatCurrency(amountPaid)}</span>
+                  </div>
+                  <div className="flex justify-between text-lg font-bold text-rose-600 border-t border-slate-300 pt-2">
+                    <span>Balance Due</span>
+                    <span>{formatCurrency(balanceDue)}</span>
+                  </div>
                 </div>
-              ))}
-              {payments.data?.length === 0 && <p className="text-xs text-ink-500">No payment records found.</p>}
-            </div>
-          </section>
+              </div>
 
-          {/* Terms & Conditions Disclaimer */}
-          <div className="text-[10px] text-ink-500 border-t border-ink-800 pt-3 space-y-1">
-            <p><strong>Payment Terms:</strong> Net {profile?.paymentTermsDays ?? 30} days from issuance date ({invoice.issueDate}).</p>
-            <p>Please quote invoice code <strong>{invoice.code}</strong> during bank transfers.</p>
-            {profile?.invoiceFooter && <p>{profile.invoiceFooter}</p>}
+              {/* Notes */}
+              <div className="mb-12">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Notes</p>
+                <p className="text-sm text-slate-600">{invoice.notes || 'Payment is due within 15 days. Please transfer to our bank account.'}</p>
+              </div>
+
+              {/* Signatures & Stamp Area */}
+              <div className="flex justify-between items-end mt-16 pt-8">
+                <div className="text-center w-48">
+                  <div className="border-t border-slate-400 pt-2">
+                    <p className="text-sm font-medium text-slate-800">Authorized Signature</p>
+                  </div>
+                </div>
+                
+                <div className="text-center w-32 h-24 flex items-center justify-center border-2 border-dashed border-slate-300 rounded-lg text-slate-300">
+                  Company Stamp
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="mt-12 text-center border-t border-slate-200 pt-4">
+                <p className="text-xs text-slate-400 font-medium">This is a system generated invoice.</p>
+                <p className="text-xs text-slate-400">Thank you for your business!</p>
+              </div>
+            </div>
+            {/* ================= END PRINTABLE AREA ================= */}
+
+            {/* Payment History (Hidden during print) */}
+            <div className="no-print pt-4 border-t border-gray-700">
+              <h4 className="text-sm font-bold text-gray-300 mb-3">Payment History</h4>
+              <p className="text-sm text-gray-500">Total Received: <span className="text-emerald-400 font-bold">{formatCurrency(amountPaid)}</span></p>
+              
+              {onRecordPayment && balanceDue > 0 && (
+                <button onClick={onRecordPayment} className="mt-4 w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg font-medium transition">
+                  Receive Payment
+                </button>
+              )}
+            </div>
+
           </div>
-        </div>
-      )}
-    </Drawer>
+        )}
+      </Drawer>
+    </>
   );
 };
