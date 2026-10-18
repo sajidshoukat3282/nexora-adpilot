@@ -10,7 +10,7 @@ export default function AddExpenseForm({ onClose }: { onClose: () => void }) {
     reference_no: ''
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: any) => {
     e.preventDefault();
     try {
       const res = await fetch('/api/expenses', {
