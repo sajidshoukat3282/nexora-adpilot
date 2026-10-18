@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { FiDollarSign, FiTrendingUp, FiArrowDown, FiCreditCard, FiPlus, FiFileText } from "react-icons/fi";
 import AddExpenseForm from "./AddExpenseForm";
 import AddInvoiceForm from "./AddInvoiceForm";
@@ -90,10 +90,20 @@ export const FinancePage: React.FC = () => {
 
   const handlePrint = () => { window.print(); };
 
+  // Ledger Calculations & Totals
   let runningBalance = 0;
+  let totalDebit = 0;
+  let totalCredit = 0;
+
   const ledgerWithBalance = ledgerData.map((tx: any) => {
-    if (tx.entry_type === 'Debit') runningBalance += tx.amount;
-    if (tx.entry_type === 'Credit') runningBalance -= tx.amount;
+    if (tx.entry_type === 'Debit') {
+      runningBalance += tx.amount;
+      totalDebit += tx.amount;
+    }
+    if (tx.entry_type === 'Credit') {
+      runningBalance -= tx.amount;
+      totalCredit += tx.amount;
+    }
     return { ...tx, balance: runningBalance };
   });
 
@@ -118,26 +128,41 @@ export const FinancePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 p-4 rounded-xl">
       
-      {/* FIXED PRINT CSS */}
       <style>{`
         @media print {
-          @page { size: A4; margin: 10mm; }
+          @page { size: A4; margin: 0; }
           body, html { margin: 0; padding: 0; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           body * { visibility: hidden; }
           #printable-area, #printable-area * { visibility: visible; }
+          
           #printable-area {
             position: absolute; left: 0; top: 0; width: 100%;
+            min-height: 100vh;
+            padding-top: 25mm !important; 
+            padding-left: 15mm !important;
+            padding-right: 15mm !important;
+            padding-bottom: 20mm !important;
             background: white !important; color: black !important;
-            padding: 0 !important; margin: 0 !important;
           }
+          
           .no-print { display: none !important; }
           table { width: 100% !important; border-collapse: collapse !important; }
           th, td { border-bottom: 1px solid #e2e8f0 !important; padding: 8px !important; color: black !important; font-size: 12px !important; }
           thead { background-color: #f1f5f9 !important; }
+          tfoot { background-color: #f8fafc !important; font-weight: bold !important; }
+
+          .print-footer {
+            position: absolute;
+            bottom: 10mm;
+            left: 15mm;
+            right: 15mm;
+            text-align: center;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 10px;
+          }
         }
       `}</style>
 
-      {/* Header Section */}
       <div className="flex justify-between items-center mb-6 no-print">
         <div>
           <h1 className="text-xl font-bold text-slate-900">Finance & Accounts</h1>
@@ -159,7 +184,6 @@ export const FinancePage: React.FC = () => {
         </div>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6 no-print">
         <div className="bg-white border rounded-lg p-4 shadow-sm">
           <div className="flex items-center gap-2 mb-1"><div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600"><FiTrendingUp size={14} /></div><p className="text-xs text-slate-500 font-medium">Revenue Collected</p></div>
@@ -179,7 +203,6 @@ export const FinancePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex border-b mb-4 bg-white px-1 rounded-t-lg overflow-x-auto no-print">
         <button onClick={() => setActiveTab('overview')} className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 ${activeTab === 'overview' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500'}`}>Profit & Loss</button>
         <button onClick={() => setActiveTab('invoices')} className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 ${activeTab === 'invoices' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500'}`}>Invoices ({invoices.length})</button>
@@ -190,14 +213,13 @@ export const FinancePage: React.FC = () => {
 
       <div className="bg-white border rounded-lg overflow-hidden shadow-sm p-4">
         
-        {/* OVERVIEW TAB (P&L) */}
         {activeTab === 'overview' && (
           <div>
             <div className="flex justify-between items-center mb-4 no-print">
               <h2 className="text-base font-bold text-slate-800">Financial Statement</h2>
               <button onClick={handlePrint} className="bg-slate-800 text-white px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 hover:bg-slate-700 transition">🖨️ Print / PDF</button>
             </div>
-            <div id="printable-area" className="max-w-3xl mx-auto bg-white text-slate-900 p-6 border border-slate-200 rounded-lg">
+            <div id="printable-area" className="max-w-3xl mx-auto bg-white text-slate-900 p-6 border border-slate-200 rounded-lg relative">
               <PrintHeader title="Profit & Loss" />
               <div className="space-y-3 text-sm">
                 <div>
@@ -213,62 +235,66 @@ export const FinancePage: React.FC = () => {
                   <div className="flex justify-between text-lg font-bold text-slate-900"><span>Net Profit / (Loss)</span><span className={metrics.net_profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}>{formatCurrency(metrics.net_profit)}</span></div>
                 </div>
               </div>
-              <div className="mt-12 pt-6 flex justify-between items-end border-t border-slate-200">
+              
+              <div className="mt-16 pt-6 flex justify-between items-end border-t border-slate-200">
                 <div className="text-center w-40 border-t border-slate-400 pt-1"><p className="text-xs font-medium text-slate-800">Prepared By</p></div>
                 <div className="text-center w-40 border-t border-slate-400 pt-1"><p className="text-xs font-medium text-slate-800">Approved By</p></div>
               </div>
-              <div className="mt-8 text-center border-t border-slate-200 pt-3">
-                <p className="text-[10px] text-slate-400 font-medium">This is a system generated financial report.</p>
+
+              <div className="print-footer mt-8 border-t border-slate-200 pt-3">
+                <p className="text-[10px] text-slate-400 font-medium">This is a system generated report.</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* INVOICES TAB */}
         {activeTab === 'invoices' && (
           <div>
             <div className="flex justify-between items-center mb-4 no-print">
               <h2 className="text-base font-bold text-slate-800">All Invoices</h2>
               <button onClick={handlePrint} className="bg-slate-800 text-white px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 hover:bg-slate-700 transition">🖨️ Print / PDF</button>
             </div>
-            <div id="printable-area" className="bg-white text-slate-900 p-4 border border-slate-200 rounded-lg">
+            <div id="printable-area" className="bg-white text-slate-900 p-4 border border-slate-200 rounded-lg relative">
               <PrintHeader title="Invoices List" />
               <table className="w-full text-left border-collapse text-xs">
-                <thead className="bg-slate-100 text-slate-600 uppercase border-b-2 border-slate-300"><tr><th className="p-2">Invoice #</th><th className="p-2">Client</th><th className="p-2 text-right">Total</th><th className="p-2 text-right">Received</th><th className="p-2 text-right">Balance</th><th className="p-2 text-center">Status</th></tr></thead>
+                <thead className="bg-slate-100 text-slate-600 uppercase border-b-2 border-slate-300"><tr><th className="p-2">Invoice #</th><th className="p-2">Client</th><th className="p-2 text-right">Total</th><th className="p-2 text-right">Received</th><th className="p-2 text-right">Balance</th><th className="p-2 text-center">Status</th><th className="p-2 text-center no-print">Action</th></tr></thead>
                 <tbody className="divide-y divide-slate-200">
                   {invoices.map((inv: any) => {
                     const balance = inv.total_amount - inv.amount_paid;
                     return (
-                      <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
+                      <tr key={inv.id} onClick={() => setSelectedInvoice(inv)} className="hover:bg-slate-50 cursor-pointer transition-colors">
                         <td className="p-2 font-mono">{inv.invoice_number}</td>
                         <td className="p-2">{inv.client_name}</td>
                         <td className="p-2 text-right font-medium">{formatCurrency(inv.total_amount)}</td>
                         <td className="p-2 text-right text-emerald-600">{formatCurrency(inv.amount_paid)}</td>
                         <td className={`p-2 text-right font-bold ${balance > 0 ? 'text-rose-600' : 'text-slate-400'}`}>{formatCurrency(balance)}</td>
                         <td className="p-2 text-center"><span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${inv.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : inv.status === 'overdue' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>{inv.status.replace('_', ' ')}</span></td>
+                        <td className="p-2 text-center no-print"><button className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded font-medium">View</button></td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
+              <div className="print-footer mt-8 border-t border-slate-200 pt-3">
+                <p className="text-[10px] text-slate-400 font-medium">This is a system generated report.</p>
+              </div>
             </div>
           </div>
         )}
 
-        {/* PAYMENTS TAB */}
         {activeTab === 'payments' && (
           <div>
             <div className="flex justify-between items-center mb-4 no-print">
               <h2 className="text-base font-bold text-slate-800">All Payments Received</h2>
               <button onClick={handlePrint} className="bg-slate-800 text-white px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 hover:bg-slate-700 transition">🖨️ Print / PDF</button>
             </div>
-            <div id="printable-area" className="bg-white text-slate-900 p-4 border border-slate-200 rounded-lg">
+            <div id="printable-area" className="bg-white text-slate-900 p-4 border border-slate-200 rounded-lg relative">
               <PrintHeader title="Payments Received" />
               <table className="w-full text-left border-collapse text-xs">
                 <thead className="bg-slate-100 text-slate-600 uppercase border-b-2 border-slate-300"><tr><th className="p-2">Date</th><th className="p-2">Invoice</th><th className="p-2">Client</th><th className="p-2">Method</th><th className="p-2 text-right">Amount</th></tr></thead>
                 <tbody className="divide-y divide-slate-200">
                   {payments.map((p: any) => (
-                    <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={p.id} onClick={() => setSelectedReceipt({ ...p, currency: 'PKR' })} className="hover:bg-slate-50 cursor-pointer transition-colors">
                       <td className="p-2">{p.payment_date}</td>
                       <td className="p-2 font-mono">{p.invoice_number}</td>
                       <td className="p-2">{p.client_name}</td>
@@ -278,24 +304,26 @@ export const FinancePage: React.FC = () => {
                   ))}
                 </tbody>
               </table>
+              <div className="print-footer mt-8 border-t border-slate-200 pt-3">
+                <p className="text-[10px] text-slate-400 font-medium">This is a system generated report.</p>
+              </div>
             </div>
           </div>
         )}
 
-        {/* EXPENSES TAB */}
         {activeTab === 'expenses' && (
           <div>
             <div className="flex justify-between items-center mb-4 no-print">
               <h2 className="text-base font-bold text-slate-800">All Expenses</h2>
               <button onClick={handlePrint} className="bg-slate-800 text-white px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 hover:bg-slate-700 transition">🖨️ Print / PDF</button>
             </div>
-            <div id="printable-area" className="bg-white text-slate-900 p-4 border border-slate-200 rounded-lg">
+            <div id="printable-area" className="bg-white text-slate-900 p-4 border border-slate-200 rounded-lg relative">
               <PrintHeader title="Expenses List" />
               <table className="w-full text-left border-collapse text-xs">
                 <thead className="bg-slate-100 text-slate-600 uppercase border-b-2 border-slate-300"><tr><th className="p-2">Category</th><th className="p-2">Description</th><th className="p-2">Date</th><th className="p-2">Method</th><th className="p-2 text-right">Amount</th></tr></thead>
                 <tbody className="divide-y divide-slate-200">
                   {expenses.map((e: any) => (
-                    <tr key={e.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={e.id} onClick={() => setSelectedExpense(e)} className="hover:bg-slate-50 cursor-pointer transition-colors">
                       <td className="p-2 font-medium text-rose-600">{e.category}</td>
                       <td className="p-2 text-slate-500">{e.description || '-'}</td>
                       <td className="p-2">{e.expense_date}</td>
@@ -305,11 +333,13 @@ export const FinancePage: React.FC = () => {
                   ))}
                 </tbody>
               </table>
+              <div className="print-footer mt-8 border-t border-slate-200 pt-3">
+                <p className="text-[10px] text-slate-400 font-medium">This is a system generated report.</p>
+              </div>
             </div>
           </div>
         )}
 
-        {/* LEDGER TAB */}
         {activeTab === 'ledger' && (
           <div>
             <div className="flex justify-between items-center mb-4 no-print">
@@ -331,7 +361,7 @@ export const FinancePage: React.FC = () => {
               </button>
             </div>
 
-            <div id="printable-area" className="bg-white text-slate-900 p-6 border border-slate-200 rounded-lg">
+            <div id="printable-area" className="bg-white text-slate-900 p-6 border border-slate-200 rounded-lg relative">
               <PrintHeader title="Account Ledger" />
               <p className="text-center font-bold text-sm mb-3 text-slate-800">Client: {currentClientName}</p>
 
@@ -355,7 +385,7 @@ export const FinancePage: React.FC = () => {
                     ledgerWithBalance.map((tx: any, index: number) => (
                       <tr key={index} className="border-b border-slate-100">
                         <td className="p-2 text-slate-600">{tx.date}</td>
-                        <td className="p-2 font-medium">{tx.reference}</td>
+                        <td className="p-2 font-medium">{tx.client_name} {tx.type === 'Expense' ? '' : `(${tx.reference})`}</td>
                         <td className="p-2">
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${tx.type === 'Invoice' ? 'bg-blue-100 text-blue-700' : tx.type === 'Payment' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                             {tx.type}
@@ -368,23 +398,27 @@ export const FinancePage: React.FC = () => {
                     ))
                   )}
                 </tbody>
+                <tfoot>
+                  <tr className="bg-slate-50 font-bold border-t-2 border-slate-300">
+                    <td colSpan={3} className="p-2 text-right uppercase tracking-wider text-slate-600">Total:</td>
+                    <td className="p-2 text-right font-mono">{formatCurrency(totalDebit)}</td>
+                    <td className="p-2 text-right font-mono text-emerald-600">{formatCurrency(totalCredit)}</td>
+                    <td className="p-2 text-right font-mono text-blue-600">{formatCurrency(runningBalance)}</td>
+                  </tr>
+                </tfoot>
               </table>
 
-              {/* Signatures & Stamp Area */}
               <div className="flex justify-between items-end mt-12 pt-6 border-t border-slate-200">
                 <div className="text-center w-40 border-t border-slate-400 pt-1">
                   <p className="text-xs font-medium text-slate-800">Prepared By</p>
-                </div>
-                <div className="text-center w-28 h-20 flex items-center justify-center border-2 border-dashed border-slate-300 rounded-lg text-[10px] text-slate-300">
-                  Company Stamp
                 </div>
                 <div className="text-center w-40 border-t border-slate-400 pt-1">
                   <p className="text-xs font-medium text-slate-800">Approved By</p>
                 </div>
               </div>
 
-              <div className="mt-8 text-center border-t border-slate-200 pt-3">
-                <p className="text-[10px] text-slate-400 font-medium">This is a system generated ledger statement.</p>
+              <div className="print-footer mt-8 border-t border-slate-200 pt-3">
+                <p className="text-[10px] text-slate-400 font-medium">This is a system generated report.</p>
               </div>
             </div>
           </div>
@@ -392,7 +426,6 @@ export const FinancePage: React.FC = () => {
 
       </div>
 
-      {/* Modals & Drawers */}
       {showExpenseForm && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><AddExpenseForm onClose={() => { setShowExpenseForm(false); fetchFinanceData(); }} /></div>}
       {showInvoiceForm && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><AddInvoiceForm onClose={() => { setShowInvoiceForm(false); fetchFinanceData(); }} /></div>}
       {showPaymentForm && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><AddPaymentForm onClose={() => setShowPaymentForm(false)} onSuccess={fetchFinanceData} /></div>}
