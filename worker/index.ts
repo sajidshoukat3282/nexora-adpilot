@@ -771,7 +771,67 @@ export default {
         return json({ ok: true, id });
       } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
     }
+// ==========================================
+// PAYMENTS ROUTES (NEW)
+// ==========================================
 
+// 1. Get All Payments
+if (url.pathname === '/api/payments' && request.method === 'GET') {
+  try {
+    const session = await resolveSession(request, env.DB);
+    if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+    
+    const payments = await env.DB.prepare(`
+      SELECT p.*, i.invoice_number, c.name as client_name 
+      FROM invoice_payments p
+      JOIN invoices i ON p.invoice_id = i.id
+      JOIN clients c ON i.client_id = c.id
+      WHERE i.company_id = ? 
+      ORDER BY p.payment_date DESC
+    `).bind(session.companyId).all();
+    
+    return json({ ok: true, data: payments.results });
+  } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+}
+
+// 2. Create Payment (Record Payment)
+if (url.pathname === '/api/payments' && request.method === 'POST') {
+  try {
+    const session = await resolveSession(request, env.DB);
+    if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+    
+    const body = (await request.json()) as any;
+    const invoiceId = body.invoice_id;
+    
+    if (!invoiceId) return json({ ok: false, error: 'INVALID_INPUT', message: 'Invoice ID required' }, 400);
+
+    const invoice = await env.DB.prepare(`SELECT total_amount, amount_paid FROM invoices WHERE id = ? AND company_id = ?`).bind(invoiceId, session.companyId).first<any>();
+    if (!invoice) return json({ ok: false, error: 'NOT_FOUND', message: 'Invoice not found' }, 404);
+
+    const paymentId = crypto.randomUUID();
+    const payment_amount = Number(body.amount);
+    
+    await env.DB.prepare(`
+      INSERT INTO invoice_payments (id, invoice_id, amount, payment_date, payment_method, reference_no, notes, received_by) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      paymentId, invoiceId, payment_amount, body.payment_date, body.payment_method, 
+      body.reference_no || null, body.notes || null, body.received_by || null
+    ).run();
+
+    const new_amount_paid = invoice.amount_paid + payment_amount;
+    let new_status = 'partially_paid';
+    if (new_amount_paid >= invoice.total_amount) {
+      new_status = 'paid';
+    }
+
+    await env.DB.prepare(`
+      UPDATE invoices SET amount_paid = ?, status = ?, updated_at = datetime('now') WHERE id = ?
+    `).bind(new_amount_paid, new_status, invoiceId).run();
+
+    return json({ ok: true, id: paymentId });
+  } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+}
     // ==========================================
     // FINANCE METRICS / PROFIT & LOSS ROUTE
     // ==========================================
