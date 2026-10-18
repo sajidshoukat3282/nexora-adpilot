@@ -940,15 +940,20 @@ if (url.pathname === '/api/ledger' && request.method === 'GET') {
     }
 
     const invoices = await env.DB.prepare(`
-      SELECT id, issue_date as date, invoice_number as reference, 'Invoice' as type, total_amount as amount, 'Debit' as entry_type
-      FROM invoices 
-      WHERE company_id = ? AND status != 'cancelled' ${clientFilter}
-    `).bind(...bindings).all();
+  SELECT i.id, i.issue_date as date, i.invoice_number as reference, c.name as client_name, 'Invoice' as type, i.total_amount as amount, 'Debit' as entry_type
+  FROM invoices i
+  JOIN clients c ON i.client_id = c.id
+  WHERE i.company_id = ? AND i.status != 'cancelled' ${invFilter}
+`).bind(...invBindings).all();
 
-    const payments = await env.DB.prepare(`
-      SELECT p.id, p.payment_date as date, i.invoice_number as reference, 'Payment' as type, p.amount, 'Credit' as entry_type, p.payment_method as method
-      FROM invoice_payments p
-      JOIN invoices i ON p.invoice_id = i.id
+const payments = await env.DB.prepare(`
+  SELECT p.id, p.payment_date as date, i.invoice_number as reference, c.name as client_name, 'Payment' as type, p.amount, 'Credit' as entry_type, p.payment_method as method
+  FROM invoice_payments p
+  JOIN invoices i ON p.invoice_id = i.id
+  JOIN clients c ON i.client_id = c.id
+  WHERE i.company_id = ? ${payFilter}
+`).bind(...payBindings).all();
+      
       WHERE i.company_id = ? ${clientFilter.replace('client_id', 'i.client_id')}
     `).bind(...bindings).all();
 
