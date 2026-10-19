@@ -39,6 +39,7 @@ export const CrmPage: React.FC = () => {
           ...c,
           logoInitial: c.name ? c.name.charAt(0).toUpperCase() : 'C',
           isPortalEnabled: c.portal_status === 'active',
+          isPortalInvited: c.portal_status === 'invited', // Naya status
           industry: c.industry || 'N/A'
         }));
         setClientsData(mappedClients);
@@ -64,6 +65,25 @@ export const CrmPage: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const handleInvite = async (clientId: string) => {
+    try {
+      const res = await fetch(`/api/crm/clients/${clientId}/invite`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      
+      if (data.ok) {
+        alert("Client invited successfully! (Portal email will be sent soon)");
+        fetchData(); // List refresh karein
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Network error while inviting client.");
+    }
+  };
 
   const filteredClients = clientsData.filter((c) => 
     c.name.toLowerCase().includes(search.toLowerCase())
@@ -123,7 +143,7 @@ export const CrmPage: React.FC = () => {
             </div>
             <div className="panel">
               <DataTable<Client>
-                columns={clientColumns}
+                columns={clientColumns(handleInvite)}
                 rows={filteredClients}
                 keyOf={(c) => c.id}
                 onRowClick={(c) => setSelectedClient(c)}
@@ -161,7 +181,7 @@ export const CrmPage: React.FC = () => {
   );
 };
 
-const clientColumns: ColumnDef<Client>[] = [
+const clientColumns = (handleInvite: (id: string) => void): ColumnDef<Client>[] => [
   {
     key: "name",
     header: "Client",
@@ -188,10 +208,39 @@ const clientColumns: ColumnDef<Client>[] = [
   {
     key: "portal",
     header: "Client Portal",
-    render: (c) => (
-      <span className={c.isPortalEnabled ? "text-signal-green text-xs font-semibold" : "text-ink-500 text-xs"}>
-        {c.isPortalEnabled ? "Enabled" : "Not enabled"}
-      </span>
-    ),
+    render: (c: any) => {
+      if (c.isPortalEnabled) {
+        return <span className="text-emerald-500 text-xs font-semibold">Enabled</span>;
+      }
+      if (c.isPortalInvited) {
+        return <span className="text-amber-500 text-xs font-semibold">Invited</span>;
+      }
+      return <span className="text-gray-500 text-xs">Not enabled</span>;
+    },
+  },
+  {
+    key: "actions",
+    header: "Action",
+    render: (c: any) => {
+      // Agar portal active ya invited hai to button disable ho jaye
+      const isDisabled = c.isPortalEnabled || c.isPortalInvited;
+      
+      return (
+        <button
+          onClick={(e) => {
+            e.stopPropagation(); // Taake row click (Drawer) na khule
+            handleInvite(c.id);
+          }}
+          disabled={isDisabled}
+          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+            isDisabled 
+              ? 'bg-gray-700/50 text-gray-400 cursor-not-allowed' 
+              : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+          }`}
+        >
+          {c.isPortalEnabled ? 'Active' : c.isPortalInvited ? 'Invited' : 'Invite to Portal'}
+        </button>
+      );
+    },
   },
 ];
