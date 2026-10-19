@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { FIN, ModalTitle } from './financeUi';
 
 export default function AddExpenseForm({ onClose }: { onClose: () => void }) {
   const [formData, setFormData] = useState<any>({
@@ -18,7 +19,7 @@ export default function AddExpenseForm({ onClose }: { onClose: () => void }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
-      
+
       if (res.ok) {
         alert('Expense Added Successfully!');
         onClose();
@@ -32,14 +33,14 @@ export default function AddExpenseForm({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="bg-white text-slate-800 p-6 rounded-xl border border-slate-200 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
-      <h2 className="text-xl font-bold mb-4 text-slate-900 border-b pb-2">Add New Expense</h2>
-      
-      <form onSubmit={handleSubmit} className="space-y-4">
-        
+    <div className={`${FIN.modal} max-w-lg`}>
+      <ModalTitle>Add New Expense</ModalTitle>
+
+      <form onSubmit={handleSubmit} className="space-y-3.5">
+
         <div>
-          <label className="text-sm font-medium text-slate-600">Category *</label>
-          <select required className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 mt-1 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+          <label className={FIN.label}>Category *</label>
+          <select required className={FIN.input}
             onChange={(e: any) => setFormData({...formData, category: e.target.value})}>
             <option value="Rent / Media Owner Payment">Rent / Media Owner Payment</option>
             <option value="Government Tax & Municipal Fees">Government Tax & Municipal Fees</option>
@@ -53,29 +54,29 @@ export default function AddExpenseForm({ onClose }: { onClose: () => void }) {
         </div>
 
         <div>
-          <label className="text-sm font-medium text-slate-600">Description</label>
-          <input type="text" className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 mt-1 outline-none focus:border-emerald-500" 
+          <label className={FIN.label}>Description</label>
+          <input type="text" className={FIN.input}
             onChange={(e: any) => setFormData({...formData, description: e.target.value})} placeholder="e.g. October Electricity Bill" />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-sm font-medium text-slate-600">Amount *</label>
-            <input required type="number" className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 mt-1 outline-none focus:border-emerald-500"
+            <label className={FIN.label}>Amount *</label>
+            <input required type="number" className={FIN.input}
               onChange={(e: any) => setFormData({...formData, amount: Number(e.target.value)})} placeholder="0" />
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-600">Date *</label>
-            <input required type="date" className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 mt-1 outline-none focus:border-emerald-500"
+            <label className={FIN.label}>Date *</label>
+            <input required type="date" className={FIN.input}
               value={formData.expense_date}
               onChange={(e: any) => setFormData({...formData, expense_date: e.target.value})} />
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-sm font-medium text-slate-600">Payment Method</label>
-            <select className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 mt-1 outline-none focus:border-emerald-500"
+            <label className={FIN.label}>Payment Method</label>
+            <select className={FIN.input}
               onChange={(e: any) => setFormData({...formData, payment_method: e.target.value})}>
               <option value="Cash">Cash</option>
               <option value="Bank Transfer">Bank Transfer</option>
@@ -85,15 +86,15 @@ export default function AddExpenseForm({ onClose }: { onClose: () => void }) {
             </select>
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-600">Reference No (Optional)</label>
-            <input type="text" className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 mt-1 outline-none focus:border-emerald-500"
+            <label className={FIN.label}>Reference No (Optional)</label>
+            <input type="text" className={FIN.input}
               onChange={(e: any) => setFormData({...formData, reference_no: e.target.value})} placeholder="e.g. TXN-12345" />
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-200">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-slate-500 hover:text-slate-800 font-medium">Cancel</button>
-          <button type="submit" className="px-6 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-medium shadow-sm transition-colors">Save Expense</button>
+        <div className="mt-5 flex justify-end gap-2 border-t border-[#2a2f37] pt-3.5">
+          <button type="button" onClick={onClose} className={FIN.btnText}>Cancel</button>
+          <button type="submit" className={FIN.btnRose}>Save Expense</button>
         </div>
       </form>
     </div>
