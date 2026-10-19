@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { FIN, ModalTitle } from './financeUi';
 
 export default function AddInvoiceForm({ onClose }: { onClose: () => void }) {
   const [clients, setClients] = useState<any[]>([]);
@@ -21,8 +22,8 @@ export default function AddInvoiceForm({ onClose }: { onClose: () => void }) {
   }, [items, formData.discount_amount, formData.tax_rate]);
 
   const handleItemChange = (i: number, field: string, val: any) => {
-    const newItems = [...items]; 
-    newItems[i][field] = val; 
+    const newItems = [...items];
+    newItems[i][field] = val;
     setItems(newItems);
   };
 
@@ -37,81 +38,81 @@ export default function AddInvoiceForm({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl border border-slate-200 w-full max-w-3xl shadow-2xl max-h-[90vh] overflow-y-auto text-slate-900">
-      <h2 className="text-xl font-bold mb-4 border-b pb-2 text-slate-800">Create Invoice</h2>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        
-        <div className="grid grid-cols-3 gap-4">
+    <div className={`${FIN.modal} max-w-3xl`}>
+      <ModalTitle>Create Invoice</ModalTitle>
+      <form onSubmit={handleSubmit} className="space-y-3.5">
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="col-span-1">
-            <label className="text-sm font-medium text-slate-600">Client</label>
-            <select required className="w-full bg-white text-slate-900 border border-slate-300 rounded p-2 mt-1 outline-none focus:border-emerald-500" onChange={(e: any) => setFormData({...formData, client_id: e.target.value})}>
+            <label className={FIN.label}>Client</label>
+            <select required className={FIN.input} onChange={(e: any) => setFormData({...formData, client_id: e.target.value})}>
               <option value="">Select Client</option>
               {clients.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-600">Issue Date</label>
-            <input required type="date" className="w-full bg-white text-slate-900 border border-slate-300 rounded p-2 mt-1 outline-none focus:border-emerald-500" value={formData.issue_date} onChange={(e: any) => setFormData({...formData, issue_date: e.target.value})} />
+            <label className={FIN.label}>Issue Date</label>
+            <input required type="date" className={FIN.input} value={formData.issue_date} onChange={(e: any) => setFormData({...formData, issue_date: e.target.value})} />
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-600">Due Date</label>
-            <input required type="date" className="w-full bg-white text-slate-900 border border-slate-300 rounded p-2 mt-1 outline-none focus:border-emerald-500" value={formData.due_date} onChange={(e: any) => setFormData({...formData, due_date: e.target.value})} />
+            <label className={FIN.label}>Due Date</label>
+            <input required type="date" className={FIN.input} value={formData.due_date} onChange={(e: any) => setFormData({...formData, due_date: e.target.value})} />
           </div>
         </div>
-        
-        <div className="border border-slate-200 rounded-lg overflow-hidden mt-4">
+
+        <div className="mt-2 overflow-hidden rounded-xl border border-[#2a2f37] bg-[#0f1216]">
           <table className="w-full text-left">
-            <thead className="bg-slate-50 text-xs text-slate-600">
+            <thead className="border-b border-[#2a2f37] bg-[#14171c] text-[10px] uppercase tracking-[0.12em] text-zinc-400">
               <tr>
-                <th className="p-2">Description</th>
-                <th className="p-2 w-20">Qty</th>
-                <th className="p-2 w-24">Rate</th>
-                <th className="p-2 w-24">Amount</th>
+                <th className="p-2 font-semibold">Description</th>
+                <th className="w-20 p-2 font-semibold">Qty</th>
+                <th className="w-24 p-2 font-semibold">Rate</th>
+                <th className="w-24 p-2 text-right font-semibold">Amount</th>
               </tr>
             </thead>
-            <tbody className="bg-white">
+            <tbody>
               {items.map((item: any, i: number) => (
-                <tr key={i} className="border-t border-slate-200">
-                  <td className="p-2">
-                    <input type="text" className="w-full bg-white text-slate-900 border border-transparent rounded p-1 outline-none focus:border-slate-300" value={item.description} onChange={(e: any) => handleItemChange(i, 'description', e.target.value)} />
+                <tr key={i} className="border-t border-[#20242b]">
+                  <td className="p-1.5">
+                    <input type="text" className={FIN.cellInput} value={item.description} onChange={(e: any) => handleItemChange(i, 'description', e.target.value)} />
                   </td>
-                  <td className="p-2">
-                    <input type="number" className="w-full bg-white text-slate-900 border border-transparent rounded p-1 outline-none text-center focus:border-slate-300" value={item.quantity} onChange={(e: any) => handleItemChange(i, 'quantity', e.target.value)} />
+                  <td className="p-1.5">
+                    <input type="number" className={`${FIN.cellInput} text-center`} value={item.quantity} onChange={(e: any) => handleItemChange(i, 'quantity', e.target.value)} />
                   </td>
-                  <td className="p-2">
-                    <input type="number" className="w-full bg-white text-slate-900 border border-transparent rounded p-1 outline-none text-right focus:border-slate-300" value={item.rate} onChange={(e: any) => handleItemChange(i, 'rate', e.target.value)} />
+                  <td className="p-1.5">
+                    <input type="number" className={`${FIN.cellInput} text-right`} value={item.rate} onChange={(e: any) => handleItemChange(i, 'rate', e.target.value)} />
                   </td>
-                  <td className="p-2 text-right text-slate-700">{(Number(item.quantity) * Number(item.rate)).toLocaleString()}</td>
+                  <td className="p-2 text-right text-[12px] text-zinc-200">{(Number(item.quantity) * Number(item.rate)).toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <div className="p-2 bg-slate-50 border-t border-slate-200">
-            <button type="button" onClick={() => setItems([...items, {description:'', quantity:1, rate:0}])} className="text-sm text-emerald-600 font-bold hover:text-emerald-700">+ Add Item</button>
+          <div className="border-t border-[#2a2f37] bg-[#14171c] p-2">
+            <button type="button" onClick={() => setItems([...items, {description:'', quantity:1, rate:0}])} className="text-[11px] font-semibold text-[#d9b45a] transition hover:text-[#f1d68a]">+ Add Item</button>
           </div>
         </div>
 
-        <div className="flex justify-end mt-4">
-          <div className="w-1/2 bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-2">
-            <div className="flex justify-between text-sm text-slate-600"><span>Subtotal:</span> <span className="font-medium text-slate-900">{subtotal.toLocaleString()}</span></div>
-            <div className="flex justify-between text-sm items-center text-slate-600">
-              <span>Discount:</span> 
-              <input type="number" className="w-24 bg-white text-slate-900 border border-slate-300 rounded p-1 text-right outline-none focus:border-emerald-500" value={formData.discount_amount} onChange={(e:any)=>setFormData({...formData, discount_amount: e.target.value})} />
+        <div className="mt-3 flex justify-end">
+          <div className="w-full space-y-2 rounded-xl border border-[#2a2f37] bg-[#0f1216] p-3.5 sm:w-1/2">
+            <div className="flex justify-between text-[12px] text-zinc-400"><span>Subtotal:</span> <span className="font-medium text-zinc-100">{subtotal.toLocaleString()}</span></div>
+            <div className="flex items-center justify-between text-[12px] text-zinc-400">
+              <span>Discount:</span>
+              <input type="number" className={`${FIN.input} !w-24 !py-1 text-right`} value={formData.discount_amount} onChange={(e:any)=>setFormData({...formData, discount_amount: e.target.value})} />
             </div>
-            <div className="flex justify-between text-sm items-center text-slate-600">
-              <span>Tax (%):</span> 
-              <input type="number" className="w-24 bg-white text-slate-900 border border-slate-300 rounded p-1 text-right outline-none focus:border-emerald-500" value={formData.tax_rate} onChange={(e:any)=>setFormData({...formData, tax_rate: e.target.value})} />
+            <div className="flex items-center justify-between text-[12px] text-zinc-400">
+              <span>Tax (%):</span>
+              <input type="number" className={`${FIN.input} !w-24 !py-1 text-right`} value={formData.tax_rate} onChange={(e:any)=>setFormData({...formData, tax_rate: e.target.value})} />
             </div>
-            <div className="flex justify-between text-sm text-slate-600 border-t border-slate-200 pt-2">
-              <span>Tax Amount:</span> <span className="font-medium text-slate-900">{taxAmount.toLocaleString()}</span>
+            <div className="flex justify-between border-t border-[#2a2f37] pt-2 text-[12px] text-zinc-400">
+              <span>Tax Amount:</span> <span className="font-medium text-zinc-100">{taxAmount.toLocaleString()}</span>
             </div>
-            <div className="flex justify-between font-bold text-lg border-t border-slate-200 pt-2 text-slate-900"><span>Total:</span> <span>{totalAmount.toLocaleString()} {formData.currency}</span></div>
+            <div className="flex justify-between border-t border-[#c99b3b]/30 pt-2 text-[14px] font-semibold text-[#f1d68a]"><span>Total:</span> <span>{totalAmount.toLocaleString()} {formData.currency}</span></div>
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 mt-4 border-t border-slate-200 pt-4">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-slate-500 hover:text-slate-800 font-medium">Cancel</button>
-          <button type="submit" className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium">Save Invoice</button>
+        <div className="mt-4 flex justify-end gap-2 border-t border-[#2a2f37] pt-3.5">
+          <button type="button" onClick={onClose} className={FIN.btnText}>Cancel</button>
+          <button type="submit" className={FIN.btnGold}>Save Invoice</button>
         </div>
       </form>
     </div>
