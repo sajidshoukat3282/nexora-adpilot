@@ -1,14 +1,14 @@
 import React, { useState } from "react";
 import { useNavigate } from "@/lib/router";
 
-export const AcceptInvitePage: React.FC = () => {
+export const AcceptClientInvitePage: React.FC = () => {
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // URL se token nikalain (hash mode: #/auth/accept-invite?token=...)
+  // URL se token nikalain
   const hash = window.location.hash;
   const token = new URLSearchParams(hash.split("?")[1]).get("token");
 
@@ -78,7 +78,7 @@ export const AcceptInvitePage: React.FC = () => {
               required
               className="w-full bg-[#0B1120] border border-slate-700 text-white text-sm rounded-lg p-2.5 mt-1 outline-none focus:border-emerald-500"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
               placeholder="Minimum 8 characters"
             />
           </div>
@@ -90,7 +90,7 @@ export const AcceptInvitePage: React.FC = () => {
               required
               className="w-full bg-[#0B1120] border border-slate-700 text-white text-sm rounded-lg p-2.5 mt-1 outline-none focus:border-emerald-500"
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
               placeholder="Repeat password"
             />
           </div>
@@ -108,4 +108,4 @@ export const AcceptInvitePage: React.FC = () => {
   );
 };
 
-export default AcceptInvitePage;
+export default AcceptClientInvitePage;
