@@ -1068,6 +1068,6 @@ async scheduled(event: any, env: Env, ctx: any) {
   } catch (error) {
     console.error("Cron Job Error:", error);
   }
-},
+
 },
 };
