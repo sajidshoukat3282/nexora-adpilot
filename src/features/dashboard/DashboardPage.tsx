@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FiAlertTriangle, FiTrendingUp, FiTarget, FiDollarSign, FiActivity, FiPieChart } from "react-icons/fi";
+import { FiAlertTriangle, FiTrendingUp, FiTarget, FiDollarSign } from "react-icons/fi";
 import { LineChart } from "@/components/charts/LineChart";
 import { DonutChart } from "@/components/charts/DonutChart";
 import { useSession } from "@/hooks/useSession";
@@ -55,12 +55,9 @@ export const DashboardPage: React.FC = () => {
   const profit = metrics.net_profit || 0;
   
   const roas = spend > 0 ? (revenue / spend).toFixed(1) : "0.0";
-  // AI Score mock calculation based on profit and uptime
   const aiScore = Math.min(99, Math.round((uptimePct * 0.4) + (profit > 0 ? 55 : 30)));
   
-  // Chart Mock Data
   const deliveryLabels = ["Oct 01", "Oct 07", "Oct 09", "Oct 11", "Oct 15", "Oct 23", "Oct 31"];
-  const deliveryTrend = [100, 250, 450, 300, 600, 450, 500];
 
   return (
     <div className="relative min-h-screen bg-[#0B1120] text-slate-200 p-2 md:p-4 rounded-xl font-sans">
@@ -82,9 +79,7 @@ export const DashboardPage: React.FC = () => {
         <div className="bg-[#111827] border border-slate-700/50 rounded-xl p-3 flex flex-col justify-between shadow-lg relative overflow-hidden">
           <p className="text-[10px] text-slate-300 font-bold uppercase tracking-wider mb-2">AI Commander Score</p>
           <div className="relative w-full h-14 flex items-end justify-center overflow-hidden">
-            {/* Background Semi-Circle */}
             <div className="absolute top-1 w-[72px] h-[72px] rounded-full border-[6px] border-slate-700/50 border-b-transparent border-l-transparent rotate-45"></div>
-            {/* Gold Value Semi-Circle */}
             <div className="absolute top-1 w-[72px] h-[72px] rounded-full border-[6px] border-amber-400 border-b-transparent border-l-transparent rotate-45" style={{ clipPath: 'polygon(0 0, 100% 0, 100% 50%, 0 50%)' }}></div>
             <div className="text-center z-10 pb-1">
               <span className="text-xl font-bold text-white leading-none">{aiScore}</span>
@@ -157,21 +152,18 @@ export const DashboardPage: React.FC = () => {
         <div className="bg-[#111827] border border-slate-700/50 rounded-xl p-4">
           <h3 className="font-semibold text-white text-xs mb-4">Budget-to-ROAS Flow</h3>
           <div className="flex items-center justify-between h-56 px-4">
-             {/* Left Nodes (Budget) */}
              <div className="flex flex-col justify-around h-full w-1/4 space-y-4">
                 <div className="bg-slate-800 border border-slate-600 p-2 rounded text-[10px] text-center text-white">Budget</div>
                 <div className="bg-slate-800 border border-slate-600 p-2 rounded text-[10px] text-center text-white">Budget</div>
                 <div className="bg-slate-800 border border-slate-600 p-2 rounded text-[10px] text-center text-white">TikTok</div>
              </div>
              
-             {/* Middle Flow Lines (Simulated) */}
              <div className="flex-1 flex flex-col justify-center gap-1 relative">
                 <div className="h-4 bg-gradient-to-r from-amber-400/50 to-purple-500/50 rounded-full w-full"></div>
                 <div className="h-4 bg-gradient-to-r from-emerald-400/50 to-cyan-500/50 rounded-full w-3/4"></div>
                 <div className="h-4 bg-gradient-to-r from-slate-500/50 to-blue-500/50 rounded-full w-5/6"></div>
              </div>
 
-             {/* Right Nodes (ROAS) */}
              <div className="flex flex-col justify-around h-full w-1/4 space-y-4">
                 <div className="bg-emerald-600 p-2 rounded text-[10px] text-center text-white">ROAS</div>
                 <div className="bg-amber-600 p-2 rounded text-[10px] text-center text-white">ROAS</div>
