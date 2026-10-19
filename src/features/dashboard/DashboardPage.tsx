@@ -1,16 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { 
-  FiLayout, 
-  FiMegaphone, 
-  FiDollarSign, 
-  FiBarChart2, 
-  FiUsers, 
-  FiSettings, 
-  FiPlus, 
-  FiAlertTriangle,
-  FiBell,
-  FiSearch
-} from "react-icons/fi";
 import { useSession } from "@/hooks/useSession";
 import { formatMoney, money } from "@/domain";
 
@@ -48,7 +36,6 @@ export const DashboardPage: React.FC = () => {
     fetchDashboardData();
   }, []);
 
-  // Dynamic calculations with screen fallbacks
   const liveCampaigns = campaigns.filter((c) => c.status === "live");
   const revenue = metrics.total_revenue || 465018.00;
   const spend = metrics.total_expenses || 0.00;
@@ -73,27 +60,27 @@ export const DashboardPage: React.FC = () => {
           {/* Navigation Links */}
           <nav className="space-y-1.5">
             <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 font-semibold text-xs shadow-[0_0_15px_rgba(16,185,129,0.15)]">
-              <FiLayout size={16} />
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
               <span>Commander</span>
             </button>
             <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800/50 text-xs transition">
-              <FiMegaphone size={16} />
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.684A1.76 1.76 0 013 12c0-.972.788-1.76 1.76-1.76h.676l3.28-5.882" /></svg>
               <span>Campaigns</span>
             </button>
             <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800/50 text-xs transition">
-              <FiDollarSign size={16} />
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               <span>Financials</span>
             </button>
             <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800/50 text-xs transition">
-              <FiBarChart2 size={16} />
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
               <span>Insights</span>
             </button>
             <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800/50 text-xs transition">
-              <FiUsers size={16} />
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
               <span>Team</span>
             </button>
             <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800/50 text-xs transition">
-              <FiSettings size={16} />
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /></svg>
               <span>Settings</span>
             </button>
           </nav>
@@ -102,8 +89,7 @@ export const DashboardPage: React.FC = () => {
         {/* Bottom Sidebar Action */}
         <div className="pt-4 border-t border-zinc-800/60">
           <button className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-xs font-medium transition">
-            <FiPlus size={14} />
-            <span>New Initiative</span>
+            <span>+ New Initiative</span>
           </button>
         </div>
       </aside>
@@ -111,15 +97,15 @@ export const DashboardPage: React.FC = () => {
       {/* 2. MAIN DASHBOARD CONTENT AREA */}
       <main className="flex-1 p-4 md:p-6 overflow-y-auto relative bg-[#0e1014]">
         
-        {/* Top Search & Profile Bar matching photo */}
+        {/* Top Search & Profile Bar */}
         <div className="flex items-center justify-between mb-5 pb-2 border-b border-zinc-800/40">
           <div className="flex items-center gap-2 text-zinc-400 bg-[#16181e] px-3 py-1.5 rounded-lg border border-zinc-800 text-xs w-64">
-            <FiSearch size={14} />
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             <input type="text" placeholder="Search ca..." className="bg-transparent border-none outline-none text-white w-full placeholder-zinc-500" />
           </div>
 
           <div className="flex items-center gap-4">
-            <FiBell className="text-zinc-400 cursor-pointer hover:text-white" size={16} />
+            <svg className="w-4 h-4 text-zinc-400 cursor-pointer hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300 font-bold text-xs flex items-center justify-center">
                 S
@@ -134,17 +120,15 @@ export const DashboardPage: React.FC = () => {
 
         <div className="max-w-[1600px] mx-auto space-y-5 relative z-10">
           
-          {/* HEADER TITLE */}
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
               Ad Pilot <span className="text-zinc-600 font-normal">::</span> Commander's Dashboard
             </h1>
           </div>
 
-          {/* 6 KPI TOP CARDS (Layout Exact match to Screen) */}
+          {/* 6 KPI TOP CARDS */}
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3.5">
             
-            {/* Card 1: AI Commander Score */}
             <div className="bg-[#181a20] border border-zinc-800 rounded-xl p-3.5 flex flex-col justify-between shadow-lg relative">
               <p className="text-[11px] text-zinc-400 font-medium">AI Commander Score</p>
               <div className="relative w-full h-14 flex items-end justify-center mt-2">
@@ -159,7 +143,6 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Card 2: Active Campaigns */}
             <div className="bg-[#181a20] border border-zinc-800 rounded-xl p-3.5 flex flex-col justify-between shadow-lg">
               <p className="text-[11px] text-zinc-400 font-medium">Active Campaigns</p>
               <h3 className="text-3xl font-extrabold text-white mt-3">
@@ -167,7 +150,6 @@ export const DashboardPage: React.FC = () => {
               </h3>
             </div>
 
-            {/* Card 3: Today's Spend (Metallic Orange/Gold) */}
             <div className="bg-gradient-to-br from-[#E2B755] via-[#C89B3C] to-[#8C6212] border border-[#FDE68A]/60 rounded-xl p-3.5 flex flex-col justify-between shadow-lg">
               <p className="text-[11px] text-black/80 font-bold">Today's Spend</p>
               <h3 className="text-2xl font-black text-black mt-2">
@@ -175,19 +157,16 @@ export const DashboardPage: React.FC = () => {
               </h3>
             </div>
 
-            {/* Card 4: Overall ROAS (Metallic Orange/Gold) */}
             <div className="bg-gradient-to-br from-[#E2B755] via-[#C89B3C] to-[#8C6212] border border-[#FDE68A]/60 rounded-xl p-3.5 flex flex-col justify-between shadow-lg">
               <p className="text-[11px] text-black/80 font-bold">Overall ROAS</p>
               <h3 className="text-2xl font-black text-black mt-2">{roas}x</h3>
             </div>
 
-            {/* Card 5: Total Leads Captured (REPLACED Lifetime Conversions) */}
             <div className="bg-[#242730] border border-zinc-700/70 rounded-xl p-3.5 flex flex-col justify-between shadow-lg">
               <p className="text-[11px] text-zinc-300 font-semibold">Total Leads Captured</p>
               <h3 className="text-2xl font-black text-white mt-2">{totalLeadsCount}</h3>
             </div>
 
-            {/* Card 6: Total Account Balance */}
             <div className="bg-[#181a20] border border-zinc-800 rounded-xl p-3.5 flex flex-col justify-between shadow-lg">
               <p className="text-[11px] text-zinc-400 font-medium">Total Account Balance</p>
               <h3 className="text-2xl font-extrabold text-white mt-2">
@@ -197,10 +176,9 @@ export const DashboardPage: React.FC = () => {
 
           </div>
 
-          {/* MIDDLE SECTION: CHARTS */}
+          {/* MIDDLE CHARTS */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             
-            {/* Multi-Campaign Performance Trend */}
             <div className="bg-[#181a20] border border-zinc-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-white text-xs tracking-wide">
@@ -246,7 +224,6 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Budget-to-ROAS Flow Chart */}
             <div className="bg-[#181a20] border border-zinc-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
               <h3 className="font-semibold text-white text-xs tracking-wide mb-2">Budget-to-ROAS Flow</h3>
               
@@ -273,10 +250,9 @@ export const DashboardPage: React.FC = () => {
 
           </div>
 
-          {/* BOTTOM SECTION: 3 CARDS */}
+          {/* BOTTOM CARDS */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             
-            {/* Bottom 1: Top Performing Ad Sets */}
             <div className="bg-[#181a20] border border-zinc-800 rounded-xl p-4 shadow-lg">
               <h3 className="font-semibold text-white text-xs tracking-wide mb-3">Top Performing Ad Sets</h3>
               <div className="overflow-x-auto">
@@ -314,7 +290,6 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Bottom 2: AI Optimization Feed */}
             <div className="bg-[#181a20] border border-zinc-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-3">
@@ -333,7 +308,7 @@ export const DashboardPage: React.FC = () => {
                   </div>
 
                   <div className="flex items-start gap-2.5">
-                    <FiAlertTriangle className="text-amber-400 mt-0.5 shrink-0" size={12} />
+                    <svg className="w-3 h-3 text-amber-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                     <div>
                       <p className="text-[11px] text-zinc-200 font-semibold leading-tight">
                         ROAS Alert: Campaign Beta (4.1x)
@@ -361,13 +336,11 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Bottom 3: Multi-platform budget usage */}
             <div className="bg-[#181a20] border border-zinc-800 rounded-xl p-4 shadow-lg flex flex-col justify-between">
               <div>
                 <h3 className="font-semibold text-white text-xs tracking-wide mb-3">Multi-platform budget usage</h3>
                 
                 <div className="flex items-center justify-around py-2">
-                  {/* Google Ring */}
                   <div className="flex flex-col items-center">
                     <div className="relative w-16 h-16">
                       <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
@@ -379,7 +352,6 @@ export const DashboardPage: React.FC = () => {
                     <span className="text-[10px] text-zinc-400 font-medium mt-2">Google</span>
                   </div>
 
-                  {/* Meta Ring */}
                   <div className="flex flex-col items-center">
                     <div className="relative w-16 h-16">
                       <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
@@ -391,7 +363,6 @@ export const DashboardPage: React.FC = () => {
                     <span className="text-[10px] text-zinc-400 font-medium mt-2">Meta</span>
                   </div>
 
-                  {/* TikTok Ring */}
                   <div className="flex flex-col items-center">
                     <div className="relative w-16 h-16">
                       <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
