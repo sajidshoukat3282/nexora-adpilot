@@ -1,6 +1,65 @@
 import React, { useEffect, useState } from "react";
-import { FcGoogle } from "react-icons/fc";
-import { FaMeta, FaTiktok } from "react-icons/fa6";
+import { useNavigate } from "@/lib/router";
+import { useSession } from "@/hooks/useSession";
+
+/* ------------------------------------------------------------------ */
+/* types (shape returned by GET /api/dashboard/summary)                */
+/* ------------------------------------------------------------------ */
+
+interface CampaignRow {
+  id: string;
+  name: string;
+  status: string;
+  currency: string;
+  budget: number;
+  revenue: number;
+  expenses: number;
+  roas: number | null;
+  ooh_screens: number;
+  dooh_screens: number;
+  type: string;
+}
+
+interface Segment {
+  budget: number;
+  revenue: number;
+  expenses: number;
+  screens: number;
+}
+
+interface FeedEvent {
+  kind: "ok" | "warn" | "info";
+  title: string;
+  sub: string;
+  at: string;
+}
+
+interface DailyPoint {
+  date: string;
+  revenue: number;
+  expenses: number;
+  leads: number;
+}
+
+interface Summary {
+  health_score: number;
+  campaigns: CampaignRow[];
+  inventory: { ooh: number; dooh: number; online: number; total: number };
+  split: { ooh: Segment; dooh: Segment };
+  daily: DailyPoint[];
+  events: FeedEvent[];
+}
+
+const EMPTY_SEGMENT: Segment = { budget: 0, revenue: 0, expenses: 0, screens: 0 };
+
+const EMPTY_SUMMARY: Summary = {
+  health_score: 0,
+  campaigns: [],
+  inventory: { ooh: 0, dooh: 0, online: 0, total: 0 },
+  split: { ooh: EMPTY_SEGMENT, dooh: EMPTY_SEGMENT },
+  daily: [],
+  events: [],
+};
 
 /* ------------------------------------------------------------------ */
 /* helpers                                                             */
@@ -8,8 +67,10 @@ import { FaMeta, FaTiktok } from "react-icons/fa6";
 
 type Pt = [number, number];
 
-/** Catmull-Rom -> cubic bezier, gives the smooth curves of the reference. */
-const smooth = (pts: Pt[]): string => {
+/** Catmull-Rom -> cubic bezier (y clamped to the plot area). */
+const smooth = (pts: Pt[], lo: number, hi: number): string => {
+  if (pts.length === 0) return "";
+  const clamp = (y: number) => Math.min(hi, Math.max(lo, y));
   let d = `M${pts[0][0]},${pts[0][1]}`;
   for (let i = 0; i < pts.length - 1; i++) {
     const p0 = pts[i - 1] ?? pts[i];
@@ -17,64 +78,60 @@ const smooth = (pts: Pt[]): string => {
     const p2 = pts[i + 1];
     const p3 = pts[i + 2] ?? p2;
     const c1x = p1[0] + (p2[0] - p0[0]) / 6;
-    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c1y = clamp(p1[1] + (p2[1] - p0[1]) / 6);
     const c2x = p2[0] - (p3[0] - p1[0]) / 6;
-    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    const c2y = clamp(p2[1] - (p3[1] - p1[1]) / 6);
     d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2[0]},${p2[1]}`;
   }
   return d;
 };
 
-const money = (n: number): string =>
-  n >= 1000 ? `$${(n / 1000).toFixed(1)}K` : `$${n.toFixed(2)}`;
-
-const num = (v: unknown): number | null => {
-  const n = Number(v);
-  return v === null || v === undefined || v === "" || Number.isNaN(n) ? null : n;
+const niceMax = (v: number): number => {
+  if (!(v > 0)) return 4;
+  const p = Math.pow(10, Math.floor(Math.log10(v)));
+  const n = v / p;
+  const m = n <= 1 ? 1 : n <= 2 ? 2 : n <= 4 ? 4 : n <= 8 ? 8 : 10;
+  return m * p;
 };
 
-/* ------------------------------------------------------------------ */
-/* static ad-pilot data used by the charts / table / feed              */
-/* ------------------------------------------------------------------ */
+const compact = (n: number): string =>
+  new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(n);
 
-type Platform = "google" | "meta" | "tiktok";
+const makeMoney = (currency: string, full = false) => (n: number): string => {
+  try {
+    return new Intl.NumberFormat(
+      "en-US",
+      full
+        ? { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }
+        : { style: "currency", currency, notation: "compact", maximumFractionDigits: 1 },
+    ).format(n);
+  } catch {
+    return `${currency} ${full ? n.toFixed(2) : compact(n)}`;
+  }
+};
 
-interface AdRow {
-  name: string;
-  platform: Platform;
-  ctr: string;
-  roas: string;
-  status: string;
-  warn?: boolean;
+const fmtDay = (iso: string): string => {
+  const d = new Date(`${iso}T00:00:00`);
+  return d.toLocaleDateString("en-US", { month: "short", day: "2-digit" });
+};
+
+const sizeFor = (text: string, big: string, mid: string, small: string): string =>
+  text.length <= 6 ? big : text.length <= 10 ? mid : small;
+
+const statusLabel = (s: string): string =>
+  s.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+
+const isGoodStatus = (s: string): boolean =>
+  ["live", "completed", "paid", "reported", "invoiced"].includes(s);
+
+async function getJson<T>(path: string): Promise<T | null> {
+  try {
+    const res = await fetch(path, { credentials: "same-origin" });
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
 }
-
-const DEMO_ROWS: AdRow[] = [
-  { name: "Campaign Alpha 1", platform: "google", ctr: "10.26%", roas: "18.39", status: "Paid" },
-  { name: "Campaign Beta 2", platform: "meta", ctr: "15.09%", roas: "23.50", status: "Paid" },
-  { name: "Campaign Beta 3", platform: "meta", ctr: "10.56%", roas: "13.38", status: "Paid", warn: true },
-  { name: "Campaign Beta 4", platform: "tiktok", ctr: "66.98%", roas: "25.65", status: "Paid" },
-];
-
-const FEED = [
-  { kind: "ok", title: "Budget Adjusted: Campaign Alpha (+5%)", sub: "Real-time optimization · Campaign Alpha" },
-  { kind: "warn", title: "ROAS Alert: Campaign Beta (4.1x)", sub: "New ad-time Campaign Beta (5.1x)" },
-  { kind: "info", title: "AI Trigger: New Ad Set Released", sub: "Real-time optimization · Campaign Beta" },
-  { kind: "ok", title: "AI Trigger: New Ad Set Released", sub: "New ad-time Campaign Released" },
-  { kind: "ok", title: "Budget Adjusted: Campaign Beta (+3%)", sub: "Real-time optimization · Campaign Beta" },
-  { kind: "info", title: "AI Trigger: Audience Refreshed", sub: "Campaign Alpha · Lookalike 2%" },
-] as const;
-
-const CLICKS = [250, 330, 440, 580, 650, 700, 520, 470, 560, 720, 880, 700, 600, 740, 900];
-const CONVERSIONS = [170, 260, 330, 430, 500, 540, 420, 350, 420, 560, 640, 520, 480, 620, 740];
-const CPA = [90, 140, 190, 250, 300, 330, 250, 200, 260, 350, 420, 330, 300, 380, 470];
-const X_LABELS = ["Oct 01", "Oct 07", "Oct 09", "Oct 11", "Oct 15", "Oct 29", "Oct 31"];
-
-const pickPlatform = (v: unknown): Platform => {
-  const s = String(v ?? "").toLowerCase();
-  if (s.includes("meta") || s.includes("facebook") || s.includes("insta")) return "meta";
-  if (s.includes("tik")) return "tiktok";
-  return "google";
-};
 
 /* ------------------------------------------------------------------ */
 /* shared styles                                                       */
@@ -95,16 +152,25 @@ const SILVER_CARD: React.CSSProperties = {
   boxShadow: "0 8px 20px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.5)",
 };
 
+const C_OOH = "#e0a94c";
+const C_DOOH = "#a78bfa";
+const C_REV = "#34d399";
+const C_EXP = "#9ca3af";
+
 /* ------------------------------------------------------------------ */
 /* small components                                                    */
 /* ------------------------------------------------------------------ */
 
-const PlatformIcon: React.FC<{ p: Platform }> = ({ p }) => {
-  if (p === "google") return <FcGoogle className="h-[18px] w-[18px]" />;
-  if (p === "meta") return <FaMeta className="h-[18px] w-[18px] text-[#2d8cff]" />;
+const TypeBadge: React.FC<{ type: string }> = ({ type }) => {
+  const isDooh = type.includes("DOOH");
+  const isBoth = type.includes("+");
+  const color = isBoth ? "#38bdf8" : isDooh ? C_DOOH : type === "OOH" ? C_OOH : "#71717a";
   return (
-    <span className="flex h-[18px] w-[18px] items-center justify-center rounded-[5px] bg-black ring-1 ring-white/10">
-      <FaTiktok className="h-3 w-3 text-white" />
+    <span
+      className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold"
+      style={{ color, backgroundColor: `${color}1f`, border: `1px solid ${color}55` }}
+    >
+      {type}
     </span>
   );
 };
@@ -117,16 +183,18 @@ const Ring: React.FC<{ value: number; color: string; children: React.ReactNode }
   <div className="relative h-[62px] w-[62px]">
     <svg viewBox="0 0 36 36" className="h-full w-full -rotate-90">
       <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#2a2e35" strokeWidth="3.6" />
-      <circle
-        cx="18"
-        cy="18"
-        r="15.9155"
-        fill="none"
-        stroke={color}
-        strokeWidth="3.6"
-        strokeLinecap="round"
-        strokeDasharray={`${value} ${100 - value}`}
-      />
+      {value > 0 && (
+        <circle
+          cx="18"
+          cy="18"
+          r="15.9155"
+          fill="none"
+          stroke={color}
+          strokeWidth="3.6"
+          strokeLinecap="round"
+          strokeDasharray={`${Math.min(100, value)} ${100 - Math.min(100, value)}`}
+        />
+      )}
     </svg>
     <div className="absolute inset-0 flex items-center justify-center text-[13px] font-semibold text-white">
       {children}
@@ -151,15 +219,17 @@ const Gauge: React.FC<{ score: number }> = ({ score }) => (
         strokeWidth="9"
         strokeLinecap="round"
       />
-      <path
-        d="M 10 50 A 40 40 0 0 1 90 50"
-        fill="none"
-        stroke="url(#ap-gauge)"
-        strokeWidth="9"
-        strokeLinecap="round"
-        pathLength={100}
-        strokeDasharray={`${score} 100`}
-      />
+      {score > 0 && (
+        <path
+          d="M 10 50 A 40 40 0 0 1 90 50"
+          fill="none"
+          stroke="url(#ap-gauge)"
+          strokeWidth="9"
+          strokeLinecap="round"
+          pathLength={100}
+          strokeDasharray={`${score} 100`}
+        />
+      )}
     </svg>
     <div className="absolute inset-x-0 bottom-0 text-center leading-none">
       <div className="text-[28px] font-bold text-white">{score}</div>
@@ -169,77 +239,89 @@ const Gauge: React.FC<{ score: number }> = ({ score }) => (
 );
 
 /* ------------------------------------------------------------------ */
-/* trend chart                                                         */
+/* trend chart: Revenue / New Leads / Expenses (last 30 days)           */
 /* ------------------------------------------------------------------ */
 
-const TrendChart: React.FC = () => {
-  const X0 = 44;
-  const X1 = 566;
-  const Y_TOP = 18;
+const TrendChart: React.FC<{ daily: DailyPoint[]; currency: string }> = ({ daily, currency }) => {
+  const X0 = 52;
+  const X1 = 558;
+  const Y_TOP = 22;
   const Y_BOT = 218;
-  const toPts = (arr: number[]): Pt[] =>
-    arr.map((v, i) => [
-      Math.round(X0 + (i * (X1 - X0)) / (arr.length - 1)),
-      Math.round(Y_BOT - (v / 1000) * (Y_BOT - Y_TOP)),
-    ]);
 
-  const area = (arr: number[]) => {
-    const pts = toPts(arr);
-    return `${smooth(pts)} L${X1},${Y_BOT} L${X0},${Y_BOT} Z`;
-  };
+  const moneyMax = niceMax(Math.max(0, ...daily.map((d) => Math.max(d.revenue, d.expenses))));
+  const leadMax = niceMax(Math.max(0, ...daily.map((d) => d.leads)));
 
-  const ticks = [1000, 750, 500, 250, 0];
+  const n = daily.length;
+  const xAt = (i: number) => Math.round(X0 + (n > 1 ? (i * (X1 - X0)) / (n - 1) : 0));
+  const toPts = (vals: number[], max: number): Pt[] =>
+    vals.map((v, i) => [xAt(i), Math.round(Y_BOT - (v / max) * (Y_BOT - Y_TOP))]);
+
+  const rev = toPts(daily.map((d) => d.revenue), moneyMax);
+  const exp = toPts(daily.map((d) => d.expenses), moneyMax);
+  const led = toPts(daily.map((d) => d.leads), leadMax);
+
+  const line = (pts: Pt[]) => smooth(pts, Y_TOP, Y_BOT);
+  const area = (pts: Pt[]) =>
+    pts.length ? `${line(pts)} L${X1},${Y_BOT} L${X0},${Y_BOT} Z` : "";
+
+  const ticks = [4, 3, 2, 1, 0];
+  const labelIdx = n > 1 ? [0, 5, 10, 15, 20, 25, n - 1].filter((v, i, a) => v < n && a.indexOf(v) === i) : [0];
 
   return (
     <svg viewBox="0 0 610 250" className="h-auto w-full">
       <defs>
-        <linearGradient id="ap-a-clicks" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id="ap-a-rev" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.45" />
           <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.02" />
         </linearGradient>
-        <linearGradient id="ap-a-conv" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id="ap-a-lead" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#34d399" stopOpacity="0.5" />
           <stop offset="100%" stopColor="#34d399" stopOpacity="0.03" />
         </linearGradient>
-        <linearGradient id="ap-a-cpa" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id="ap-a-exp" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#e5b93e" stopOpacity="0.55" />
           <stop offset="100%" stopColor="#7c5cd6" stopOpacity="0.25" />
         </linearGradient>
+        <clipPath id="ap-plot">
+          <rect x={X0} y={Y_TOP - 2} width={X1 - X0} height={Y_BOT - Y_TOP + 4} />
+        </clipPath>
       </defs>
 
+      <text x={X0 - 8} y="10" textAnchor="end" fontSize="9" fill="#6b7280">
+        {currency}
+      </text>
+      <text x={X1 + 8} y="10" textAnchor="start" fontSize="9" fill="#6b7280">
+        Leads
+      </text>
+
       {ticks.map((t) => {
-        const y = Y_BOT - (t / 1000) * (Y_BOT - Y_TOP);
+        const y = Y_BOT - (t / 4) * (Y_BOT - Y_TOP);
         return (
           <g key={t}>
             <line x1={X0} x2={X1} y1={y} y2={y} stroke="#272c33" strokeWidth="1" />
             <text x={X0 - 8} y={y + 3} textAnchor="end" fontSize="10" fill="#8b929b">
-              {t}
+              {compact((moneyMax * t) / 4)}
             </text>
             <text x={X1 + 8} y={y + 3} textAnchor="start" fontSize="10" fill="#8b929b">
-              {t}
+              {compact((leadMax * t) / 4)}
             </text>
           </g>
         );
       })}
 
-      <path d={area(CLICKS)} fill="url(#ap-a-clicks)" />
-      <path d={area(CONVERSIONS)} fill="url(#ap-a-conv)" />
-      <path d={area(CPA)} fill="url(#ap-a-cpa)" />
+      <g clipPath="url(#ap-plot)">
+        <path d={area(rev)} fill="url(#ap-a-rev)" />
+        <path d={area(led)} fill="url(#ap-a-lead)" />
+        <path d={area(exp)} fill="url(#ap-a-exp)" />
 
-      <path d={smooth(toPts(CLICKS))} fill="none" stroke="#38bdf8" strokeWidth="2" />
-      <path d={smooth(toPts(CONVERSIONS))} fill="none" stroke="#34d399" strokeWidth="2" />
-      <path d={smooth(toPts(CPA))} fill="none" stroke="#e5b93e" strokeWidth="2" />
+        <path d={line(rev)} fill="none" stroke="#38bdf8" strokeWidth="2" />
+        <path d={line(led)} fill="none" stroke="#34d399" strokeWidth="2" />
+        <path d={line(exp)} fill="none" stroke="#e5b93e" strokeWidth="2" />
+      </g>
 
-      {X_LABELS.map((l, i) => (
-        <text
-          key={l}
-          x={X0 + (i * (X1 - X0)) / (X_LABELS.length - 1)}
-          y="240"
-          textAnchor="middle"
-          fontSize="10"
-          fill="#8b929b"
-        >
-          {l}
+      {labelIdx.map((i) => (
+        <text key={i} x={xAt(i)} y="240" textAnchor="middle" fontSize="10" fill="#8b929b">
+          {daily[i] ? fmtDay(daily[i].date) : ""}
         </text>
       ))}
     </svg>
@@ -247,34 +329,69 @@ const TrendChart: React.FC = () => {
 };
 
 /* ------------------------------------------------------------------ */
-/* sankey chart                                                        */
+/* sankey: Budget -> OOH / DOOH -> Revenue / Expenses                   */
 /* ------------------------------------------------------------------ */
 
-const Sankey: React.FC = () => {
-  const GREEN = "#34d399";
-  const PURPLE = "#a78bfa";
-  const GOLD = "#e0a94c";
-  const GRAY = "#9ca3af";
+const stack = (vals: number[], top: number, H: number, gap: number): [number, number][] => {
+  const usable = H - gap * (vals.length - 1);
+  const sum = vals.reduce((a, b) => a + b, 0);
+  let t = vals.map((v) => (sum > 0 ? Math.max(8, (v / sum) * usable) : usable / vals.length));
+  const s = t.reduce((a, b) => a + b, 0);
+  t = t.map((x) => (x * usable) / s);
+  const out: [number, number][] = [];
+  let y = top;
+  for (const x of t) {
+    out.push([y, y + x]);
+    y += x + gap;
+  }
+  return out;
+};
 
-  const LX = 78; // left bar x
-  const MX = 258; // middle bar x
-  const RX = 438; // right bar x
+const splitRange = (y0: number, y1: number, weights: number[]): [number, number][] => {
+  const sum = weights.reduce((a, b) => a + b, 0);
+  const w = sum > 0 ? weights : weights.map(() => 1);
+  const total = w.reduce((a, b) => a + b, 0);
+  const out: [number, number][] = [];
+  let y = y0;
+  for (const x of w) {
+    const h = ((y1 - y0) * x) / total;
+    out.push([y, y + h]);
+    y += h;
+  }
+  return out;
+};
+
+const Sankey: React.FC<{ split: { ooh: Segment; dooh: Segment } }> = ({ split }) => {
+  const { ooh, dooh } = split;
+  const LX = 96;
+  const MX = 250;
+  const RX = 410;
   const W = 14;
+  const TOP = 40;
+  const H = 150;
+  const GAP = 16;
+
+  const hasData =
+    ooh.budget + dooh.budget + ooh.revenue + dooh.revenue + ooh.expenses + dooh.expenses > 0;
+
+  const left = stack([ooh.budget, dooh.budget], TOP, H, GAP);
+  const mid = left;
+  const revTotal = ooh.revenue + dooh.revenue;
+  const expTotal = ooh.expenses + dooh.expenses;
+  const right = stack([revTotal, expTotal], TOP, H, GAP);
 
   const ribbon = (
     x0: number,
-    a0: number,
-    a1: number,
+    a: [number, number],
     x1: number,
-    b0: number,
-    b1: number,
+    b: [number, number],
     id: string,
     c0: string,
-    c1: string
+    c1: string,
   ) => {
     const sx = x0 + W;
-    const mid = (sx + x1) / 2;
-    const d = `M${sx},${a0} C${mid},${a0} ${mid},${b0} ${x1},${b0} L${x1},${b1} C${mid},${b1} ${mid},${a1} ${sx},${a1} Z`;
+    const mx = (sx + x1) / 2;
+    const d = `M${sx},${a[0]} C${mx},${a[0]} ${mx},${b[0]} ${x1},${b[0]} L${x1},${b[1]} C${mx},${b[1]} ${mx},${a[1]} ${sx},${a[1]} Z`;
     return (
       <g key={id}>
         <defs>
@@ -288,40 +405,60 @@ const Sankey: React.FC = () => {
     );
   };
 
+  const types = [
+    { seg: ooh, color: C_OOH, label: "OOH", i: 0 },
+    { seg: dooh, color: C_DOOH, label: "DOOH", i: 1 },
+  ];
+
+  const revSplit = splitRange(right[0][0], right[0][1], [ooh.revenue, dooh.revenue]);
+  const expSplit = splitRange(right[1][0], right[1][1], [ooh.expenses, dooh.expenses]);
+
   return (
-    <svg viewBox="0 0 520 230" className="h-auto w-full">
-      {/* ribbons */}
-      {ribbon(LX, 30, 95, MX, 30, 95, "ap-s1", GREEN, PURPLE)}
-      {ribbon(LX, 108, 122, MX, 95, 109, "ap-s2", PURPLE, PURPLE)}
-      {ribbon(LX, 122, 130, MX, 140, 146, "ap-s3", PURPLE, GREEN)}
-      {ribbon(LX, 143, 160, MX, 150, 167, "ap-s4", GOLD, GOLD)}
-      {ribbon(MX, 30, 100, RX, 30, 100, "ap-s5", PURPLE, GREEN)}
-      {ribbon(MX, 100, 117, RX, 138, 155, "ap-s6", PURPLE, GRAY)}
-      {ribbon(MX, 140, 146, RX, 155, 161, "ap-s7", GREEN, GRAY)}
-      {ribbon(MX, 150, 167, RX, 161, 170, "ap-s8", GOLD, GRAY)}
+    <div className="relative">
+      <svg viewBox="0 0 520 230" className="h-auto w-full">
+        {/* ribbons */}
+        {types.map((t) => ribbon(LX, left[t.i], MX, mid[t.i], `ap-sk-b${t.i}`, t.color, t.color))}
+        {types.map((t) => {
+          const total = t.seg.revenue + t.seg.expenses;
+          if (total <= 0) return null;
+          const [rv, ex] = splitRange(mid[t.i][0], mid[t.i][1], [t.seg.revenue, t.seg.expenses]);
+          return (
+            <g key={`o${t.i}`}>
+              {t.seg.revenue > 0 &&
+                ribbon(MX, rv, RX, revSplit[t.i], `ap-sk-r${t.i}`, t.color, C_REV)}
+              {t.seg.expenses > 0 &&
+                ribbon(MX, ex, RX, expSplit[t.i], `ap-sk-e${t.i}`, t.color, C_EXP)}
+            </g>
+          );
+        })}
 
-      {/* nodes */}
-      <rect x={LX} y="30" width={W} height="65" rx="2" fill={GREEN} />
-      <rect x={LX} y="108" width={W} height="22" rx="2" fill={PURPLE} />
-      <rect x={LX} y="143" width={W} height="17" rx="2" fill={GOLD} />
+        {/* nodes */}
+        {types.map((t) => (
+          <g key={`n${t.i}`}>
+            <rect x={LX} y={left[t.i][0]} width={W} height={left[t.i][1] - left[t.i][0]} rx="2" fill={t.color} />
+            <rect x={MX} y={mid[t.i][0]} width={W} height={mid[t.i][1] - mid[t.i][0]} rx="2" fill={t.color} />
+          </g>
+        ))}
+        <rect x={RX} y={right[0][0]} width={W} height={right[0][1] - right[0][0]} rx="2" fill={C_REV} />
+        <rect x={RX} y={right[1][0]} width={W} height={right[1][1] - right[1][0]} rx="2" fill={C_EXP} />
 
-      <rect x={MX} y="30" width={W} height="87" rx="2" fill={PURPLE} />
-      <rect x={MX} y="140" width={W} height="6" rx="2" fill={GREEN} />
-      <rect x={MX} y="150" width={W} height="17" rx="2" fill={GOLD} />
-
-      <rect x={RX} y="30" width={W} height="70" rx="2" fill={GREEN} />
-      <rect x={RX} y="138" width={W} height="32" rx="2" fill={GRAY} />
-
-      {/* labels */}
-      <g fontSize="11" fill="#d4d8de">
-        <text x={LX - 8} y="66" textAnchor="end">Budget</text>
-        <text x={LX - 8} y="123" textAnchor="end">Budget</text>
-        <text x={LX - 8} y="155" textAnchor="end">TikTok</text>
-        <text x={MX + W / 2} y="20" textAnchor="middle">Platforms</text>
-        <text x={MX + W / 2} y="182" textAnchor="middle">TikTok</text>
-        <text x={RX + W / 2} y="20" textAnchor="middle">ROAS</text>
-      </g>
-    </svg>
+        {/* labels */}
+        <g fontSize="11" fill="#d4d8de">
+          <text x={LX - 8} y={(left[0][0] + left[0][1]) / 2 + 4} textAnchor="end">OOH Budget</text>
+          <text x={LX - 8} y={(left[1][0] + left[1][1]) / 2 + 4} textAnchor="end">DOOH Budget</text>
+          <text x={MX + W / 2} y="22" textAnchor="middle">Platforms</text>
+          <text x={MX + W / 2} y={mid[0][0] - 4} textAnchor="middle" fontSize="10" fill="#a1a1aa">OOH</text>
+          <text x={MX + W / 2} y={mid[1][0] - 4} textAnchor="middle" fontSize="10" fill="#a1a1aa">DOOH</text>
+          <text x={RX + W + 8} y={(right[0][0] + right[0][1]) / 2 + 4}>Revenue</text>
+          <text x={RX + W + 8} y={(right[1][0] + right[1][1]) / 2 + 4}>Expenses</text>
+        </g>
+      </svg>
+      {!hasData && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[11px] text-zinc-500">
+          No campaign data yet
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -330,54 +467,58 @@ const Sankey: React.FC = () => {
 /* ------------------------------------------------------------------ */
 
 export const DashboardPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { user } = useSession();
+
+  const [summary, setSummary] = useState<Summary>(EMPTY_SUMMARY);
   const [metrics, setMetrics] = useState<any>({});
-  const [campaigns, setCampaigns] = useState<any[]>([]);
-  const [leads, setLeads] = useState<any[]>([]);
+  const [leadCount, setLeadCount] = useState(0);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const [mRes, cRes, lRes] = await Promise.all([
-          fetch("/api/finance/metrics"),
-          fetch("/api/campaigns"),
-          fetch("/api/crm/leads"),
-        ]);
-
-        const mData = await mRes.json();
-        const cData = await cRes.json();
-        const lData = await lRes.json();
-
-        if (mData.ok) setMetrics(mData.metrics || {});
-        if (cData.ok) setCampaigns(cData.data || []);
-        if (lData.ok) setLeads(lData.data || []);
-      } catch (err) {
-        console.error(err);
-      }
+    let alive = true;
+    (async () => {
+      const [s, m, l] = await Promise.all([
+        getJson<{ ok: boolean; data: Summary }>("/api/dashboard/summary"),
+        getJson<{ ok: boolean; metrics: any }>("/api/finance/metrics"),
+        getJson<{ ok: boolean; data: any[] }>("/api/crm/leads"),
+      ]);
+      if (!alive) return;
+      if (s?.ok && s.data) setSummary({ ...EMPTY_SUMMARY, ...s.data });
+      if (m?.ok) setMetrics(m.metrics || {});
+      if (l?.ok) setLeadCount((l.data || []).length);
+    })();
+    return () => {
+      alive = false;
     };
-    fetchDashboardData();
   }, []);
 
-  const liveCampaigns = campaigns.filter((c) => c.status === "live");
-  const revenue = Number(metrics.total_revenue) || 465018.0;
-  const spend = Number(metrics.total_expenses) || 0;
-  const roas = spend > 0 ? (revenue / spend).toFixed(1) : "0.0";
-  const aiScore = 98;
+  const currency = summary.campaigns[0]?.currency || "PKR";
+  const money = makeMoney(currency);
+  const moneyFull = makeMoney(currency, true);
 
-  const rows: AdRow[] = campaigns.length
-    ? campaigns.slice(0, 4).map((c, i) => {
-        const ctr = num(c.ctr);
-        const r = num(c.roas);
-        const status = String(c.status ?? "—");
-        return {
-          name: String(c.name ?? c.title ?? `Campaign ${i + 1}`),
-          platform: pickPlatform(c.platform ?? c.channel),
-          ctr: ctr === null ? "—" : `${ctr.toFixed(2)}%`,
-          roas: r === null ? "—" : r.toFixed(2),
-          status: status.charAt(0).toUpperCase() + status.slice(1),
-          warn: status !== "live",
-        };
-      })
-    : DEMO_ROWS;
+  const liveCampaigns = summary.campaigns.filter((c) => c.status === "live").length;
+  const revenue = Number(metrics.total_revenue) || 0;
+  const expenses = Number(metrics.total_expenses) || 0;
+  const roas = expenses > 0 ? (revenue / expenses).toFixed(1) : "0.0";
+
+  const expensesText = money(expenses);
+  const revenueText = moneyFull(revenue);
+
+  const topCampaigns = [...summary.campaigns]
+    .sort((a, b) => b.revenue - a.revenue || b.budget - a.budget)
+    .slice(0, 4);
+
+  const inv = summary.inventory;
+  const pct = (n: number) => (inv.total > 0 ? Math.round((n / inv.total) * 100) : 0);
+
+  const userName = String((user as any)?.name ?? "");
+  const initials =
+    userName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase())
+      .join("") || "AS";
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-[#0b0d10] p-4 font-sans text-slate-200 md:p-6">
@@ -388,38 +529,39 @@ export const DashboardPage: React.FC = () => {
             Ad Pilot <span className="text-zinc-400">::</span> Commander&apos;s Dashboard
           </h1>
           <div className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-500/70 bg-[#14171b] text-[13px] text-zinc-200">
-            AS
+            {initials}
           </div>
         </div>
 
         {/* KPI CARDS */}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-[1.35fr_1fr_1fr_1fr_1fr_1.25fr]">
-          {/* AI score */}
           <div className={`${PANEL} flex min-h-[96px] flex-col p-3`}>
-            <p className="text-[12px] font-medium text-zinc-200">AI Commander Score</p>
-            <Gauge score={aiScore} />
+            <p className="text-[12px] font-medium text-zinc-200">Business Health Score</p>
+            <Gauge score={summary.health_score} />
           </div>
 
-          {/* Active campaigns */}
           <div className={`${PANEL} flex min-h-[96px] flex-col items-center justify-between p-3`}>
-            <p className="text-[12px] font-medium text-zinc-200">Active Campaigns</p>
-            <p className="pb-1 text-[34px] font-semibold leading-none text-white">
-              {liveCampaigns.length}
-            </p>
+            <p className="text-[12px] font-medium text-zinc-200">Live Campaigns</p>
+            <p className="pb-1 text-[34px] font-semibold leading-none text-white">{liveCampaigns}</p>
           </div>
 
-          {/* Today's spend - gold */}
           <div
             style={GOLD_CARD}
             className="flex min-h-[96px] flex-col items-center justify-between rounded-xl border border-[#f6e2a1]/50 p-3"
           >
-            <p className="text-[12px] font-medium text-[#6b4a0c]">Today&apos;s Spend</p>
-            <p className="pb-1 text-[30px] font-semibold leading-none text-[#1a1204]">
-              {money(spend)}
+            <p className="text-[12px] font-medium text-[#6b4a0c]">Total Expenses</p>
+            <p
+              className={`pb-1 font-semibold leading-none text-[#1a1204] ${sizeFor(
+                expensesText,
+                "text-[30px]",
+                "text-[24px]",
+                "text-[19px]",
+              )}`}
+            >
+              {expensesText}
             </p>
           </div>
 
-          {/* ROAS - gold */}
           <div
             style={GOLD_CARD}
             className="flex min-h-[96px] flex-col items-center justify-between rounded-xl border border-[#f6e2a1]/50 p-3"
@@ -428,7 +570,6 @@ export const DashboardPage: React.FC = () => {
             <p className="pb-1 text-[30px] font-semibold leading-none text-[#1a1204]">{roas}x</p>
           </div>
 
-          {/* Leads - silver */}
           <div
             style={SILVER_CARD}
             className="flex min-h-[96px] flex-col items-center justify-between rounded-xl border border-white/40 p-3 text-center"
@@ -438,16 +579,20 @@ export const DashboardPage: React.FC = () => {
               <br />
               Captured
             </p>
-            <p className="pb-1 text-[32px] font-semibold leading-none text-[#22262b]">
-              {leads.length}
-            </p>
+            <p className="pb-1 text-[32px] font-semibold leading-none text-[#22262b]">{leadCount}</p>
           </div>
 
-          {/* Balance */}
           <div className={`${PANEL} flex min-h-[96px] flex-col justify-between p-3`}>
-            <p className="text-[12px] font-medium text-zinc-200">Total Account Balance</p>
-            <p className="pb-1 text-center text-[24px] font-semibold leading-none text-white">
-              ${revenue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <p className="text-[12px] font-medium text-zinc-200">Total Revenue</p>
+            <p
+              className={`pb-1 text-center font-semibold leading-none text-white ${sizeFor(
+                revenueText,
+                "text-[24px]",
+                "text-[22px]",
+                "text-[17px]",
+              )}`}
+            >
+              {revenueText}
             </p>
           </div>
         </div>
@@ -457,62 +602,75 @@ export const DashboardPage: React.FC = () => {
           <div className={`${PANEL} p-4`}>
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-[13px] font-medium text-zinc-200">
-                Multi-Campaign Performance Trend (Daily)
+                Revenue, Expenses &amp; Leads Trend (Daily)
               </h3>
               <div className="flex gap-3 text-[10px] text-zinc-300">
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-[#38bdf8]" /> Clicks
+                  <span className="h-2 w-2 rounded-full bg-[#38bdf8]" /> Revenue
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-[#34d399]" /> Conversions
+                  <span className="h-2 w-2 rounded-full bg-[#34d399]" /> New Leads
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-[#e5b93e]" /> CPA
+                  <span className="h-2 w-2 rounded-full bg-[#e5b93e]" /> Expenses
                 </span>
               </div>
             </div>
-            <TrendChart />
+            <TrendChart daily={summary.daily} currency={currency} />
           </div>
 
           <div className={`${PANEL} p-4`}>
-            <h3 className="mb-1 text-[13px] font-medium text-zinc-200">Budget-to-ROAS Flow</h3>
-            <Sankey />
+            <h3 className="mb-1 text-[13px] font-medium text-zinc-200">Budget-to-Revenue Flow</h3>
+            <Sankey split={summary.split} />
           </div>
         </div>
 
         {/* BOTTOM ROW */}
         <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1.6fr_1fr_1fr]">
-          {/* Ad sets */}
+          {/* Top campaigns */}
           <div className={`${PANEL} p-4`}>
-            <h3 className="mb-2 text-[13px] font-medium text-zinc-200">Top Performing Ad Sets</h3>
+            <h3 className="mb-2 text-[13px] font-medium text-zinc-200">Top Performing Campaigns</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-[11px]">
                 <thead className="border-b border-zinc-700/60 text-zinc-300">
                   <tr>
                     <th className="py-2 pr-2 font-medium">Campaign Name</th>
-                    <th className="py-2 pr-2 font-medium">Platform</th>
-                    <th className="py-2 pr-2 font-medium">CTR</th>
+                    <th className="py-2 pr-2 font-medium">Type</th>
+                    <th className="py-2 pr-2 font-medium">Budget</th>
                     <th className="py-2 pr-2 font-medium">ROAS</th>
                     <th className="py-2 font-medium">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800/70">
-                  {rows.map((r, i) => (
-                    <tr key={`${r.name}-${i}`}>
-                      <td className="py-2.5 pr-2 text-zinc-100">{r.name}</td>
-                      <td className="py-2.5 pr-2">
-                        <PlatformIcon p={r.platform} />
+                  {topCampaigns.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center text-zinc-500">
+                        No campaigns yet
                       </td>
-                      <td className="py-2.5 pr-2 text-zinc-100">{r.ctr}</td>
-                      <td className="py-2.5 pr-2 text-zinc-100">{r.roas}</td>
+                    </tr>
+                  )}
+                  {topCampaigns.map((c) => (
+                    <tr
+                      key={c.id}
+                      className="cursor-pointer hover:bg-white/[0.02]"
+                      onClick={() => navigate(`/campaigns/${c.id}`)}
+                    >
+                      <td className="max-w-[160px] truncate py-2.5 pr-2 text-zinc-100">{c.name}</td>
+                      <td className="py-2.5 pr-2">
+                        <TypeBadge type={c.type} />
+                      </td>
+                      <td className="py-2.5 pr-2 text-zinc-100">{makeMoney(c.currency || currency)(c.budget)}</td>
+                      <td className="py-2.5 pr-2 text-zinc-100">
+                        {c.roas === null ? "—" : c.roas.toFixed(2)}
+                      </td>
                       <td className="py-2.5">
                         <span className="flex items-center gap-1.5 text-zinc-100">
                           <span
                             className={`h-1.5 w-1.5 rounded-full ${
-                              r.warn ? "bg-[#f59e0b]" : "bg-[#22c55e]"
+                              isGoodStatus(c.status) ? "bg-[#22c55e]" : "bg-[#f59e0b]"
                             }`}
                           />
-                          {r.status}
+                          {statusLabel(c.status)}
                         </span>
                       </td>
                     </tr>
@@ -522,14 +680,17 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* AI feed */}
+          {/* Activity & alerts */}
           <div className={`${PANEL} flex flex-col p-4`}>
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-[13px] font-medium text-zinc-200">AI Optimization Feed</h3>
+              <h3 className="text-[13px] font-medium text-zinc-200">Activity &amp; Alerts</h3>
               <span className="text-[13px] leading-none tracking-widest text-zinc-400">···</span>
             </div>
             <div className="max-h-[150px] flex-1 space-y-3 overflow-y-auto pr-2">
-              {FEED.map((f, i) => (
+              {summary.events.length === 0 && (
+                <p className="py-6 text-center text-[11px] text-zinc-500">No recent activity yet</p>
+              )}
+              {summary.events.map((f, i) => (
                 <div key={i} className="flex items-start gap-2.5">
                   {f.kind === "warn" ? (
                     <svg
@@ -548,43 +709,44 @@ export const DashboardPage: React.FC = () => {
                       }`}
                     />
                   )}
-                  <div>
-                    <p className="text-[11px] font-medium leading-tight text-zinc-100">{f.title}</p>
-                    <p className="mt-0.5 text-[9.5px] text-zinc-500">{f.sub}</p>
+                  <div className="min-w-0">
+                    <p className="truncate text-[11px] font-medium leading-tight text-zinc-100">{f.title}</p>
+                    <p className="mt-0.5 truncate text-[9.5px] text-zinc-500">{f.sub}</p>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Platform usage */}
+          {/* Inventory mix */}
           <div className={`${PANEL} flex flex-col justify-between p-4`}>
-            <h3 className="text-[13px] font-medium text-zinc-200">Multi-platform budget usage</h3>
+            <h3 className="text-[13px] font-medium text-zinc-200">OOH vs DOOH Inventory</h3>
             <div className="flex items-start justify-around py-2">
               <div className="flex flex-col items-center gap-1.5">
-                <Ring value={30} color="#d9a93f">
-                  30%
+                <Ring value={pct(inv.ooh)} color="#d9a93f">
+                  {pct(inv.ooh)}%
                 </Ring>
-                <span className="text-[10px] text-zinc-300">Google</span>
+                <span className="text-[10px] text-zinc-300">OOH</span>
               </div>
               <div className="flex flex-col items-center gap-1.5">
-                <Ring value={65} color="#19c39a">
-                  65%
+                <Ring value={pct(inv.dooh)} color={C_DOOH}>
+                  {pct(inv.dooh)}%
                 </Ring>
-                <span className="text-[10px] text-zinc-300">Meta</span>
+                <span className="text-[10px] text-zinc-300">DOOH</span>
               </div>
               <div className="flex flex-col items-center gap-1.5">
-                <Ring value={72} color="#22c5d8">
-                  <FaTiktok className="h-4 w-4 text-white" />
+                <Ring value={pct(inv.online)} color="#22c5d8">
+                  {pct(inv.online)}%
                 </Ring>
-                <span className="text-[10px] text-zinc-300">TikTok</span>
+                <span className="text-[10px] text-zinc-300">Online</span>
               </div>
             </div>
             <button
               type="button"
+              onClick={() => navigate("/campaigns")}
               className="w-full rounded-md border border-[#9a7d3a]/70 bg-[#13161a] py-2.5 text-[11px] font-medium uppercase tracking-wide text-zinc-100 transition hover:bg-[#1a1e24]"
             >
-              Launch New Initiative
+              Launch New Campaign
             </button>
           </div>
         </div>
