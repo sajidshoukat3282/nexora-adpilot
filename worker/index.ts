@@ -486,7 +486,7 @@ if (url.pathname.startsWith('/api/crm/clients/') && url.pathname.endsWith('/invi
     return json({ ok: false, error: err.message }, 500);
   }
 }
-    }
+    
     if (url.pathname === '/api/crm/leads' && request.method === 'POST') {
       try {
         const session = await resolveSession(request, env.DB);
