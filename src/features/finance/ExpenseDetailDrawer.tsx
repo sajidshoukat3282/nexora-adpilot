@@ -1,5 +1,5 @@
 import React from "react";
-import { Drawer } from "@/components/ui/Drawer";
+import { FDrawer, FIN } from "./financeUi";
 import { useSession } from "@/hooks/useSession";
 import { useCompanyProfile } from "@/hooks/useCompanyProfile";
 
@@ -7,7 +7,7 @@ export const ExpenseDetailDrawer: React.FC<{
   expense: any | null;
   onClose: () => void;
 }> = ({ expense, onClose }) => {
-  
+
   const { company } = useSession();
   const { profile } = useCompanyProfile();
 
@@ -28,96 +28,97 @@ export const ExpenseDetailDrawer: React.FC<{
           #printable-expense {
             position: absolute; left: 0; top: 0; width: 100%;
             background: white !important; color: black !important; padding: 20px;
+            box-shadow: none !important;
           }
           .no-print { display: none !important; }
         }
       `}</style>
 
-      <Drawer open={!!expense} onClose={onClose} title="Expense Voucher" subtitle={expense?.category}>
+      <FDrawer open={!!expense} onClose={onClose} title="Expense Voucher" subtitle={expense?.category}>
         {expense && (
-          <div className="space-y-6">
-            
+          <div className="space-y-4">
+
             {/* Top Actions */}
-            <div className="flex justify-end pb-3 border-b border-gray-700 no-print">
-              <button onClick={handlePrint} className="text-xs px-3 py-1.5 bg-rose-600 text-white rounded-md hover:bg-rose-500 transition flex items-center gap-1 font-medium">
+            <div className="no-print flex justify-end border-b border-[#2a2f37] pb-3">
+              <button onClick={handlePrint} className={FIN.btnRose}>
                 🖨️ Print / PDF Voucher
               </button>
             </div>
 
             {/* ================= PRINTABLE AREA ================= */}
-            <div id="printable-expense" className="bg-white text-slate-900 p-8 rounded-lg shadow-sm">
-              
+            <div id="printable-expense" className={`${FIN.paper} border-t-[3px] border-[#c99b3b] p-6`}>
+
               {/* Header */}
-              <div className="flex justify-between items-start border-b border-slate-200 pb-6 mb-6">
+              <div className="mb-5 flex items-start justify-between border-b border-[#e4dccb] pb-5">
                 <div>
-                  <h1 className="text-2xl font-bold text-slate-900">EXPENSE VOUCHER</h1>
-                  <p className="text-slate-500 font-mono mt-1 text-sm">Voucher #: EXP-{expense.id.substring(0, 6).toUpperCase()}</p>
+                  <h1 className="text-[18px] font-semibold tracking-[0.24em] text-[#1b1d21]">EXPENSE VOUCHER</h1>
+                  <p className="mt-1 font-mono text-[11px] text-[#8a7a52]">Voucher #: EXP-{expense.id.substring(0, 6).toUpperCase()}</p>
                 </div>
                 <div className="text-right">
-                  <h2 className="text-lg font-bold text-slate-800">
+                  <h2 className="text-[13px] font-semibold text-[#1b1d21]">
                     {profile?.legalName || company?.name || "Nexora Technologies"}
                   </h2>
-                  {profile?.address && <p className="text-sm text-slate-500">{[profile.address, profile.city].filter(Boolean).join(", ")}</p>}
-                  {profile?.ntn && <p className="text-sm text-slate-500 font-mono">NTN: {profile.ntn}</p>}
+                  {profile?.address && <p className="text-[11px] leading-relaxed text-slate-500">{[profile.address, profile.city].filter(Boolean).join(", ")}</p>}
+                  {profile?.ntn && <p className="font-mono text-[11px] leading-relaxed text-slate-500">NTN: {profile.ntn}</p>}
                 </div>
               </div>
 
               {/* Amount Box */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-8 text-center">
-                <p className="text-sm text-slate-500 mb-1">Total Amount Paid</p>
-                <p className="text-4xl font-bold text-rose-600">{formatCurrency(expense.amount)}</p>
+              <div className="mb-6 rounded-xl border border-[#c99b3b]/60 bg-[#f6f0e0] p-5 text-center">
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a7a52]">Total Amount Paid</p>
+                <p className="text-[28px] font-semibold leading-tight text-rose-700">{formatCurrency(expense.amount)}</p>
               </div>
 
               {/* Details Table */}
-              <table className="w-full mb-12">
+              <table className="mb-8 w-full">
                 <tbody>
-                  <tr className="border-b border-slate-200">
-                    <td className="py-3 text-sm text-slate-500 w-1/3">Date Paid</td>
-                    <td className="py-3 text-sm text-slate-900 font-medium text-right">{expense.expense_date}</td>
+                  <tr className="border-b border-[#e4dccb]">
+                    <td className="w-1/3 py-2.5 text-[11px] text-slate-500">Date Paid</td>
+                    <td className="py-2.5 text-right text-[12px] font-medium text-[#1b1d21]">{expense.expense_date}</td>
                   </tr>
-                  <tr className="border-b border-slate-200">
-                    <td className="py-3 text-sm text-slate-500">Category</td>
-                    <td className="py-3 text-sm text-slate-900 font-medium text-right">{expense.category}</td>
+                  <tr className="border-b border-[#e4dccb]">
+                    <td className="py-2.5 text-[11px] text-slate-500">Category</td>
+                    <td className="py-2.5 text-right text-[12px] font-medium text-[#1b1d21]">{expense.category}</td>
                   </tr>
-                  <tr className="border-b border-slate-200">
-                    <td className="py-3 text-sm text-slate-500">Description</td>
-                    <td className="py-3 text-sm text-slate-900 font-medium text-right">{expense.description || 'N/A'}</td>
+                  <tr className="border-b border-[#e4dccb]">
+                    <td className="py-2.5 text-[11px] text-slate-500">Description</td>
+                    <td className="py-2.5 text-right text-[12px] font-medium text-[#1b1d21]">{expense.description || 'N/A'}</td>
                   </tr>
-                  <tr className="border-b border-slate-200">
-                    <td className="py-3 text-sm text-slate-500">Payment Method</td>
-                    <td className="py-3 text-sm text-slate-900 font-medium text-right">{expense.payment_method}</td>
+                  <tr className="border-b border-[#e4dccb]">
+                    <td className="py-2.5 text-[11px] text-slate-500">Payment Method</td>
+                    <td className="py-2.5 text-right text-[12px] font-medium text-[#1b1d21]">{expense.payment_method}</td>
                   </tr>
-                  <tr className="border-b border-slate-200">
-                    <td className="py-3 text-sm text-slate-500">Reference No</td>
-                    <td className="py-3 text-sm text-slate-900 font-medium text-right font-mono">{expense.reference_no || 'N/A'}</td>
+                  <tr className="border-b border-[#e4dccb]">
+                    <td className="py-2.5 text-[11px] text-slate-500">Reference No</td>
+                    <td className="py-2.5 text-right font-mono text-[12px] font-medium text-[#1b1d21]">{expense.reference_no || 'N/A'}</td>
                   </tr>
                 </tbody>
               </table>
 
               {/* Signatures Area */}
-              <div className="flex justify-between items-end mt-16 pt-8">
-                <div className="text-center w-48">
-                  <div className="border-t border-slate-400 pt-2">
-                    <p className="text-sm font-medium text-slate-800">Prepared By</p>
+              <div className="mt-10 flex items-end justify-between pt-4">
+                <div className="w-40 text-center">
+                  <div className="border-t border-slate-400 pt-1.5">
+                    <p className="text-[11px] font-medium text-slate-800">Prepared By</p>
                   </div>
                 </div>
-                <div className="text-center w-48">
-                  <div className="border-t border-slate-400 pt-2">
-                    <p className="text-sm font-medium text-slate-800">Approved By</p>
+                <div className="w-40 text-center">
+                  <div className="border-t border-slate-400 pt-1.5">
+                    <p className="text-[11px] font-medium text-slate-800">Approved By</p>
                   </div>
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="mt-12 text-center border-t border-slate-200 pt-4">
-                <p className="text-xs text-slate-400 font-medium">This is a system generated expense voucher.</p>
+              <div className="mt-8 border-t border-[#e4dccb] pt-3 text-center">
+                <p className="text-[10px] font-medium text-slate-400">This is a system generated expense voucher.</p>
               </div>
             </div>
             {/* ================= END PRINTABLE AREA ================= */}
 
           </div>
         )}
-      </Drawer>
+      </FDrawer>
     </>
   );
 };
