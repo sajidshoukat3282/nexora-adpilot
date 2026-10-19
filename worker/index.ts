@@ -108,7 +108,33 @@ async function sendVerificationEmail(env: Env, email: string, token: string): Pr
   });
   if (!response.ok) throw new Error('EMAIL_SEND_FAILED');
 }
+async function sendClientInviteEmail(env: Env, email: string, token: string, companyName: string): Promise<void> {
+  if (!env.BREVO_API_KEY) return;
+  const baseUrl = (env.AUTH_BASE_URL || 'http://localhost:5173').replace(/\/$/, '');
+  const inviteUrl = `${baseUrl}/#/auth/accept-invite?token=${encodeURIComponent(token)}`;
 
+  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'api-key': env.BREVO_API_KEY,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      sender: { name: env.MAIL_FROM_NAME || 'Nexora AdPilot', email: env.MAIL_FROM_EMAIL || 'hello@nexoratechnologies.pk' },
+      to: [{ email }],
+      subject: `Invitation to access ${companyName} Client Portal`,
+      htmlContent: `
+        <p>Hello,</p>
+        <p>${companyName} has invited you to access your Client Portal.</p>
+        <p>Click the link below to set your password and view your campaigns, invoices, and proof of play:</p>
+        <p><a href="${inviteUrl}">Set up my account</a></p>
+        <p>This link expires in 7 days.</p>
+      `,
+    }),
+  });
+  if (!response.ok) throw new Error('EMAIL_SEND_FAILED');
+}
 async function sendPasswordResetEmail(env: Env, email: string, token: string): Promise<void> {
   if (!env.BREVO_API_KEY) throw new Error('EMAIL_PROVIDER_NOT_CONFIGURED');
   const baseUrl = env.AUTH_BASE_URL || 'http://localhost:5173';
@@ -463,7 +489,7 @@ export default {
         return json({ ok: true, id });
       } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
     }                                                                                                                                                                    
-      // ==========================================
+// ==========================================
 // INVITE CLIENT TO PORTAL ROUTE
 // ==========================================
 if (url.pathname.startsWith('/api/crm/clients/') && url.pathname.endsWith('/invite') && request.method === 'POST') {
@@ -476,10 +502,21 @@ if (url.pathname.startsWith('/api/crm/clients/') && url.pathname.endsWith('/invi
 
     const client = await env.DB.prepare(`SELECT * FROM clients WHERE id = ? AND company_id = ?`).bind(clientId, session.companyId).first<any>();
     if (!client) return json({ ok: false, error: 'CLIENT_NOT_FOUND' }, 404);
+    if (!client.email) return json({ ok: false, error: 'CLIENT_HAS_NO_EMAIL' }, 400);
 
+    const token = crypto.randomUUID();
     await env.DB.prepare(`
       UPDATE clients SET portal_status = 'invited', portal_invite_token = ? WHERE id = ? AND company_id = ?
-    `).bind(crypto.randomUUID(), clientId, session.companyId).run();
+    `).bind(token, clientId, session.companyId).run();
+
+    // Company ka naam nikalain email ke liye
+    const company = await env.DB.prepare(`SELECT name FROM companies WHERE id = ?`).bind(session.companyId).first<any>();
+    
+    try {
+      await sendClientInviteEmail(env, client.email, token, company?.name || 'AdPilot');
+    } catch (e) {
+      console.error("Email failed but token saved");
+    }
 
     return json({ ok: true, message: 'Client invited successfully' });
   } catch (err: any) {
@@ -1201,70 +1238,73 @@ if (url.pathname === '/api/ledger' && request.method === 'GET') {
       } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
     }
 // ==========================================
-// CLIENT PORTAL ROUTES (SECURE)
+// INVITE CLIENT TO PORTAL ROUTE (UPDATED)
 // ==========================================
-
-// 1. Get Client's Own Campaigns
-if (url.pathname === '/api/client-portal/campaigns' && request.method === 'GET') {
+if (url.pathname.startsWith('/api/crm/clients/') && url.pathname.endsWith('/invite') && request.method === 'POST') {
   try {
     const session = await resolveSession(request, env.DB);
-    if (!session || session.accountType !== 'client') {
-      return json({ ok: false, error: 'UNAUTHORIZED_CLIENT' }, 403);
+    if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+
+    const parts = url.pathname.split('/');
+    const clientId = parts[4]; 
+
+    const client = await env.DB.prepare(`SELECT * FROM clients WHERE id = ? AND company_id = ?`).bind(clientId, session.companyId).first<any>();
+    if (!client) return json({ ok: false, error: 'CLIENT_NOT_FOUND' }, 404);
+    if (!client.email) return json({ ok: false, error: 'CLIENT_HAS_NO_EMAIL' }, 400);
+
+    const token = crypto.randomUUID();
+    await env.DB.prepare(`
+      UPDATE clients SET portal_status = 'invited', portal_invite_token = ? WHERE id = ? AND company_id = ?
+    `).bind(token, clientId, session.companyId).run();
+
+    const company = await env.DB.prepare(`SELECT name FROM companies WHERE id = ?`).bind(session.companyId).first<any>();
+    
+    try {
+      await sendClientInviteEmail(env, client.email, token, company?.name || 'AdPilot');
+    } catch (e) {
+      console.error("Email failed but token saved");
     }
 
-    const clientId = (session as any).clientId || session.accountId; 
-
-    const campaigns = await env.DB.prepare(`
-      SELECT * FROM campaigns 
-      WHERE client_id = ? AND company_id = ? 
-      ORDER BY created_at DESC
-    `).bind(clientId, session.companyId).all();
-
-    return json({ ok: true, data: campaigns.results });
-  } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+    return json({ ok: true, message: 'Client invited successfully' });
+  } catch (err: any) {
+    return json({ ok: false, error: err.message }, 500);
+  }
 }
 
-// 2. Get Client's Own Invoices
-if (url.pathname === '/api/client-portal/invoices' && request.method === 'GET') {
+// ==========================================
+// ACCEPT CLIENT INVITE & SET PASSWORD
+// ==========================================
+if (url.pathname === '/api/auth/accept-client-invite' && request.method === 'POST') {
   try {
-    const session = await resolveSession(request, env.DB);
-    if (!session || session.accountType !== 'client') {
-      return json({ ok: false, error: 'UNAUTHORIZED_CLIENT' }, 403);
+    const body = await request.json() as any;
+    if (!body.token || !body.password || body.password.length < 8) {
+      return json({ ok: false, error: 'INVALID_INPUT', message: 'Token and valid password required.' }, 400);
     }
 
-    const clientId = (session as any).clientId || session.accountId;
+    const client = await env.DB.prepare(`SELECT * FROM clients WHERE portal_invite_token = ? AND portal_status = 'invited'`).bind(body.token).first<any>();
+    if (!client) return json({ ok: false, error: 'INVALID_OR_EXPIRED_TOKEN', message: 'Invite link is invalid or expired.' }, 400);
+    if (!client.email) return json({ ok: false, error: 'NO_EMAIL', message: 'Client email missing.' }, 400);
 
-    const invoices = await env.DB.prepare(`
-      SELECT * FROM invoices 
-      WHERE client_id = ? AND company_id = ? 
-      ORDER BY issue_date DESC
-    `).bind(clientId, session.companyId).all();
+    const existingAccount = await env.DB.prepare(`SELECT id FROM accounts WHERE LOWER(email) = ?`).bind(client.email.toLowerCase()).first();
+    if (existingAccount) return json({ ok: false, error: 'ACCOUNT_EXISTS', message: 'This email already has an account. Please login.' }, 400);
 
-    return json({ ok: true, data: invoices.results });
-  } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+    const now = new Date().toISOString();
+    const accountId = crypto.randomUUID();
+    const membershipId = crypto.randomUUID();
+    const passwordHash = await hashPassword(body.password);
+
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO accounts (id, email, status, email_verified_at, last_login_at, mfa_enabled, auth_provider, created_at, updated_at, password_hash) VALUES (?, ?, 'active', ?, ?, 0, 'password', ?, ?, ?)`).bind(accountId, client.email, now, now, now, now, passwordHash),
+      env.DB.prepare(`INSERT INTO company_memberships (id, company_id, account_id, role, designation, status, invited_by_user_id, created_at, updated_at, account_type, client_id) VALUES (?, ?, ?, 'client', 'Client User', 'active', NULL, ?, ?, 'client', ?)`).bind(membershipId, client.company_id, accountId, now, now, client.id),
+      env.DB.prepare(`UPDATE clients SET portal_status = 'active', portal_invite_token = NULL WHERE id = ?`).bind(client.id)
+    ]);
+
+    return json({ ok: true, message: 'Account setup successful. You can now login.' });
+  } catch (err: any) {
+    return json({ ok: false, error: err.message }, 500);
+  }
 }
-
-// 3. Get Client's Own Payments
-if (url.pathname === '/api/client-portal/payments' && request.method === 'GET') {
-  try {
-    const session = await resolveSession(request, env.DB);
-    if (!session || session.accountType !== 'client') {
-      return json({ ok: false, error: 'UNAUTHORIZED_CLIENT' }, 403);
-    }
-
-    const clientId = (session as any).clientId || session.accountId;
-
-    const payments = await env.DB.prepare(`
-      SELECT p.*, i.invoice_number 
-      FROM invoice_payments p
-      JOIN invoices i ON p.invoice_id = i.id
-      WHERE i.client_id = ? AND i.company_id = ?
-      ORDER BY p.payment_date DESC
-    `).bind(clientId, session.companyId).all();
-
-    return json({ ok: true, data: payments.results });
-  } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
-}
+    
     if (url.pathname.startsWith('/api/')) return json({ ok: false, error: 'NOT_FOUND', message: 'API route not found.', }, 404);
 
     return env.ASSETS.fetch(request);
