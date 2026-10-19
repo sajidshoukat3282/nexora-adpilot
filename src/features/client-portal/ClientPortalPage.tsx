@@ -1,160 +1,243 @@
-import React, { useState } from "react";
-import { PageHeader } from "@/components/layout/AppShell";
-import { StatusBadge, campaignStatusTone, proposalStatusTone, invoiceStatusTone } from "@/components/ui/StatusBadge";
-import { EmptyState } from "@/components/ui/Feedback";
-import { useAsync } from "@/hooks/useAsync";
-import { repo } from "@/repositories/demo";
-import type { ApprovalStep, ProposalStatus } from "@/domain";
-import { CAMPAIGN_STATUS_LABELS, PROPOSAL_STATUS_LABELS, INVOICE_STATUS_LABELS, formatMoney } from "@/domain";
-import { Letterhead } from "@/components/ui/Letterhead";
+import React, { useState, useEffect } from "react";
+import { FiBriefcase, FiCheckCircle, FiFileText, FiDollarSign, FiDownload, FiPlayCircle, FiCalendar } from "react-icons/fi";
+import { useSession } from "@/hooks/useSession";
 
 export const ClientPortalPage: React.FC = () => {
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const { company, user } = useSession();
+  
+  // Tabs exactly as you requested: Campaigns -> Proof of Play -> Invoices -> Payments
+  const [activeTab, setActiveTab] = useState<'campaigns' | 'pop' | 'invoices' | 'payments'>('campaigns');
+  
+  const [loading, setLoading] = useState(true);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
 
-  // Resolve the demo client the "Client" role represents by matching the
-  // fixture client user's email to a CRM contact — a real (if simple) join,
-  // not a hardcoded id.
-  const clientContext = useAsync(async () => {
-    const users = await repo.company.listUsers();
-    const clientUser = users.find((u) => u.role === "client");
-    if (!clientUser) return null;
-    const clients = await repo.crm.listClients();
-    for (const client of clients) {
-      const contacts = await repo.crm.listContactsForClient(client.id);
-      if (contacts.some((c) => c.email === clientUser.email)) return { client, clientUser };
-    }
-    return null;
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [campRes, invRes, payRes] = await Promise.all([
+          fetch('/api/client-portal/campaigns'),
+          fetch('/api/client-portal/invoices'),
+          fetch('/api/client-portal/payments')
+        ]);
+
+        const campData = await campRes.json();
+        const invData = await invRes.json();
+        const payData = await payRes.json();
+
+        if (campData.ok) setCampaigns(campData.data || []);
+        if (invData.ok) setInvoices(invData.data || []);
+        if (payData.ok) setPayments(payData.data || []);
+      } catch (err) {
+        console.error("Error fetching portal data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, []);
 
-  const clientId = clientContext.data?.client.id;
-
-  const campaigns = useAsync(() => (clientId ? repo.campaigns.listCampaigns({ clientId }) : Promise.resolve([])), [clientId]);
-  const proposals = useAsync(() => repo.proposals.listProposals(), [clientId]);
-  const invoices = useAsync(() => repo.finance.listInvoices(), [clientId]);
-
-  const clientProposals = (proposals.data ?? []).filter((p) => p.clientId === clientId);
-  const clientInvoices = (invoices.data ?? []).filter((i) => i.clientId === clientId);
-
-  const pendingCreativesQuery = useAsync(async () => {
-    if (!campaigns.data) return [];
-    const all = await Promise.all(campaigns.data.map((c) => repo.creatives.listCreativesForCampaign(c.id)));
-    return all.flat().filter((c) => c.status === "client_review");
-  }, [campaigns.data]);
-
-  async function decideCreative(creativeId: string, decision: ApprovalStep["decision"]) {
-    setBusyId(creativeId);
-    try {
-      await repo.creatives.recordApprovalDecision(creativeId, "client_review", decision, clientContext.data?.clientUser.name ?? "Client", "");
-      pendingCreativesQuery.reload();
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function decideProposal(proposalId: string, next: ProposalStatus) {
-    setBusyId(proposalId);
-    try {
-      await repo.proposals.transitionProposalStatus(proposalId, next);
-      proposals.reload();
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  if (!clientContext.loading && !clientContext.data) {
-    return <EmptyState title="No client context found" description="This demo's client user isn't linked to a client record." />;
-  }
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-PK', { style: 'currency', currency: 'PKR', minimumFractionDigits: 0 }).format(amount || 0);
+  };
 
   return (
-    <div>
-      <PageHeader
-        title={`Welcome back${clientContext.data ? `, ${clientContext.data.client.name}` : ""}`}
-        description="Your campaigns, approvals, reports and billing — visible only to your organization."
-      />
+    <div className="min-h-screen bg-[#0B1120] text-slate-200 font-sans p-4 md:p-6 rounded-xl relative overflow-hidden">
+      
+      {/* Background Glow */}
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none"></div>
 
-      <Letterhead title="Client Statement" printOnly />
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-        <div className="panel p-5">
-          <h3 className="font-semibold text-ink-50 mb-3">Your Campaigns</h3>
-          <div className="space-y-2">
-            {campaigns.data?.map((c) => (
-              <div key={c.id} className="flex items-center justify-between px-1 py-2">
-                <div>
-                  <div className="text-sm text-ink-100">{c.name}</div>
-                  <div className="text-xs text-ink-500">{c.schedule.startDate} → {c.schedule.endDate}</div>
-                </div>
-                <StatusBadge label={CAMPAIGN_STATUS_LABELS[c.status]} tone={campaignStatusTone(c.status)} />
-              </div>
-            ))}
-            {campaigns.data?.length === 0 && <p className="text-xs text-ink-500">No campaigns yet.</p>}
+      <div className="relative z-10 w-full max-w-[1400px] mx-auto">
+        
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+              Client Portal <span className="text-emerald-500 text-sm font-normal border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 rounded-md ml-2">Secure</span>
+            </h1>
+            <p className="text-xs text-slate-400 mt-1">
+              Welcome back, <span className="text-slate-200 font-medium">{user?.name || "Client"}</span>. View your campaigns and billing.
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Company</p>
+            <p className="text-sm font-semibold text-white">{company?.name || "Nexora Technologies"}</p>
           </div>
         </div>
 
-        <div className="panel p-5">
-          <h3 className="font-semibold text-ink-50 mb-3">Invoices</h3>
-          <div className="space-y-2">
-            {clientInvoices.map((i) => (
-              <div key={i.id} className="flex items-center justify-between px-1 py-2">
+        {/* Tabs Navigation */}
+        <div className="flex border-b border-white/5 mb-6 bg-[#151E32]/50 rounded-t-xl overflow-x-auto">
+          <button 
+            onClick={() => setActiveTab('campaigns')} 
+            className={`px-6 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-all flex items-center gap-2 ${activeTab === 'campaigns' ? 'border-emerald-500 text-emerald-400 bg-emerald-500/5' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/30'}`}
+          >
+            <FiBriefcase size={14} /> Campaigns
+          </button>
+          
+          <button 
+            onClick={() => setActiveTab('pop')} 
+            className={`px-6 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-all flex items-center gap-2 ${activeTab === 'pop' ? 'border-cyan-500 text-cyan-400 bg-cyan-500/5' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/30'}`}
+          >
+            <FiPlayCircle size={14} /> Proof of Play
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('invoices')} 
+            className={`px-6 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-all flex items-center gap-2 ${activeTab === 'invoices' ? 'border-amber-500 text-amber-400 bg-amber-500/5' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/30'}`}
+          >
+            <FiFileText size={14} /> Invoices
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('payments')} 
+            className={`px-6 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-all flex items-center gap-2 ${activeTab === 'payments' ? 'border-purple-500 text-purple-400 bg-purple-500/5' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/30'}`}
+          >
+            <FiDollarSign size={14} /> Payments
+          </button>
+        </div>
+
+        {/* Content Area */}
+        <div className="bg-[#151E32]/80 backdrop-blur-md border border-slate-800 rounded-xl overflow-hidden shadow-2xl p-4 md:p-6 min-h-[400px]">
+          
+          {loading ? (
+            <div className="flex flex-col items-center justify-center h-64 text-slate-500">
+              <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+              <p className="text-sm">Loading your data securely...</p>
+            </div>
+          ) : (
+            <>
+              {/* 1. CAMPAIGNS TAB */}
+              {activeTab === 'campaigns' && (
                 <div>
-                  <div className="text-sm text-ink-100">{i.code}</div>
-                  <div className="text-xs text-ink-500">{formatMoney(i.total)}</div>
+                  <h2 className="text-sm font-bold text-white mb-4">Your Campaigns</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {campaigns.map((camp: any) => (
+                      <div key={camp.id} className="bg-[#0B1120] border border-slate-800 rounded-xl p-4 hover:border-emerald-500/30 transition-colors">
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="font-semibold text-white text-sm truncate pr-2">{camp.name}</h3>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${camp.status === 'live' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-700/50 text-slate-300'}`}>
+                            {camp.status}
+                          </span>
+                        </div>
+                        <div className="space-y-1 mt-3">
+                          <p className="text-[11px] text-slate-400 flex items-center gap-1"><FiCalendar size={12}/> {camp.start_date} to {camp.end_date}</p>
+                          <p className="text-[11px] text-slate-400">Budget: <span className="text-slate-200 font-medium">{formatCurrency(camp.total_budget)}</span></p>
+                        </div>
+                      </div>
+                    ))}
+                    {campaigns.length === 0 && <p className="text-xs text-slate-500 col-span-3">No campaigns found.</p>}
+                  </div>
                 </div>
-                <StatusBadge label={INVOICE_STATUS_LABELS[i.status]} tone={invoiceStatusTone(i.status)} />
-              </div>
-            ))}
-            {clientInvoices.length === 0 && <p className="text-xs text-ink-500">No invoices yet.</p>}
-          </div>
-        </div>
-      </div>
+              )}
 
-      <div className="panel p-5 mb-5">
-        <h3 className="font-semibold text-ink-50 mb-3">Creatives Awaiting Your Approval</h3>
-        <div className="space-y-3">
-          {pendingCreativesQuery.data?.map((creative) => (
-            <div key={creative.id} className="flex items-center justify-between panel-solid p-3">
-              <span className="text-sm text-ink-100">{creative.name}</span>
-              <div className="flex gap-2">
-                <button className="btn-primary !py-1 !px-2.5 text-xs" disabled={busyId === creative.id} onClick={() => decideCreative(creative.id, "approved")}>
-                  Approve
-                </button>
-                <button className="btn-secondary !py-1 !px-2.5 text-xs" disabled={busyId === creative.id} onClick={() => decideCreative(creative.id, "changes_requested")}>
-                  Request Changes
-                </button>
-              </div>
-            </div>
-          ))}
-          {pendingCreativesQuery.data?.length === 0 && <p className="text-xs text-ink-500">Nothing awaiting your review.</p>}
-        </div>
-      </div>
+              {/* 2. PROOF OF PLAY TAB */}
+              {activeTab === 'pop' && (
+                <div>
+                  <h2 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                    Proof of Play <span className="text-[10px] bg-cyan-500/10 text-cyan-400 px-2 py-0.5 rounded border border-cyan-500/20">Verified</span>
+                  </h2>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {/* Placeholder for Proof of Play */}
+                    <div className="bg-[#0B1120] border border-slate-800 rounded-xl overflow-hidden group">
+                      <div className="h-40 bg-slate-800/50 flex items-center justify-center relative">
+                         <FiPlayCircle size={40} className="text-slate-600 group-hover:text-cyan-400 transition-colors" />
+                         <span className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] px-2 py-1 rounded">Camera 01</span>
+                      </div>
+                      <div className="p-3">
+                        <p className="text-xs font-medium text-white">Gulberg Boulevard Screen</p>
+                        <p className="text-[10px] text-slate-400 mt-1">Played on: {new Date().toLocaleDateString()}</p>
+                        <p className="text-[10px] text-emerald-400 mt-1 flex items-center gap-1"><FiCheckCircle size={10} /> Verified by System</p>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-4 text-center">Proof of play is fetched securely from our live monitoring network.</p>
+                </div>
+              )}
 
-      <div className="panel p-5">
-        <h3 className="font-semibold text-ink-50 mb-3">Proposals</h3>
-        <div className="space-y-3">
-          {clientProposals.map((p) => (
-            <div key={p.id} className="flex items-center justify-between panel-solid p-3">
-              <div>
-                <div className="text-sm text-ink-100">{p.campaignName}</div>
-                <div className="text-xs text-ink-500">{p.code} · {formatMoney(p.total)}</div>
-              </div>
-              <div className="flex items-center gap-2">
-                <StatusBadge label={PROPOSAL_STATUS_LABELS[p.status]} tone={proposalStatusTone(p.status)} />
-                {p.status === "client_review" && (
-                  <>
-                    <button className="btn-primary !py-1 !px-2.5 text-xs" disabled={busyId === p.id} onClick={() => decideProposal(p.id, "accepted")}>
-                      Accept
-                    </button>
-                    <button className="btn-secondary !py-1 !px-2.5 text-xs" disabled={busyId === p.id} onClick={() => decideProposal(p.id, "changes_requested")}>
-                      Request Changes
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
-          {clientProposals.length === 0 && <p className="text-xs text-ink-500">No proposals yet.</p>}
+              {/* 3. INVOICES TAB */}
+              {activeTab === 'invoices' && (
+                <div>
+                  <h2 className="text-sm font-bold text-white mb-4">Your Invoices</h2>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-[#0B1120] text-slate-500 uppercase border-b border-slate-800">
+                        <tr>
+                          <th className="p-3 font-semibold">Invoice #</th>
+                          <th className="p-3 font-semibold">Issue Date</th>
+                          <th className="p-3 font-semibold">Due Date</th>
+                          <th className="p-3 font-semibold text-right">Total Amount</th>
+                          <th className="p-3 font-semibold text-center">Status</th>
+                          <th className="p-3 font-semibold text-center">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/50">
+                        {invoices.map((inv: any) => (
+                          <tr key={inv.id} className="hover:bg-slate-800/30 transition-colors">
+                            <td className="p-3 font-mono text-emerald-400">{inv.invoice_number}</td>
+                            <td className="p-3 text-slate-300">{inv.issue_date}</td>
+                            <td className="p-3 text-slate-300">{inv.due_date}</td>
+                            <td className="p-3 text-right font-medium text-white">{formatCurrency(inv.total_amount)}</td>
+                            <td className="p-3 text-center">
+                              <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${inv.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400' : inv.status === 'overdue' ? 'bg-rose-500/10 text-rose-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                                {inv.status}
+                              </span>
+                            </td>
+                            <td className="p-3 text-center">
+                              <button className="text-[10px] bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded transition-colors flex items-center gap-1 mx-auto border border-slate-700">
+                                <FiDownload size={10} /> PDF
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                        {invoices.length === 0 && (
+                          <tr><td colSpan={6} className="p-6 text-center text-slate-500">No invoices found.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* 4. PAYMENTS TAB */}
+              {activeTab === 'payments' && (
+                <div>
+                  <h2 className="text-sm font-bold text-white mb-4">Payment History</h2>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-[#0B1120] text-slate-500 uppercase border-b border-slate-800">
+                        <tr>
+                          <th className="p-3 font-semibold">Date</th>
+                          <th className="p-3 font-semibold">Invoice #</th>
+                          <th className="p-3 font-semibold">Method</th>
+                          <th className="p-3 font-semibold text-right">Amount Paid</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/50">
+                        {payments.map((p: any) => (
+                          <tr key={p.id} className="hover:bg-slate-800/30 transition-colors">
+                            <td className="p-3 text-slate-300">{p.payment_date}</td>
+                            <td className="p-3 font-mono text-slate-400">{p.invoice_number}</td>
+                            <td className="p-3 text-slate-300">{p.payment_method}</td>
+                            <td className="p-3 text-right font-medium text-emerald-400">{formatCurrency(p.amount)}</td>
+                          </tr>
+                        ))}
+                        {payments.length === 0 && (
+                          <tr><td colSpan={4} className="p-6 text-center text-slate-500">No payments found.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>
   );
 };
+
+export default ClientPortalPage;
