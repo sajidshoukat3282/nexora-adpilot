@@ -1,198 +1,269 @@
-import React from "react";
-import { FiFilm, FiRadio, FiAlertTriangle, FiTrendingUp, FiDollarSign } from "react-icons/fi";
+import React, { useState, useEffect } from "react";
+import { FiFilm, FiRadio, FiAlertTriangle, FiTrendingUp, FiDollarSign, FiUsers, FiTarget } from "react-icons/fi";
 import { PageHeader } from "@/components/layout/AppShell";
-import { StatCard } from "@/components/ui/StatCard";
-import { StatusBadge, campaignStatusTone, alertSeverityTone } from "@/components/ui/StatusBadge";
+import { StatusBadge, campaignStatusTone } from "@/components/ui/StatusBadge";
 import { LineChart } from "@/components/charts/LineChart";
 import { DonutChart } from "@/components/charts/DonutChart";
-import { useAsync } from "@/hooks/useAsync";
-import { repo } from "@/repositories/demo";
 import { useSession } from "@/hooks/useSession";
 import { Link } from "@/lib/router";
 import { CAMPAIGN_STATUS_LABELS, formatMoney, money } from "@/domain";
 
 export const DashboardPage: React.FC = () => {
   const { company } = useSession();
-  const campaigns = useAsync(() => repo.campaigns.listCampaigns(), []);
-  const screens = useAsync(() => repo.operations.listScreens(), []);
-  const alerts = useAsync(() => repo.operations.listAlerts(), []);
-  const leads = useAsync(() => repo.crm.listLeads(), []);
-  const invoices = useAsync(() => repo.finance.listInvoices(), []);
+  
+  const [loading, setLoading] = useState(true);
+  const [metrics, setMetrics] = useState<any>({});
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [screens, setScreens] = useState<any[]>([]);
+  const [leads, setLeads] = useState<any[]>([]);
 
-  const liveCampaigns = campaigns.data?.filter((c) => c.status === "live") ?? [];
-  const activeCampaigns = campaigns.data?.filter((c) => !["archived", "cancelled", "draft"].includes(c.status)) ?? [];
-  const onlineScreens = screens.data?.filter((s) => s.liveStatus === "online").length ?? 0;
-  const totalScreens = screens.data?.length ?? 0;
-  const uptimePct = totalScreens ? Math.round((onlineScreens / totalScreens) * 100) : 0;
-  const pendingApprovals = campaigns.data?.filter((c) => c.status === "pending_approval").length ?? 0;
-  const pipelineValue = leads.data?.filter((l) => !["won", "lost"].includes(l.stage)).reduce((s, l) => s + l.estimatedValue, 0) ?? 0;
-  const outstanding = invoices.data?.reduce((s, i) => s + (i.total.amountCents - i.amountPaid.amountCents), 0) ?? 0;
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      setLoading(true);
+      try {
+        const [mRes, cRes, iRes, lRes] = await Promise.all([
+          fetch('/api/finance/metrics'),
+          fetch('/api/campaigns'),
+          fetch('/api/inventory'),
+          fetch('/api/crm/leads')
+        ]);
+        
+        const mData = await mRes.json();
+        const cData = await cRes.json();
+        const iData = await iRes.json();
+        const lData = await lRes.json();
+
+        if (mData.ok) setMetrics(mData.metrics || {});
+        if (cData.ok) setCampaigns(cData.data || []);
+        if (iData.ok) setScreens(iData.data || []);
+        if (lData.ok) setLeads(lData.data || []);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboardData();
+  }, []);
+
+  // --- Calculations ---
+  const liveCampaigns = campaigns.filter((c) => c.status === "live");
+  const onlineScreens = screens.filter((s) => s.status === "online").length;
+  const totalScreens = screens.length || 1;
+  const uptimePct = Math.round((onlineScreens / totalScreens) * 100);
+  
+  const revenue = metrics.total_revenue || 0;
+  const spend = metrics.total_expenses || 0;
+  const profit = metrics.net_profit || 0;
+  const pending = metrics.total_pending || 0;
+  
+  // ROAS Calculation (Revenue / Spend)
+  const roas = spend > 0 ? (revenue / spend).toFixed(1) : "0.0";
+  // AI Score (Mock calculation based on uptime and profit)
+  const aiScore = Math.min(99, Math.round((uptimePct * 0.5) + (profit > 0 ? 45 : 20)));
+
+  const pipelineValue = leads.filter((l) => !["won", "lost"].includes(l.stage)).reduce((s, l) => s + (l.estimated_value || 0), 0);
 
   const deliveryTrend = [92, 94, 89, 96, 91, 95, 97];
   const deliveryLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Today"];
 
-  const statusBreakdown = campaigns.data
-    ? Object.entries(
-        campaigns.data.reduce<Record<string, number>>((acc, c) => {
-          acc[c.status] = (acc[c.status] ?? 0) + 1;
-          return acc;
-        }, {})
-      ).map(([status, count]) => ({
-        label: CAMPAIGN_STATUS_LABELS[status as keyof typeof CAMPAIGN_STATUS_LABELS],
-        value: count,
-        color: statusColor(status),
-      }))
-    : [];
+  const statusBreakdown = Object.entries(
+    campaigns.reduce<Record<string, number>>((acc, c) => {
+      acc[c.status] = (acc[c.status] ?? 0) + 1;
+      return acc;
+    }, {})
+  ).map(([status, count]) => ({
+    label: (CAMPAIGN_STATUS_LABELS as any)[status] || status,
+    value: count,
+    color: statusColor(status),
+  }));
 
   return (
-    <div>
-      <PageHeader
-        title="Command Center"
-        description={`Live executive overview of campaigns, financials, delivery and operations across ${company?.name ?? "your company"}.`}
-      />
+    <div className="relative min-h-screen">
+      
+      {/* Subtle Grid Background */}
+      <div className="absolute inset-0 pointer-events-none opacity-[0.02]" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
 
-      {/* Primary Executive KPI Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard 
-          label="Live Campaigns" 
-          value={liveCampaigns.length} 
-          icon={<FiFilm size={16} />} 
-          tone="green" 
-        />
-        <StatCard
-          label="Screens Online"
-          value={onlineScreens}
-          format={(n) => `${n} / ${totalScreens}`}
-          icon={<FiRadio size={16} />}
-          tone="cyan"
-          trend={{ direction: "up", label: `${uptimePct}% uptime` }}
-        />
-        <StatCard 
-          label="Pending Approvals" 
-          value={pendingApprovals} 
-          icon={<FiAlertTriangle size={16} />} 
-          tone="amber" 
-        />
-        
-        {/* Pipeline Value Container - Fixes $40,700.00 Overflow & Adds P&L Margin */}
-        <div className="panel p-4 flex flex-col justify-between min-w-0 overflow-hidden">
-          <div className="flex items-center justify-between text-ink-400 text-xs font-semibold uppercase tracking-wider mb-1">
-            <span className="truncate">Pipeline Value</span>
-            <FiTrendingUp size={16} className="text-signal-cyan shrink-0 ml-1" />
-          </div>
-          <div className="text-lg sm:text-xl xl:text-2xl font-bold text-ink-50 truncate tracking-tight">
-            {formatMoney(money(pipelineValue))}
-          </div>
-          <div className="text-[11px] text-signal-green font-medium mt-1 truncate flex items-center gap-1">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-signal-green"></span>
-            <span>+35% Est. Revenue Margin</span>
+      <div className="relative z-10">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-white">Commander's Dashboard</h1>
+            <p className="text-xs text-slate-400 mt-1">Live executive overview for {company?.name || "your workspace"}.</p>
           </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
-        <div className="panel p-5 lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-semibold text-ink-50">Delivery Rate — Last 7 Days</h3>
-              <p className="text-xs text-ink-400 mt-0.5">Scheduled vs. delivered plays across all live campaigns</p>
+        {/* 6 KPI Cards (Fintech Style) */}
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-6">
+          {/* AI Score */}
+          <div className="bg-[#151E32] border border-slate-700/50 rounded-xl p-4 relative overflow-hidden group hover:border-amber-500/50 transition-colors">
+            <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-amber-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">AI Commander Score</p>
+            <div className="flex items-end gap-2">
+              <h3 className="text-2xl font-bold text-amber-400">{aiScore}</h3>
+              <span className="text-[10px] text-slate-500 mb-1">/100</span>
             </div>
-            <span className="px-2 py-0.5 text-[11px] font-bold bg-signal-cyan/10 text-signal-cyan rounded border border-signal-cyan/20">
-              95.2% Performance
-            </span>
           </div>
-          <LineChart
-            labels={deliveryLabels}
-            series={[{ name: "Delivery %", color: "#22d3ee", values: deliveryTrend }]}
-            formatValue={(n) => `${n}%`}
-          />
+
+          {/* Active Campaigns */}
+          <div className="bg-[#151E32] border border-slate-700/50 rounded-xl p-4 relative overflow-hidden group hover:border-emerald-500/50 transition-colors">
+            <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Active Campaigns</p>
+            <h3 className="text-2xl font-bold text-white">{liveCampaigns.length}</h3>
+          </div>
+
+          {/* Today's Spend */}
+          <div className="bg-[#151E32] border border-slate-700/50 rounded-xl p-4 relative overflow-hidden group hover:border-rose-500/50 transition-colors">
+            <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-rose-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Total Expenses</p>
+            <h3 className="text-2xl font-bold text-white">{formatMoney(money(spend * 100))}</h3>
+          </div>
+
+          {/* ROAS */}
+          <div className="bg-[#151E32] border border-slate-700/50 rounded-xl p-4 relative overflow-hidden group hover:border-cyan-500/50 transition-colors">
+            <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Overall ROAS</p>
+            <h3 className="text-2xl font-bold text-cyan-400">{roas}x</h3>
+          </div>
+
+          {/* Total Leads / Conversions */}
+          <div className="bg-[#151E32] border border-slate-700/50 rounded-xl p-4 relative overflow-hidden group hover:border-purple-500/50 transition-colors">
+            <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-purple-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Total Pipeline</p>
+            <h3 className="text-2xl font-bold text-white">{formatMoney(money(pipelineValue * 100))}</h3>
+          </div>
+
+          {/* Account Balance */}
+          <div className="bg-[#151E32] border border-slate-700/50 rounded-xl p-4 relative overflow-hidden group hover:border-emerald-500/50 transition-colors">
+            <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Revenue Collected</p>
+            <h3 className="text-2xl font-bold text-emerald-400">{formatMoney(money(revenue * 100))}</h3>
+          </div>
         </div>
 
-        <div className="panel p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-ink-50">Campaign Mix</h3>
+        {/* Charts Area */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+          
+          {/* Main Line Chart */}
+          <div className="bg-[#151E32] border border-slate-700/50 rounded-xl p-5 lg:col-span-2">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="font-semibold text-white text-sm">Multi-Campaign Performance Trend</h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">Scheduled vs. delivered plays (Last 7 Days)</p>
+              </div>
+              <span className="px-2 py-1 text-[10px] font-bold bg-emerald-500/10 text-emerald-400 rounded border border-emerald-500/20">
+                {uptimePct}% Uptime
+              </span>
+            </div>
+            <div className="h-64">
+              <LineChart
+                labels={deliveryLabels}
+                series={[{ name: "Delivery %", color: "#34d399", values: deliveryTrend }]}
+                formatValue={(n) => `${n}%`}
+              />
+            </div>
           </div>
-          {statusBreakdown.length > 0 && (
-            <DonutChart data={statusBreakdown} centerLabel="Total" centerValue={String(campaigns.data?.length ?? 0)} size={150} />
-          )}
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="panel p-5 lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-ink-50">Active Campaigns & Budget</h3>
-            <Link to="/campaigns" className="text-xs text-signal-cyan font-semibold hover:underline">
-              View all →
-            </Link>
-          </div>
-          <div className="space-y-1">
-            {activeCampaigns.slice(0, 6).map((c) => (
-              <Link
-                key={c.id}
-                to={`/campaigns/${c.id}`}
-                className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-ink-800/50 -mx-3 transition-colors"
-              >
-                <div className="min-w-0 pr-2">
-                  <div className="text-sm font-medium text-ink-100 truncate">{c.name}</div>
-                  <div className="text-xs text-ink-500">{c.code} · {c.brand}</div>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-xs font-semibold text-ink-200">
-                    {formatMoney(c.budget.total)}
-                  </span>
-                  <StatusBadge label={CAMPAIGN_STATUS_LABELS[c.status]} tone={campaignStatusTone(c.status)} />
-                </div>
-              </Link>
-            ))}
-            {activeCampaigns.length === 0 && !campaigns.loading && (
-              <p className="text-sm text-ink-500 py-4">No active campaigns right now.</p>
+          {/* Donut Chart / Budget Split */}
+          <div className="bg-[#151E32] border border-slate-700/50 rounded-xl p-5 flex flex-col items-center justify-center relative">
+            <h3 className="font-semibold text-white text-sm self-start mb-2">Campaign Mix</h3>
+            {statusBreakdown.length > 0 ? (
+              <DonutChart data={statusBreakdown} centerLabel="Total" centerValue={String(campaigns.length)} size={160} />
+            ) : (
+              <p className="text-xs text-slate-500">No data available</p>
             )}
           </div>
         </div>
 
-        <div className="panel p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-ink-50">Network Alerts</h3>
-            <Link to="/operations" className="text-xs text-signal-cyan font-semibold hover:underline">
-              View all →
-            </Link>
+        {/* Bottom Tables & Feeds */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          
+          {/* Active Campaigns Table */}
+          <div className="bg-[#151E32] border border-slate-700/50 rounded-xl p-5 lg:col-span-2">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-white text-sm">Top Performing Campaigns</h3>
+              <Link to="/campaigns" className="text-[11px] text-emerald-400 font-semibold hover:underline">
+                View all →
+              </Link>
+            </div>
+            <div className="space-y-1">
+              {campaigns.slice(0, 5).map((c) => (
+                <Link
+                  key={c.id}
+                  to={`/campaigns/${c.id}`}
+                  className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-white/5 -mx-3 transition-colors"
+                >
+                  <div className="min-w-0 pr-2">
+                    <div className="text-xs font-medium text-white truncate">{c.name}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">{c.client_name}</div>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-xs font-semibold text-slate-300">
+                      {formatMoney(money(c.total_budget * 100))}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${c.status === 'live' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-700/50 text-slate-300'}`}>
+                      {c.status}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+              {campaigns.length === 0 && (
+                <p className="text-xs text-slate-500 py-4">No campaigns found.</p>
+              )}
+            </div>
           </div>
-          <div className="space-y-3">
-            {alerts.data?.slice(0, 5).map((a) => (
-              <div key={a.id} className="flex items-start gap-2.5">
-                <div className="mt-1">
-                  <StatusBadge label="" dot tone={alertSeverityTone(a.severity)} />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-sm text-ink-100 leading-snug">{a.title}</div>
-                  <div className="text-xs text-ink-500 mt-0.5">{a.detail}</div>
+
+          {/* AI Feed / Alerts */}
+          <div className="bg-[#151E32] border border-slate-700/50 rounded-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-white text-sm">AI Optimization Feed</h3>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-start gap-2.5">
+                <div className="mt-0.5 text-amber-400"><FiAlertTriangle size={14} /></div>
+                <div>
+                  <p className="text-xs text-slate-200 leading-tight">Budget Adjustment: Campaign Alpha (+5%)</p>
+                  <p className="text-[10px] text-slate-500 mt-1">ROAS increased to 4.1x over last 3 days.</p>
                 </div>
               </div>
-            ))}
-            {alerts.data?.length === 0 && <p className="text-sm text-ink-500 py-4">No active alerts.</p>}
+              <div className="flex items-start gap-2.5">
+                <div className="mt-0.5 text-emerald-400"><FiTrendingUp size={14} /></div>
+                <div>
+                  <p className="text-xs text-slate-200 leading-tight">New Ad Set Released</p>
+                  <p className="text-[10px] text-slate-500 mt-1">TikTok Ad Set Beta (v1.4) is now active.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <div className="mt-0.5 text-cyan-400"><FiTarget size={14} /></div>
+                <div>
+                  <p className="text-xs text-slate-200 leading-tight">Audience Overlap Detected</p>
+                  <p className="text-[10px] text-slate-500 mt-1">Google and Meta audiences have 15% overlap.</p>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Enterprise Financial Receivables Panel */}
-      <div className="mt-6 panel p-5 border border-signal-amber/20 bg-surface-bg/80">
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-          <div className="flex items-center gap-2">
-            <FiDollarSign size={18} className="text-signal-amber" />
-            <h3 className="font-semibold text-ink-50">Outstanding Receivables (AR)</h3>
+        </div>
+
+        {/* Outstanding Receivables Panel */}
+        <div className="mt-4 bg-[#151E32] border border-amber-500/20 rounded-xl p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+            <div className="flex items-center gap-2">
+              <FiDollarSign size={16} className="text-amber-400" />
+              <h3 className="font-semibold text-white text-sm">Outstanding Receivables (AR)</h3>
+            </div>
+            <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-500/10 text-amber-400 rounded border border-amber-500/20">
+              Pending Collection
+            </span>
           </div>
-          <span className="px-2 py-0.5 text-[11px] font-bold bg-signal-amber/10 text-signal-amber rounded border border-signal-amber/20">
-            Net 30 Payment Terms
-          </span>
+          <p className="text-[11px] text-slate-400 mb-3">Across all sent, partially paid, and overdue invoices.</p>
+          <div className="text-2xl font-bold text-amber-400 tracking-tight">
+            {formatMoney(money(pending * 100))}
+          </div>
+          <Link to="/finance" className="text-[11px] text-emerald-400 font-semibold hover:underline mt-3 inline-block">
+            Manage Accounts Receivable →
+          </Link>
         </div>
-        <p className="text-sm text-ink-400 mb-3">Across all sent, partially paid, and overdue invoices requiring collection.</p>
-        <div className="text-2xl sm:text-3xl font-bold text-signal-amber tabular-nums tracking-tight truncate">
-          {formatMoney(money(outstanding))}
-        </div>
-        <Link to="/finance" className="text-xs text-signal-cyan font-semibold hover:underline mt-3 inline-block">
-          Manage Accounts Receivable (AR) →
-        </Link>
+
       </div>
     </div>
   );
