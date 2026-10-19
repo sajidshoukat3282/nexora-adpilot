@@ -975,7 +975,9 @@ if (url.pathname === '/api/ledger' && request.method === 'GET') {
     return json({ ok: false, error: err.message }, 500);
   }
 }
-// ==========================================
+
+
+    // ==========================================
     // DASHBOARD SUMMARY (READ-ONLY)
     // ==========================================
     if (url.pathname === '/api/dashboard/summary' && request.method === 'GET') {
