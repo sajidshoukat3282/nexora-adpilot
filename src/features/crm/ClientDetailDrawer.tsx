@@ -8,7 +8,7 @@ import { Link } from "@/lib/router";
 import type { Client } from "@/domain";
 import { CAMPAIGN_STATUS_LABELS, PROPOSAL_STATUS_LABELS, INVOICE_STATUS_LABELS, formatMoney } from "@/domain";
 import AddContactForm from "./AddContactForm";
-import EditClientForm from "./EditClientForm"; // <-- Naya Form Import kiya
+import EditClientForm from "./EditClientForm";
 
 export const ClientDetailDrawer: React.FC<{ client: Client | null; onClose: () => void }> = ({ client, onClose }) => {
   // Asli Contacts ka state
@@ -58,7 +58,8 @@ export const ClientDetailDrawer: React.FC<{ client: Client | null; onClose: () =
           {/* CLIENT PROFILE HEADER & EDIT BUTTON */}
           <div className="flex justify-between items-center pb-4 border-b border-gray-700/50">
             <div className="text-sm text-gray-400">
-              <span className="block">City: <span className="text-white">{client.city || 'N/A'}</span></span>
+              {/* Yahan (client as any).city kiya hai taake TypeScript error na de */}
+              <span className="block">City: <span className="text-white">{(client as any).city || 'N/A'}</span></span>
               <span className="block mt-1">Limit: <span className="text-emerald-400">{(client as any).credit_limit || 0} {(client as any).currency || 'PKR'}</span></span>
             </div>
             <button 
@@ -173,8 +174,8 @@ export const ClientDetailDrawer: React.FC<{ client: Client | null; onClose: () =
             client={client} 
             onClose={() => setShowEditForm(false)} 
             onSuccess={() => {
-              onClose(); // Drawer band karein
-              window.location.reload(); // Page refresh taake nayi details list mein aayen
+              onClose(); 
+              window.location.reload(); 
             }} 
           />
         </div>
