@@ -33,7 +33,6 @@ export const TopBar: React.FC<{ onMobileMenu: () => void }> = ({
 
   const unread = notifications?.filter((notification) => !notification.read).length ?? 0;
 
-  // Owner sees the name entered in the company profile; the email address is never shown here.
   const displayName =
     (session?.accountType === "owner" && profile?.ownerName) ||
     user?.name ||
@@ -60,9 +59,7 @@ export const TopBar: React.FC<{ onMobileMenu: () => void }> = ({
 
   const handleSearch = () => {
     const query = search.trim();
-
     if (!query) return;
-
     navigate(`/campaigns?search=${encodeURIComponent(query)}`);
   };
 
@@ -84,32 +81,34 @@ export const TopBar: React.FC<{ onMobileMenu: () => void }> = ({
     "?";
 
   return (
-    <header className="sticky top-0 z-30 h-16 flex items-center gap-3 px-4 md:px-6 border-b border-ink-700/60 bg-ink-950/90 backdrop-blur-xl">
+    // Deep Dark Fintech Background
+    <header className="sticky top-0 z-30 h-14 flex items-center gap-4 px-4 md:px-6 border-b border-white/5 bg-[#0B1120]/90 backdrop-blur-xl">
+      
       {/* Mobile navigation */}
       <button
         type="button"
-        className="md:hidden flex items-center justify-center w-9 h-9 rounded-lg text-ink-300 hover:text-ink-50 hover:bg-ink-800 transition-colors"
+        className="md:hidden flex items-center justify-center w-8 h-8 rounded-md text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
         onClick={onMobileMenu}
         aria-label="Open navigation"
       >
-        <FiMenu size={19} />
+        <FiMenu size={18} />
       </button>
 
-      {/* Company (left) */}
+      {/* Company (left) - Sleek Design */}
       <div className="flex items-center gap-2.5 min-w-0 max-w-[48vw] md:max-w-64 shrink-0">
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-signal-cyan/15 border border-signal-cyan/25 text-sm font-bold text-signal-cyan shrink-0">
+        <div className="flex items-center justify-center w-7 h-7 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-xs font-bold text-emerald-400 shrink-0 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
           {(profile?.legalName || company?.name || "A").charAt(0).toUpperCase()}
         </div>
-        <div className="truncate text-sm font-semibold text-ink-50">
+        <div className="truncate text-sm font-semibold text-slate-200 tracking-tight">
           {profile?.legalName || company?.name || "Nexora AdPilot"}
         </div>
       </div>
 
-      {/* Global search */}
-      <div className="relative hidden sm:block flex-1 max-w-xl ml-2">
+      {/* Global search - Command Palette Style */}
+      <div className="relative hidden sm:block flex-1 max-w-lg ml-4">
         <FiSearch
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-500 pointer-events-none"
-          size={16}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+          size={14}
         />
 
         <input
@@ -124,12 +123,12 @@ export const TopBar: React.FC<{ onMobileMenu: () => void }> = ({
           }}
           placeholder="Search campaigns, screens, clients..."
           aria-label="Search AdPilot"
-          className="input pl-10 pr-16 !bg-ink-900/70 !border-ink-800 focus:!border-signal-cyan/40"
+          className="w-full bg-[#151E32] border border-slate-700/50 rounded-lg pl-9 pr-14 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
         />
 
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-1 pointer-events-none">
-          <kbd className="px-1.5 py-0.5 rounded border border-ink-700 bg-ink-800/80 text-[10px] text-ink-500 font-medium">
-            Enter
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-1 pointer-events-none">
+          <kbd className="px-1.5 py-0.5 rounded border border-slate-700 bg-slate-800 text-[10px] text-slate-400 font-medium font-sans">
+            ↵
           </kbd>
         </div>
       </div>
@@ -139,134 +138,96 @@ export const TopBar: React.FC<{ onMobileMenu: () => void }> = ({
       {/* Notifications */}
       <button
         type="button"
-        className="relative flex items-center justify-center w-9 h-9 rounded-lg text-ink-300 hover:text-ink-50 hover:bg-ink-800 transition-colors"
+        className="relative flex items-center justify-center w-8 h-8 rounded-md text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
         onClick={() => navigate("/notifications")}
-        aria-label={
-          unread > 0
-            ? `${unread} unread notifications`
-            : "Notifications"
-        }
+        aria-label={unread > 0 ? `${unread} unread notifications` : "Notifications"}
       >
-        <FiBell size={18} />
-
+        <FiBell size={16} />
         {unread > 0 && (
-          <span className="absolute top-1.5 right-1.5 min-w-[7px] h-[7px] rounded-full bg-signal-red ring-2 ring-ink-950" />
+          <span className="absolute top-1.5 right-1.5 min-w-[6px] h-[6px] rounded-full bg-emerald-400 ring-2 ring-[#0B1120]" />
         )}
       </button>
 
       {/* Account */}
-      <div
-        className="relative pl-2 ml-1 border-l border-ink-700/60"
-        ref={accountMenuRef}
-      >
+      <div className="relative pl-3 ml-2 border-l border-white/5" ref={accountMenuRef}>
         <button
           type="button"
           onClick={() => setAccountMenuOpen((value) => !value)}
-          className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 hover:bg-ink-800/80 transition-colors"
+          className="flex items-center gap-2.5 rounded-lg px-1.5 py-1.5 hover:bg-white/5 transition-colors"
           aria-expanded={accountMenuOpen}
           aria-haspopup="menu"
           aria-label="Account menu"
         >
-          <div className="relative flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-signal-cyan/30 to-ink-700 border border-signal-cyan/20 text-xs font-bold text-ink-100">
+          <div className="relative flex items-center justify-center w-7 h-7 rounded-full bg-[#1E293B] border border-slate-700 text-[10px] font-bold text-white shadow-sm">
             {initials}
-
-            <span className="absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-ink-950" />
+            <span className="absolute -right-0.5 -bottom-0.5 w-2 h-2 rounded-full bg-emerald-500 border-2 border-[#0B1120]" />
           </div>
 
           <div className="hidden lg:block leading-tight text-left max-w-36">
-            <div className="text-sm font-semibold text-ink-100 truncate">
+            <div className="text-xs font-semibold text-slate-200 truncate">
               {displayName}
             </div>
-            <div className="text-[11px] text-ink-500 truncate">
+            <div className="text-[10px] text-slate-500 truncate mt-0.5">
               {designation}
             </div>
           </div>
 
           <FiChevronDown
-            size={14}
-            className={`hidden sm:block text-ink-500 transition-transform duration-200 ${
+            size={12}
+            className={`hidden sm:block text-slate-500 transition-transform duration-200 ${
               accountMenuOpen ? "rotate-180" : ""
             }`}
           />
         </button>
 
+        {/* Dropdown Menu */}
         {accountMenuOpen && (
           <div
-            className="absolute right-0 mt-2 w-80 rounded-xl border border-ink-700/80 bg-ink-900 shadow-2xl shadow-black/40 overflow-hidden z-40"
+            className="absolute right-0 mt-2 w-72 rounded-xl border border-white/10 bg-[#0F172A] shadow-2xl shadow-black/50 overflow-hidden z-40"
             role="menu"
           >
-            {/* Identity */}
-            <div className="p-4 border-b border-ink-700/60">
+            <div className="p-4 border-b border-white/5 bg-[#151E32]/50">
               <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-11 h-11 rounded-full bg-gradient-to-br from-signal-cyan/30 to-ink-700 border border-signal-cyan/20 text-sm font-bold text-ink-100">
+                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-[#1E293B] border border-slate-700 text-sm font-bold text-white">
                   {initials}
                 </div>
-
                 <div className="min-w-0">
-                  <div className="font-semibold text-ink-100 truncate">
+                  <div className="font-semibold text-sm text-white truncate">
                     {displayName === "Loading..." ? "Account" : displayName}
                   </div>
-
-                  <div className="text-xs text-ink-400 truncate mt-0.5">
+                  <div className="text-xs text-slate-400 truncate mt-0.5">
                     {designation}
                   </div>
                 </div>
               </div>
 
-              {/* Workspace */}
-              <div className="mt-4 rounded-lg border border-ink-700/60 bg-ink-950/60 p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="flex items-center justify-center w-6 h-6 rounded-md bg-signal-cyan/10 text-signal-cyan">
-                    <FiShield size={13} />
+              <div className="mt-4 rounded-lg border border-white/5 bg-[#0B1120]/50 p-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div className="flex items-center justify-center w-5 h-5 rounded bg-emerald-500/10 text-emerald-400">
+                    <FiShield size={12} />
                   </div>
-
-                  <span className="text-[10px] uppercase tracking-[0.14em] font-semibold text-ink-500">
+                  <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
                     Workspace
                   </span>
                 </div>
-
-                <div className="text-sm font-medium text-ink-100 truncate">
+                <div className="text-sm font-medium text-slate-200 truncate">
                   {company?.name ?? "Nexora AdPilot"}
                 </div>
-
-                <div className="mt-2 flex items-center gap-2 text-[11px] text-ink-500">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <div className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-500">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                   Active workspace
-                </div>
-              </div>
-
-              {/* Account metadata */}
-              <div className="grid grid-cols-2 gap-3 mt-3">
-                <div className="rounded-lg bg-ink-950/50 border border-ink-800/70 p-2.5">
-                  <div className="text-[10px] uppercase tracking-wider text-ink-600">
-                    Access
-                  </div>
-                  <div className="mt-1 text-xs font-medium text-ink-200 truncate">
-                    {designation}
-                  </div>
-                </div>
-
-                <div className="rounded-lg bg-ink-950/50 border border-ink-800/70 p-2.5">
-                  <div className="text-[10px] uppercase tracking-wider text-ink-600">
-                    Account
-                  </div>
-                  <div className="mt-1 flex items-center gap-1.5 text-xs font-medium text-emerald-400">
-                    <FiUser size={12} />
-                    Active
-                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Actions */}
             <div className="p-2">
               <button
                 type="button"
                 role="menuitem"
                 onClick={handleSignOut}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-ink-300 hover:bg-ink-800 hover:text-ink-50 transition-colors"
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-xs font-medium text-slate-300 hover:bg-white/5 hover:text-rose-400 transition-colors"
               >
-                <FiLogOut size={16} />
+                <FiLogOut size={14} />
                 <span>Sign out</span>
               </button>
             </div>
