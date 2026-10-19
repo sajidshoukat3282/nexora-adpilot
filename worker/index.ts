@@ -462,6 +462,30 @@ export default {
         await env.DB.prepare(`INSERT INTO clients (id, company_id, name, client_type, industry, city, phone, email, credit_limit, currency, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(id, session.companyId, body.name, body.client_type || 'direct', body.industry || null, body.city || null, body.phone || null, body.email || null, body.credit_limit || 0, body.currency || 'PKR', body.notes || null).run();
         return json({ ok: true, id });
       } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+    }                                                                                                                                                                    
+      // ==========================================
+// INVITE CLIENT TO PORTAL ROUTE
+// ==========================================
+if (url.pathname.startsWith('/api/crm/clients/') && url.pathname.endsWith('/invite') && request.method === 'POST') {
+  try {
+    const session = await resolveSession(request, env.DB);
+    if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+
+    const parts = url.pathname.split('/');
+    const clientId = parts[4]; 
+
+    const client = await env.DB.prepare(`SELECT * FROM clients WHERE id = ? AND company_id = ?`).bind(clientId, session.companyId).first<any>();
+    if (!client) return json({ ok: false, error: 'CLIENT_NOT_FOUND' }, 404);
+
+    await env.DB.prepare(`
+      UPDATE clients SET portal_status = 'invited', portal_invite_token = ? WHERE id = ? AND company_id = ?
+    `).bind(crypto.randomUUID(), clientId, session.companyId).run();
+
+    return json({ ok: true, message: 'Client invited successfully' });
+  } catch (err: any) {
+    return json({ ok: false, error: err.message }, 500);
+  }
+}
     }
     if (url.pathname === '/api/crm/leads' && request.method === 'POST') {
       try {
