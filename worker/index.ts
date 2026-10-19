@@ -450,45 +450,155 @@ export default {
     const teamResponse = await handleTeamRoutes(request, env, url);
     if (teamResponse) return teamResponse;
 
-    // ==========================================
-    // CRM ROUTES
-    // ==========================================
-    if (url.pathname === '/api/crm/clients' && request.method === 'GET') {
-      try {
-        const session = await resolveSession(request, env.DB);
-        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
-        const clients = await env.DB.prepare(`SELECT * FROM clients WHERE company_id = ? ORDER BY created_at DESC`).bind(session.companyId).all();
-        return json({ ok: true, data: clients.results });
-      } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+  // ==========================================
+// CRM ROUTES
+// ==========================================
+if (url.pathname === '/api/crm/clients' && request.method === 'GET') {
+  try {
+    const session = await resolveSession(request, env.DB);
+    if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+    const clients = await env.DB.prepare(`SELECT * FROM clients WHERE company_id = ? ORDER BY created_at DESC`).bind(session.companyId).all();
+    return json({ ok: true, data: clients.results });
+  } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+}
+
+if (url.pathname === '/api/crm/leads' && request.method === 'GET') {
+  try {
+    const session = await resolveSession(request, env.DB);
+    if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+    const leads = await env.DB.prepare(`SELECT * FROM leads WHERE company_id = ? ORDER BY created_at DESC`).bind(session.companyId).all();
+    return json({ ok: true, data: leads.results });
+  } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+}
+
+if (url.pathname === '/api/crm/contacts' && request.method === 'GET') {
+  try {
+    const session = await resolveSession(request, env.DB);
+    if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+    const clientId = url.searchParams.get('client_id');
+    if (!clientId) return json({ ok: false, error: 'CLIENT_ID_REQUIRED' }, 400);
+    const contacts = await env.DB.prepare(`SELECT * FROM contacts WHERE client_id = ? AND company_id = ? ORDER BY created_at DESC`).bind(clientId, session.companyId).all();
+    return json({ ok: true, data: contacts.results });
+  } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+}
+
+if (url.pathname === '/api/crm/clients' && request.method === 'POST') {
+  try {
+    const session = await resolveSession(request, env.DB);
+    if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+    const body = (await request.json()) as any;
+    const id = crypto.randomUUID();
+    await env.DB.prepare(`INSERT INTO clients (id, company_id, name, client_type, industry, city, phone, email, credit_limit, currency, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(id, session.companyId, body.name, body.client_type || 'direct', body.industry || null, body.city || null, body.phone || null, body.email || null, body.credit_limit || 0, body.currency || 'PKR', body.notes || null).run();
+    return json({ ok: true, id });
+  } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+}
+
+// ==========================================
+// UPDATE CLIENT ROUTE (NAYA ADD KIYA HAI)
+// ==========================================
+if (url.pathname.startsWith('/api/crm/clients/') && request.method === 'PUT') {
+  try {
+    const session = await resolveSession(request, env.DB);
+    if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+
+    const parts = url.pathname.split('/');
+    const clientId = parts[4]; 
+    const body = (await request.json()) as any;
+
+    await env.DB.prepare(`
+      UPDATE clients 
+      SET name = ?, client_type = ?, industry = ?, city = ?, phone = ?, email = ?, address = ?, credit_limit = ?, notes = ?, updated_at = datetime('now')
+      WHERE id = ? AND company_id = ?
+    `).bind(
+      body.name, body.client_type, body.industry || null, body.city || null, 
+      body.phone || null, body.email || null, body.address || null, body.credit_limit || 0, body.notes || null, 
+      clientId, session.companyId
+    ).run();
+
+    return json({ ok: true, message: 'Client updated successfully' });
+  } catch (err: any) {
+    return json({ ok: false, error: err.message }, 500);
+  }
+}
+// ==========================================
+
+if (url.pathname === '/api/crm/leads' && request.method === 'POST') {
+  try {
+    const session = await resolveSession(request, env.DB);
+    if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+    const body = (await request.json()) as any;
+    const id = crypto.randomUUID();
+    await env.DB.prepare(`INSERT INTO leads (id, company_id, company_name, contact_name, email, phone, estimated_value, source, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(id, session.companyId, body.company_name, body.contact_name || null, body.email || null, body.phone || null, body.estimated_value || 0, body.source || null, body.notes || null).run();
+    return json({ ok: true, id });
+  } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+}
+
+if (url.pathname === '/api/crm/contacts' && request.method === 'POST') {
+  try {
+    const session = await resolveSession(request, env.DB);
+    if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+    const body = (await request.json()) as any;
+    const id = crypto.randomUUID();
+    await env.DB.prepare(`INSERT INTO contacts (id, company_id, client_id, name, title, email, phone, is_primary) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).bind(id, session.companyId, body.client_id, body.name, body.title || null, body.email || null, body.phone || null, body.is_primary ? 1 : 0).run();
+    return json({ ok: true, id });
+  } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+}
+
+if (url.pathname.startsWith('/api/crm/leads/') && url.pathname.endsWith('/stage') && request.method === 'PUT') {
+  try {
+    const session = await resolveSession(request, env.DB);
+    if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+    const parts = url.pathname.split('/');
+    const leadId = parts[4];
+    const body = (await request.json()) as any;
+    await env.DB.prepare(`UPDATE leads SET stage = ?, updated_at = datetime('now') WHERE id = ? AND company_id = ?`).bind(body.stage, leadId, session.companyId).run();
+    return json({ ok: true });
+  } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+}
+
+if (url.pathname.startsWith('/api/crm/leads/') && url.pathname.endsWith('/convert') && request.method === 'POST') {
+  try {
+    const session = await resolveSession(request, env.DB);
+    if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+    const parts = url.pathname.split('/');
+    const leadId = parts[4]; 
+    const company_id = session.companyId;
+    const lead = await env.DB.prepare(`SELECT * FROM leads WHERE id = ? AND company_id = ?`).bind(leadId, company_id).first<any>();
+    if (!lead) return json({ ok: false, message: 'Lead not found' }, 404);
+    const client_id = crypto.randomUUID();
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO clients (id, company_id, name, phone, email, notes) VALUES (?, ?, ?, ?, ?, ?)`).bind(client_id, company_id, lead.company_name, lead.phone, lead.email, `Converted from Lead. ${lead.notes || ''}`),
+      env.DB.prepare(`UPDATE leads SET stage = 'won', converted_client_id = ? WHERE id = ? AND company_id = ?`).bind(client_id, leadId, company_id)
+    ]);
+    return json({ ok: true, client_id });
+  } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+}
+
+if (url.pathname.startsWith('/api/crm/clients/') && url.pathname.endsWith('/invite') && request.method === 'POST') {
+  try {
+    const session = await resolveSession(request, env.DB);
+    if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+    const parts = url.pathname.split('/');
+    const clientId = parts[4]; 
+    const client = await env.DB.prepare(`SELECT * FROM clients WHERE id = ? AND company_id = ?`).bind(clientId, session.companyId).first<any>();
+    if (!client) return json({ ok: false, error: 'CLIENT_NOT_FOUND' }, 404);
+    if (!client.email) return json({ ok: false, error: 'CLIENT_HAS_NO_EMAIL' }, 400);
+    const token = crypto.randomUUID();
+    await env.DB.prepare(`UPDATE clients SET portal_status = 'invited', portal_invite_token = ? WHERE id = ? AND company_id = ?`).bind(token, clientId, session.companyId).run();
+    const company = await env.DB.prepare(`SELECT name FROM companies WHERE id = ?`).bind(session.companyId).first<any>();
+    try {
+      await sendClientInviteEmail(env, client.email, token, company?.name || 'AdPilot');
+    } catch (e) {
+      console.error("Email failed but token saved");
     }
-    if (url.pathname === '/api/crm/leads' && request.method === 'GET') {
-      try {
-        const session = await resolveSession(request, env.DB);
-        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
-        const leads = await env.DB.prepare(`SELECT * FROM leads WHERE company_id = ? ORDER BY created_at DESC`).bind(session.companyId).all();
-        return json({ ok: true, data: leads.results });
-      } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
-    }
-    if (url.pathname === '/api/crm/contacts' && request.method === 'GET') {
-      try {
-        const session = await resolveSession(request, env.DB);
-        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
-        const clientId = url.searchParams.get('client_id');
-        if (!clientId) return json({ ok: false, error: 'CLIENT_ID_REQUIRED' }, 400);
-        const contacts = await env.DB.prepare(`SELECT * FROM contacts WHERE client_id = ? AND company_id = ? ORDER BY created_at DESC`).bind(clientId, session.companyId).all();
-        return json({ ok: true, data: contacts.results });
-      } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
-    }
-    if (url.pathname === '/api/crm/clients' && request.method === 'POST') {
-      try {
-        const session = await resolveSession(request, env.DB);
-        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
-        const body = (await request.json()) as any;
-        const id = crypto.randomUUID();
-        await env.DB.prepare(`INSERT INTO clients (id, company_id, name, client_type, industry, city, phone, email, credit_limit, currency, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(id, session.companyId, body.name, body.client_type || 'direct', body.industry || null, body.city || null, body.phone || null, body.email || null, body.credit_limit || 0, body.currency || 'PKR', body.notes || null).run();
-        return json({ ok: true, id });
-      } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
-    }                                                                                                                                                                    
+    return json({ ok: true, message: 'Client invited successfully' });
+  } catch (err: any) {
+    return json({ ok: false, error: err.message }, 500);
+  }
+}
+// ==========================================
+// END CRM ROUTES
+// ==========================================                                                                                                                
 // ==========================================
 // INVITE CLIENT TO PORTAL ROUTE
 // ==========================================
