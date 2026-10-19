@@ -39,7 +39,7 @@ export const CrmPage: React.FC = () => {
           ...c,
           logoInitial: c.name ? c.name.charAt(0).toUpperCase() : 'C',
           isPortalEnabled: c.portal_status === 'active',
-          isPortalInvited: c.portal_status === 'invited', // Naya status
+          isPortalInvited: c.portal_status === 'invited',
           industry: c.industry || 'N/A'
         }));
         setClientsData(mappedClients);
@@ -222,13 +222,12 @@ const clientColumns = (handleInvite: (id: string) => void): ColumnDef<Client>[] 
     key: "actions",
     header: "Action",
     render: (c: any) => {
-      // Agar portal active ya invited hai to button disable ho jaye
       const isDisabled = c.isPortalEnabled || c.isPortalInvited;
       
       return (
         <button
-          onClick={(e) => {
-            e.stopPropagation(); // Taake row click (Drawer) na khule
+          onClick={(e: any) => { // <--- Yahan : any add kar diya hai
+            e.stopPropagation(); 
             handleInvite(c.id);
           }}
           disabled={isDisabled}
