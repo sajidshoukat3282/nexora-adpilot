@@ -1200,7 +1200,71 @@ if (url.pathname === '/api/ledger' && request.method === 'GET') {
         });
       } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
     }
+// ==========================================
+// CLIENT PORTAL ROUTES (SECURE)
+// ==========================================
 
+// 1. Get Client's Own Campaigns
+if (url.pathname === '/api/client-portal/campaigns' && request.method === 'GET') {
+  try {
+    const session = await resolveSession(request, env.DB);
+    if (!session || session.accountType !== 'client') {
+      return json({ ok: false, error: 'UNAUTHORIZED_CLIENT' }, 403);
+    }
+
+    const clientId = (session as any).clientId || session.accountId; 
+
+    const campaigns = await env.DB.prepare(`
+      SELECT * FROM campaigns 
+      WHERE client_id = ? AND company_id = ? 
+      ORDER BY created_at DESC
+    `).bind(clientId, session.companyId).all();
+
+    return json({ ok: true, data: campaigns.results });
+  } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+}
+
+// 2. Get Client's Own Invoices
+if (url.pathname === '/api/client-portal/invoices' && request.method === 'GET') {
+  try {
+    const session = await resolveSession(request, env.DB);
+    if (!session || session.accountType !== 'client') {
+      return json({ ok: false, error: 'UNAUTHORIZED_CLIENT' }, 403);
+    }
+
+    const clientId = (session as any).clientId || session.accountId;
+
+    const invoices = await env.DB.prepare(`
+      SELECT * FROM invoices 
+      WHERE client_id = ? AND company_id = ? 
+      ORDER BY issue_date DESC
+    `).bind(clientId, session.companyId).all();
+
+    return json({ ok: true, data: invoices.results });
+  } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+}
+
+// 3. Get Client's Own Payments
+if (url.pathname === '/api/client-portal/payments' && request.method === 'GET') {
+  try {
+    const session = await resolveSession(request, env.DB);
+    if (!session || session.accountType !== 'client') {
+      return json({ ok: false, error: 'UNAUTHORIZED_CLIENT' }, 403);
+    }
+
+    const clientId = (session as any).clientId || session.accountId;
+
+    const payments = await env.DB.prepare(`
+      SELECT p.*, i.invoice_number 
+      FROM invoice_payments p
+      JOIN invoices i ON p.invoice_id = i.id
+      WHERE i.client_id = ? AND i.company_id = ?
+      ORDER BY p.payment_date DESC
+    `).bind(clientId, session.companyId).all();
+
+    return json({ ok: true, data: payments.results });
+  } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+}
     if (url.pathname.startsWith('/api/')) return json({ ok: false, error: 'NOT_FOUND', message: 'API route not found.', }, 404);
 
     return env.ASSETS.fetch(request);
