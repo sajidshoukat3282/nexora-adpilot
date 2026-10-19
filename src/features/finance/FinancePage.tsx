@@ -8,13 +8,14 @@ import { InvoiceDetailDrawer } from "./InvoiceDetailDrawer";
 import { ExpenseDetailDrawer } from "./ExpenseDetailDrawer";
 import { useSession } from "@/hooks/useSession";
 import { useCompanyProfile } from "@/hooks/useCompanyProfile";
+import { FIN, GOLD_CARD, SILVER_CARD, SectionTitle, fit, statusPill } from "./financeUi";
 
 export const FinancePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'payments' | 'expenses' | 'ledger'>('overview');
-  
+
   const { company } = useSession();
   const { profile } = useCompanyProfile();
-  
+
   const [metrics, setMetrics] = useState<any>({ total_revenue: 0, total_expenses: 0, net_profit: 0, total_pending: 0 });
   const [invoices, setInvoices] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
@@ -54,10 +55,10 @@ export const FinancePage: React.FC = () => {
       if (pData.ok) setPayments(pData.data || []);
       if (eData.ok) setExpenses(eData.data || []);
       if (cData.ok) setClients(cData.data || []);
-    } catch (err: any) { 
-      console.error(err); 
-    } finally { 
-      setLoading(false); 
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -74,8 +75,8 @@ export const FinancePage: React.FC = () => {
     }
   };
 
-  useEffect(() => { 
-    fetchFinanceData(); 
+  useEffect(() => {
+    fetchFinanceData();
   }, []);
 
   useEffect(() => {
@@ -110,43 +111,62 @@ export const FinancePage: React.FC = () => {
   const currentClientName = selectedClientId === 'all' ? 'All Transactions' : clients.find(c => c.id === selectedClientId)?.name || 'Client Ledger';
 
   const PrintHeader = ({ title }: { title: string }) => (
-    <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-4">
+    <div className="mb-4 flex items-start justify-between border-b border-[#c99b3b]/40 pb-4">
       <div>
-        <h1 className="text-2xl font-bold uppercase tracking-widest text-slate-900">{title}</h1>
-        <p className="text-slate-500 mt-1 text-sm font-medium">Financial Document</p>
+        <h1 className="text-[16px] font-semibold uppercase tracking-[0.24em] text-zinc-50">{title}</h1>
+        <p className="mt-1 text-[11px] font-medium text-[#d9b45a]">Financial Document</p>
       </div>
       <div className="text-right">
-        <h2 className="text-base font-bold text-slate-800">{profile?.legalName || company?.name || "Nexora Technologies"}</h2>
-        {profile?.address && <p className="text-xs text-slate-500">{[profile.address, profile.city, profile.country].filter(Boolean).join(", ")}</p>}
-        {profile?.phone && <p className="text-xs text-slate-500">Tel: {profile.phone}</p>}
-        {profile?.ntn && <p className="text-xs text-slate-500 font-mono">NTN: {profile.ntn}</p>}
-        <p className="text-xs text-slate-500 mt-1">Generated on: {new Date().toLocaleDateString()}</p>
+        <h2 className="text-[13px] font-semibold text-zinc-100">{profile?.legalName || company?.name || "Nexora Technologies"}</h2>
+        {profile?.address && <p className="text-[11px] text-zinc-400">{[profile.address, profile.city, profile.country].filter(Boolean).join(", ")}</p>}
+        {profile?.phone && <p className="text-[11px] text-zinc-400">Tel: {profile.phone}</p>}
+        {profile?.ntn && <p className="font-mono text-[11px] text-zinc-400">NTN: {profile.ntn}</p>}
+        <p className="mt-1 text-[11px] text-zinc-500">Generated on: {new Date().toLocaleDateString()}</p>
       </div>
     </div>
   );
 
+  const tabClass = (t: string) =>
+    `whitespace-nowrap border-b-2 px-3.5 py-2.5 text-[11px] font-semibold tracking-wide transition-colors ${
+      activeTab === t
+        ? 'border-[#d9b45a] text-[#f1d68a]'
+        : 'border-transparent text-zinc-500 hover:text-zinc-300'
+    }`;
+
+  const th = "px-2.5 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400";
+  const td = "px-2.5 py-2.5";
+
+  const revenueText = formatCurrency(metrics.total_revenue);
+  const expensesText = formatCurrency(metrics.total_expenses);
+  const profitText = formatCurrency(metrics.net_profit);
+  const pendingText = formatCurrency(metrics.total_pending);
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 p-4 rounded-xl">
-      
+    <div className={FIN.page}>
+
       <style>{`
   @media print {
     @page { size: A4; margin: 0; }
     body, html { margin: 0; padding: 0; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body * { visibility: hidden; }
-    
+
     /* Agar koi Drawer khula hai (Invoice/Receipt/Expense), to list ko print mat karo */
     ${selectedInvoice || selectedReceipt || selectedExpense ? '#printable-area { display: none !important; }' : '#printable-area, #printable-area * { visibility: visible; }'}
-    
+
     #printable-area {
       position: absolute; left: 0; top: 0; width: 100%;
       min-height: 100vh;
-      padding-top: 25mm !important; 
+      padding-top: 25mm !important;
       padding-left: 15mm !important;
       padding-right: 15mm !important;
       padding-bottom: 20mm !important;
       background: white !important; color: black !important;
     }
-    
+
+    /* On screen the statement is dark; on paper it is always black on white */
+    #printable-area * { color: #111 !important; background: transparent !important; border-color: #d4d4d8 !important; box-shadow: none !important; }
+    #printable-area { background: white !important; border: 0 !important; }
+
     .no-print { display: none !important; }
     table { width: 100% !important; border-collapse: collapse !important; }
     th, td { border-bottom: 1px solid #e2e8f0 !important; padding: 8px !important; color: black !important; font-size: 12px !important; }
@@ -164,86 +184,105 @@ export const FinancePage: React.FC = () => {
   }
 `}</style>
 
-      <div className="flex justify-between items-center mb-6 no-print">
+      <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Finance & Accounts</h1>
-          <p className="text-xs text-slate-500 mt-1">Manage invoices, payments, expenses, and ledgers.</p>
+          <h1 className="text-[18px] font-normal tracking-tight text-zinc-100">Finance &amp; Accounts</h1>
+          <p className="mt-0.5 text-[11px] text-zinc-500">Manage invoices, payments, expenses, and ledgers.</p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={() => setActiveTab('ledger')} className="bg-white border text-slate-700 px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 shadow-sm hover:bg-slate-50 transition-colors">
-            <FiFileText className="text-blue-500" size={14} /> Client Ledger
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => setActiveTab('ledger')} className={FIN.btnGhost}>
+            <FiFileText className="text-sky-400" size={13} /> Client Ledger
           </button>
-          <button onClick={() => setShowPaymentForm(true)} className="bg-white border text-slate-700 px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 shadow-sm hover:bg-slate-50 transition-colors">
-            <FiPlus className="text-emerald-500" size={14} /> Receive Payment
+          <button onClick={() => setShowPaymentForm(true)} className={FIN.btnGhost}>
+            <FiPlus className="text-emerald-400" size={13} /> Receive Payment
           </button>
-          <button onClick={() => setShowExpenseForm(true)} className="bg-white border text-slate-700 px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 shadow-sm hover:bg-slate-50 transition-colors">
-            <FiPlus className="text-rose-500" size={14} /> Add Expense
+          <button onClick={() => setShowExpenseForm(true)} className={FIN.btnGhost}>
+            <FiPlus className="text-rose-400" size={13} /> Add Expense
           </button>
-          <button onClick={() => setShowInvoiceForm(true)} className="bg-emerald-600 text-white px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 shadow-sm hover:bg-emerald-700 transition-colors">
-            <FiPlus size={14} /> Create Invoice
+          <button onClick={() => setShowInvoiceForm(true)} className={FIN.btnGold}>
+            <FiPlus size={13} /> Create Invoice
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6 no-print">
-        <div className="bg-white border rounded-lg p-4 shadow-sm">
-          <div className="flex items-center gap-2 mb-1"><div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600"><FiTrendingUp size={14} /></div><p className="text-xs text-slate-500 font-medium">Revenue Collected</p></div>
-          <h3 className="text-xl font-bold text-slate-900">{formatCurrency(metrics.total_revenue)}</h3>
+      <div className="no-print mb-4 grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+        {/* Revenue - gold */}
+        <div style={GOLD_CARD} className="flex min-h-[78px] min-w-0 flex-col justify-between rounded-xl border border-[#f6e2a1]/50 p-3">
+          <div className="flex items-center gap-1.5">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black/15 text-[#3d2a05]"><FiTrendingUp size={12} /></span>
+            <p className="text-[11px] font-medium text-[#6b4a0c]">Revenue Collected</p>
+          </div>
+          <h3 className="max-w-full whitespace-nowrap font-semibold leading-none text-[#1a1204]" style={{ fontSize: fit(revenueText, 24) }}>{revenueText}</h3>
         </div>
-        <div className="bg-white border rounded-lg p-4 shadow-sm">
-          <div className="flex items-center gap-2 mb-1"><div className="w-6 h-6 rounded-full bg-rose-100 flex items-center justify-center text-rose-600"><FiArrowDown size={14} /></div><p className="text-xs text-slate-500 font-medium">Total Expenses</p></div>
-          <h3 className="text-xl font-bold text-slate-900">{formatCurrency(metrics.total_expenses)}</h3>
+
+        {/* Expenses - dark */}
+        <div className={`${FIN.panel} flex min-h-[78px] min-w-0 flex-col justify-between p-3`}>
+          <div className="flex items-center gap-1.5">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-500/15 text-rose-400"><FiArrowDown size={12} /></span>
+            <p className="text-[11px] font-medium text-zinc-300">Total Expenses</p>
+          </div>
+          <h3 className="max-w-full whitespace-nowrap font-semibold leading-none text-white" style={{ fontSize: fit(expensesText, 24) }}>{expensesText}</h3>
         </div>
-        <div className="bg-white border rounded-lg p-4 shadow-sm">
-          <div className="flex items-center gap-2 mb-1"><div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-blue-600"><FiDollarSign size={14} /></div><p className="text-xs text-slate-500 font-medium">Net Profit / Loss</p></div>
-          <h3 className={`text-xl font-bold ${metrics.net_profit >= 0 ? 'text-blue-600' : 'text-rose-600'}`}>{formatCurrency(metrics.net_profit)}</h3>
+
+        {/* Net profit - dark */}
+        <div className={`${FIN.panel} flex min-h-[78px] min-w-0 flex-col justify-between p-3`}>
+          <div className="flex items-center gap-1.5">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#c99b3b]/15 text-[#e5c36a]"><FiDollarSign size={12} /></span>
+            <p className="text-[11px] font-medium text-zinc-300">Net Profit / Loss</p>
+          </div>
+          <h3 className={`max-w-full whitespace-nowrap font-semibold leading-none ${metrics.net_profit >= 0 ? 'text-[#f1d68a]' : 'text-rose-400'}`} style={{ fontSize: fit(profitText, 24) }}>{profitText}</h3>
         </div>
-        <div className="bg-white border rounded-lg p-4 shadow-sm">
-          <div className="flex items-center gap-2 mb-1"><div className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center text-amber-600"><FiCreditCard size={14} /></div><p className="text-xs text-slate-500 font-medium">Pending Receivables</p></div>
-          <h3 className="text-xl font-bold text-slate-900">{formatCurrency(metrics.total_pending)}</h3>
+
+        {/* Pending - silver */}
+        <div style={SILVER_CARD} className="flex min-h-[78px] min-w-0 flex-col justify-between rounded-xl border border-white/40 p-3">
+          <div className="flex items-center gap-1.5">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black/10 text-[#3a3f46]"><FiCreditCard size={12} /></span>
+            <p className="text-[11px] font-medium text-[#3a3f46]">Pending Receivables</p>
+          </div>
+          <h3 className="max-w-full whitespace-nowrap font-semibold leading-none text-[#22262b]" style={{ fontSize: fit(pendingText, 24) }}>{pendingText}</h3>
         </div>
       </div>
 
-      <div className="flex border-b mb-4 bg-white px-1 rounded-t-lg overflow-x-auto no-print">
-        <button onClick={() => setActiveTab('overview')} className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 ${activeTab === 'overview' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500'}`}>Profit & Loss</button>
-        <button onClick={() => setActiveTab('invoices')} className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 ${activeTab === 'invoices' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500'}`}>Invoices ({invoices.length})</button>
-        <button onClick={() => setActiveTab('payments')} className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 ${activeTab === 'payments' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500'}`}>Payments ({payments.length})</button>
-        <button onClick={() => setActiveTab('expenses')} className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 ${activeTab === 'expenses' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500'}`}>Expenses ({expenses.length})</button>
-        <button onClick={() => setActiveTab('ledger')} className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 ${activeTab === 'ledger' ? 'border-emerald-600 text-emerald-700' : 'border-transparent text-slate-500'}`}>Client Ledger</button>
+      <div className="no-print mb-3 flex overflow-x-auto border-b border-[#2a2f37]">
+        <button onClick={() => setActiveTab('overview')} className={tabClass('overview')}>Profit & Loss</button>
+        <button onClick={() => setActiveTab('invoices')} className={tabClass('invoices')}>Invoices ({invoices.length})</button>
+        <button onClick={() => setActiveTab('payments')} className={tabClass('payments')}>Payments ({payments.length})</button>
+        <button onClick={() => setActiveTab('expenses')} className={tabClass('expenses')}>Expenses ({expenses.length})</button>
+        <button onClick={() => setActiveTab('ledger')} className={tabClass('ledger')}>Client Ledger</button>
       </div>
 
-      <div className="bg-white border rounded-lg overflow-hidden shadow-sm p-4">
-        
+      <div className={`${FIN.panel} min-w-0 overflow-hidden p-3`}>
+
         {activeTab === 'overview' && (
           <div>
-            <div className="flex justify-between items-center mb-4 no-print">
-              <h2 className="text-base font-bold text-slate-800">Financial Statement</h2>
-              <button onClick={handlePrint} className="bg-slate-800 text-white px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 hover:bg-slate-700 transition">🖨️ Print / PDF</button>
+            <div className="no-print mb-3 flex items-center justify-between">
+              <SectionTitle>Financial Statement</SectionTitle>
+              <button onClick={handlePrint} className={FIN.btnGhost}>🖨️ Print / PDF</button>
             </div>
-            <div id="printable-area" className="max-w-3xl mx-auto bg-white text-slate-900 p-6 border border-slate-200 rounded-lg relative">
+            <div id="printable-area" className="relative mx-auto max-w-3xl rounded-xl border border-[#2a2f37] bg-[#0f1216] p-5 text-zinc-100">
               <PrintHeader title="Profit & Loss" />
-              <div className="space-y-3 text-sm">
+              <div className="space-y-3 text-[12px]">
                 <div>
-                  <h3 className="text-base font-bold text-slate-800 border-b border-slate-300 pb-1 mb-2">Revenue</h3>
-                  <div className="flex justify-between py-1"><span className="text-slate-600">Total Revenue Collected</span><span className="font-semibold text-emerald-700">{formatCurrency(metrics.total_revenue)}</span></div>
-                  <div className="flex justify-between py-1"><span className="text-slate-600">Pending Receivables</span><span className="font-medium text-slate-500">{formatCurrency(metrics.total_pending)}</span></div>
+                  <h3 className="mb-2 border-b border-[#2a2f37] pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#d9b45a]">Revenue</h3>
+                  <div className="flex justify-between py-1"><span className="text-zinc-400">Total Revenue Collected</span><span className="font-semibold text-emerald-400">{formatCurrency(metrics.total_revenue)}</span></div>
+                  <div className="flex justify-between py-1"><span className="text-zinc-400">Pending Receivables</span><span className="font-medium text-zinc-300">{formatCurrency(metrics.total_pending)}</span></div>
                 </div>
                 <div className="mt-4">
-                  <h3 className="text-base font-bold text-slate-800 border-b border-slate-300 pb-1 mb-2">Operating Expenses</h3>
-                  <div className="flex justify-between py-1"><span className="text-slate-600">Total Expenses</span><span className="font-semibold text-rose-700">({formatCurrency(metrics.total_expenses)})</span></div>
+                  <h3 className="mb-2 border-b border-[#2a2f37] pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#d9b45a]">Operating Expenses</h3>
+                  <div className="flex justify-between py-1"><span className="text-zinc-400">Total Expenses</span><span className="font-semibold text-rose-400">({formatCurrency(metrics.total_expenses)})</span></div>
                 </div>
-                <div className="mt-6 border-t-2 border-slate-800 pt-3">
-                  <div className="flex justify-between text-lg font-bold text-slate-900"><span>Net Profit / (Loss)</span><span className={metrics.net_profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}>{formatCurrency(metrics.net_profit)}</span></div>
+                <div className="mt-5 border-t border-[#c99b3b]/40 pt-3">
+                  <div className="flex justify-between text-[15px] font-semibold text-zinc-50"><span>Net Profit / (Loss)</span><span className={metrics.net_profit >= 0 ? 'text-[#f1d68a]' : 'text-rose-400'}>{formatCurrency(metrics.net_profit)}</span></div>
                 </div>
-              </div>
-              
-              <div className="mt-16 pt-6 flex justify-between items-end border-t border-slate-200">
-                <div className="text-center w-40 border-t border-slate-400 pt-1"><p className="text-xs font-medium text-slate-800">Prepared By</p></div>
-                <div className="text-center w-40 border-t border-slate-400 pt-1"><p className="text-xs font-medium text-slate-800">Approved By</p></div>
               </div>
 
-              <div className="print-footer mt-8 border-t border-slate-200 pt-3">
-                <p className="text-[10px] text-slate-400 font-medium">This is a system generated report.</p>
+              <div className="mt-12 flex items-end justify-between border-t border-[#2a2f37] pt-5">
+                <div className="w-36 border-t border-zinc-600 pt-1 text-center"><p className="text-[11px] font-medium text-zinc-300">Prepared By</p></div>
+                <div className="w-36 border-t border-zinc-600 pt-1 text-center"><p className="text-[11px] font-medium text-zinc-300">Approved By</p></div>
+              </div>
+
+              <div className="print-footer mt-6 border-t border-[#2a2f37] pt-3">
+                <p className="text-center text-[10px] font-medium text-zinc-500">This is a system generated report.</p>
               </div>
             </div>
           </div>
@@ -251,33 +290,34 @@ export const FinancePage: React.FC = () => {
 
         {activeTab === 'invoices' && (
           <div>
-            <div className="flex justify-between items-center mb-4 no-print">
-              <h2 className="text-base font-bold text-slate-800">All Invoices</h2>
-              <button onClick={handlePrint} className="bg-slate-800 text-white px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 hover:bg-slate-700 transition">🖨️ Print / PDF</button>
+            <div className="no-print mb-3 flex items-center justify-between">
+              <SectionTitle>All Invoices</SectionTitle>
+              <button onClick={handlePrint} className={FIN.btnGhost}>🖨️ Print / PDF</button>
             </div>
-            <div id="printable-area" className="bg-white text-slate-900 p-4 border border-slate-200 rounded-lg relative">
+            <div id="printable-area" className="relative overflow-x-auto rounded-xl border border-[#2a2f37] bg-[#0f1216] p-4 text-zinc-100">
               <PrintHeader title="Invoices List" />
-              <table className="w-full text-left border-collapse text-xs">
-                <thead className="bg-slate-100 text-slate-600 uppercase border-b-2 border-slate-300"><tr><th className="p-2">Invoice #</th><th className="p-2">Client</th><th className="p-2 text-right">Total</th><th className="p-2 text-right">Received</th><th className="p-2 text-right">Balance</th><th className="p-2 text-center">Status</th><th className="p-2 text-center no-print">Action</th></tr></thead>
-                <tbody className="divide-y divide-slate-200">
+              <table className="w-full border-collapse text-left text-[11px]">
+                <thead className="border-b border-[#2a2f37] bg-[#14171c]"><tr><th className={th}>Invoice #</th><th className={th}>Client</th><th className={`${th} text-right`}>Total</th><th className={`${th} text-right`}>Received</th><th className={`${th} text-right`}>Balance</th><th className={`${th} text-center`}>Status</th><th className={`${th} no-print text-center`}>Action</th></tr></thead>
+                <tbody className="divide-y divide-[#20242b]">
                   {invoices.map((inv: any) => {
                     const balance = inv.total_amount - inv.amount_paid;
+                    const pill = statusPill(inv.status);
                     return (
-                      <tr key={inv.id} onClick={() => setSelectedInvoice(inv)} className="hover:bg-slate-50 cursor-pointer transition-colors">
-                        <td className="p-2 font-mono">{inv.invoice_number}</td>
-                        <td className="p-2">{inv.client_name}</td>
-                        <td className="p-2 text-right font-medium">{formatCurrency(inv.total_amount)}</td>
-                        <td className="p-2 text-right text-emerald-600">{formatCurrency(inv.amount_paid)}</td>
-                        <td className={`p-2 text-right font-bold ${balance > 0 ? 'text-rose-600' : 'text-slate-400'}`}>{formatCurrency(balance)}</td>
-                        <td className="p-2 text-center"><span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${inv.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : inv.status === 'overdue' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>{inv.status.replace('_', ' ')}</span></td>
-                        <td className="p-2 text-center no-print"><button className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded font-medium">View</button></td>
+                      <tr key={inv.id} onClick={() => setSelectedInvoice(inv)} className="cursor-pointer transition-colors hover:bg-white/[0.03]">
+                        <td className={`${td} font-mono text-[#e5c36a]`}>{inv.invoice_number}</td>
+                        <td className={`${td} text-zinc-200`}>{inv.client_name}</td>
+                        <td className={`${td} text-right font-medium text-zinc-100`}>{formatCurrency(inv.total_amount)}</td>
+                        <td className={`${td} text-right text-emerald-400`}>{formatCurrency(inv.amount_paid)}</td>
+                        <td className={`${td} text-right font-semibold ${balance > 0 ? 'text-rose-400' : 'text-zinc-500'}`}>{formatCurrency(balance)}</td>
+                        <td className={`${td} text-center`}><span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${pill.cls}`}><span className={`h-1.5 w-1.5 rounded-full ${pill.dot}`} />{inv.status.replace('_', ' ')}</span></td>
+                        <td className={`${td} no-print text-center`}><button className="rounded-md border border-[#c99b3b]/40 bg-[#c99b3b]/10 px-2 py-1 text-[10px] font-medium text-[#e5c36a] transition hover:bg-[#c99b3b]/20">View</button></td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
-              <div className="print-footer mt-8 border-t border-slate-200 pt-3">
-                <p className="text-[10px] text-slate-400 font-medium">This is a system generated report.</p>
+              <div className="print-footer mt-6 border-t border-[#2a2f37] pt-3">
+                <p className="text-center text-[10px] font-medium text-zinc-500">This is a system generated report.</p>
               </div>
             </div>
           </div>
@@ -285,28 +325,28 @@ export const FinancePage: React.FC = () => {
 
         {activeTab === 'payments' && (
           <div>
-            <div className="flex justify-between items-center mb-4 no-print">
-              <h2 className="text-base font-bold text-slate-800">All Payments Received</h2>
-              <button onClick={handlePrint} className="bg-slate-800 text-white px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 hover:bg-slate-700 transition">🖨️ Print / PDF</button>
+            <div className="no-print mb-3 flex items-center justify-between">
+              <SectionTitle>All Payments Received</SectionTitle>
+              <button onClick={handlePrint} className={FIN.btnGhost}>🖨️ Print / PDF</button>
             </div>
-            <div id="printable-area" className="bg-white text-slate-900 p-4 border border-slate-200 rounded-lg relative">
+            <div id="printable-area" className="relative overflow-x-auto rounded-xl border border-[#2a2f37] bg-[#0f1216] p-4 text-zinc-100">
               <PrintHeader title="Payments Received" />
-              <table className="w-full text-left border-collapse text-xs">
-                <thead className="bg-slate-100 text-slate-600 uppercase border-b-2 border-slate-300"><tr><th className="p-2">Date</th><th className="p-2">Invoice</th><th className="p-2">Client</th><th className="p-2">Method</th><th className="p-2 text-right">Amount</th></tr></thead>
-                <tbody className="divide-y divide-slate-200">
+              <table className="w-full border-collapse text-left text-[11px]">
+                <thead className="border-b border-[#2a2f37] bg-[#14171c]"><tr><th className={th}>Date</th><th className={th}>Invoice</th><th className={th}>Client</th><th className={th}>Method</th><th className={`${th} text-right`}>Amount</th></tr></thead>
+                <tbody className="divide-y divide-[#20242b]">
                   {payments.map((p: any) => (
-                    <tr key={p.id} onClick={() => setSelectedReceipt({ ...p, currency: 'PKR' })} className="hover:bg-slate-50 cursor-pointer transition-colors">
-                      <td className="p-2">{p.payment_date}</td>
-                      <td className="p-2 font-mono">{p.invoice_number}</td>
-                      <td className="p-2">{p.client_name}</td>
-                      <td className="p-2">{p.payment_method}</td>
-                      <td className="p-2 text-right text-emerald-600 font-bold">{formatCurrency(p.amount)}</td>
+                    <tr key={p.id} onClick={() => setSelectedReceipt({ ...p, currency: 'PKR' })} className="cursor-pointer transition-colors hover:bg-white/[0.03]">
+                      <td className={`${td} text-zinc-300`}>{p.payment_date}</td>
+                      <td className={`${td} font-mono text-[#e5c36a]`}>{p.invoice_number}</td>
+                      <td className={`${td} text-zinc-200`}>{p.client_name}</td>
+                      <td className={`${td} text-zinc-400`}>{p.payment_method}</td>
+                      <td className={`${td} text-right font-semibold text-emerald-400`}>{formatCurrency(p.amount)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              <div className="print-footer mt-8 border-t border-slate-200 pt-3">
-                <p className="text-[10px] text-slate-400 font-medium">This is a system generated report.</p>
+              <div className="print-footer mt-6 border-t border-[#2a2f37] pt-3">
+                <p className="text-center text-[10px] font-medium text-zinc-500">This is a system generated report.</p>
               </div>
             </div>
           </div>
@@ -314,28 +354,28 @@ export const FinancePage: React.FC = () => {
 
         {activeTab === 'expenses' && (
           <div>
-            <div className="flex justify-between items-center mb-4 no-print">
-              <h2 className="text-base font-bold text-slate-800">All Expenses</h2>
-              <button onClick={handlePrint} className="bg-slate-800 text-white px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 hover:bg-slate-700 transition">🖨️ Print / PDF</button>
+            <div className="no-print mb-3 flex items-center justify-between">
+              <SectionTitle>All Expenses</SectionTitle>
+              <button onClick={handlePrint} className={FIN.btnGhost}>🖨️ Print / PDF</button>
             </div>
-            <div id="printable-area" className="bg-white text-slate-900 p-4 border border-slate-200 rounded-lg relative">
+            <div id="printable-area" className="relative overflow-x-auto rounded-xl border border-[#2a2f37] bg-[#0f1216] p-4 text-zinc-100">
               <PrintHeader title="Expenses List" />
-              <table className="w-full text-left border-collapse text-xs">
-                <thead className="bg-slate-100 text-slate-600 uppercase border-b-2 border-slate-300"><tr><th className="p-2">Category</th><th className="p-2">Description</th><th className="p-2">Date</th><th className="p-2">Method</th><th className="p-2 text-right">Amount</th></tr></thead>
-                <tbody className="divide-y divide-slate-200">
+              <table className="w-full border-collapse text-left text-[11px]">
+                <thead className="border-b border-[#2a2f37] bg-[#14171c]"><tr><th className={th}>Category</th><th className={th}>Description</th><th className={th}>Date</th><th className={th}>Method</th><th className={`${th} text-right`}>Amount</th></tr></thead>
+                <tbody className="divide-y divide-[#20242b]">
                   {expenses.map((e: any) => (
-                    <tr key={e.id} onClick={() => setSelectedExpense(e)} className="hover:bg-slate-50 cursor-pointer transition-colors">
-                      <td className="p-2 font-medium text-rose-600">{e.category}</td>
-                      <td className="p-2 text-slate-500">{e.description || '-'}</td>
-                      <td className="p-2">{e.expense_date}</td>
-                      <td className="p-2">{e.payment_method}</td>
-                      <td className="p-2 text-right text-rose-600 font-bold">{formatCurrency(e.amount)}</td>
+                    <tr key={e.id} onClick={() => setSelectedExpense(e)} className="cursor-pointer transition-colors hover:bg-white/[0.03]">
+                      <td className={`${td} font-medium text-rose-300`}>{e.category}</td>
+                      <td className={`${td} text-zinc-400`}>{e.description || '-'}</td>
+                      <td className={`${td} text-zinc-300`}>{e.expense_date}</td>
+                      <td className={`${td} text-zinc-400`}>{e.payment_method}</td>
+                      <td className={`${td} text-right font-semibold text-rose-400`}>{formatCurrency(e.amount)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              <div className="print-footer mt-8 border-t border-slate-200 pt-3">
-                <p className="text-[10px] text-slate-400 font-medium">This is a system generated report.</p>
+              <div className="print-footer mt-6 border-t border-[#2a2f37] pt-3">
+                <p className="text-center text-[10px] font-medium text-zinc-500">This is a system generated report.</p>
               </div>
             </div>
           </div>
@@ -343,11 +383,11 @@ export const FinancePage: React.FC = () => {
 
         {activeTab === 'ledger' && (
           <div>
-            <div className="flex justify-between items-center mb-4 no-print">
+            <div className="no-print mb-3 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <label className="text-xs font-bold text-slate-700">Select Client:</label>
-                <select 
-                  className="border border-slate-300 rounded-md p-1.5 text-xs outline-none bg-white text-slate-900"
+                <label className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">Select Client:</label>
+                <select
+                  className={`${FIN.input} !w-auto !py-1.5`}
                   value={selectedClientId}
                   onChange={(e: any) => setSelectedClientId(e.target.value)}
                 >
@@ -357,69 +397,69 @@ export const FinancePage: React.FC = () => {
                   ))}
                 </select>
               </div>
-              <button onClick={handlePrint} className="bg-slate-800 text-white px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 hover:bg-slate-700 transition">
+              <button onClick={handlePrint} className={FIN.btnGhost}>
                 🖨️ Print / PDF
               </button>
             </div>
 
-            <div id="printable-area" className="bg-white text-slate-900 p-6 border border-slate-200 rounded-lg relative">
+            <div id="printable-area" className="relative overflow-x-auto rounded-xl border border-[#2a2f37] bg-[#0f1216] p-5 text-zinc-100">
               <PrintHeader title="Account Ledger" />
-              <p className="text-center font-bold text-sm mb-3 text-slate-800">Client: {currentClientName}</p>
+              <p className="mb-3 text-center text-[12px] font-semibold text-[#f1d68a]">Client: {currentClientName}</p>
 
-              <table className="w-full text-left text-xs mb-12 border-collapse">
+              <table className="mb-10 w-full border-collapse text-left text-[11px]">
                 <thead>
-                  <tr className="bg-slate-100 text-slate-600 border-b-2 border-slate-300">
-                    <th className="p-2">Date</th>
-                    <th className="p-2">Description</th>
-                    <th className="p-2">Type</th>
-                    <th className="p-2 text-right">Debit (+)</th>
-                    <th className="p-2 text-right">Credit (-)</th>
-                    <th className="p-2 text-right">Balance</th>
+                  <tr className="border-b border-[#2a2f37] bg-[#14171c]">
+                    <th className={th}>Date</th>
+                    <th className={th}>Description</th>
+                    <th className={th}>Type</th>
+                    <th className={`${th} text-right`}>Debit (+)</th>
+                    <th className={`${th} text-right`}>Credit (-)</th>
+                    <th className={`${th} text-right`}>Balance</th>
                   </tr>
                 </thead>
                 <tbody>
                   {ledgerLoading ? (
-                    <tr><td colSpan={6} className="text-center p-3">Loading ledger...</td></tr>
+                    <tr><td colSpan={6} className="p-3 text-center text-zinc-400">Loading ledger...</td></tr>
                   ) : ledgerWithBalance.length === 0 ? (
-                    <tr><td colSpan={6} className="text-center p-3 text-slate-400">No transactions found.</td></tr>
+                    <tr><td colSpan={6} className="p-3 text-center text-zinc-500">No transactions found.</td></tr>
                   ) : (
                     ledgerWithBalance.map((tx: any, index: number) => (
-                      <tr key={index} className="border-b border-slate-100">
-                        <td className="p-2 text-slate-600">{tx.date}</td>
-                        <td className="p-2 font-medium">{tx.client_name} {tx.type === 'Expense' ? '' : `(${tx.reference})`}</td>
-                        <td className="p-2">
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${tx.type === 'Invoice' ? 'bg-blue-100 text-blue-700' : tx.type === 'Payment' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                      <tr key={index} className="border-b border-[#20242b]">
+                        <td className={`${td} text-zinc-400`}>{tx.date}</td>
+                        <td className={`${td} font-medium text-zinc-200`}>{tx.client_name} {tx.type === 'Expense' ? '' : `(${tx.reference})`}</td>
+                        <td className={td}>
+                          <span className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${tx.type === 'Invoice' ? 'border-sky-400/30 bg-sky-400/10 text-sky-300' : tx.type === 'Payment' ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : 'border-rose-400/30 bg-rose-400/10 text-rose-300'}`}>
                             {tx.type}
                           </span>
                         </td>
-                        <td className="p-2 text-right font-mono">{tx.entry_type === 'Debit' ? formatCurrency(tx.amount) : '-'}</td>
-                        <td className="p-2 text-right font-mono text-emerald-600">{tx.entry_type === 'Credit' ? formatCurrency(tx.amount) : '-'}</td>
-                        <td className="p-2 text-right font-mono font-bold">{formatCurrency(tx.balance)}</td>
+                        <td className={`${td} text-right font-mono text-zinc-200`}>{tx.entry_type === 'Debit' ? formatCurrency(tx.amount) : '-'}</td>
+                        <td className={`${td} text-right font-mono text-emerald-400`}>{tx.entry_type === 'Credit' ? formatCurrency(tx.amount) : '-'}</td>
+                        <td className={`${td} text-right font-mono font-semibold text-zinc-100`}>{formatCurrency(tx.balance)}</td>
                       </tr>
                     ))
                   )}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-slate-50 font-bold border-t-2 border-slate-300">
-                    <td colSpan={3} className="p-2 text-right uppercase tracking-wider text-slate-600">Total:</td>
-                    <td className="p-2 text-right font-mono">{formatCurrency(totalDebit)}</td>
-                    <td className="p-2 text-right font-mono text-emerald-600">{formatCurrency(totalCredit)}</td>
-                    <td className="p-2 text-right font-mono text-blue-600">{formatCurrency(runningBalance)}</td>
+                  <tr className="border-t border-[#c99b3b]/40 bg-[#14171c] font-semibold">
+                    <td colSpan={3} className={`${td} text-right text-[10px] uppercase tracking-[0.14em] text-zinc-400`}>Total:</td>
+                    <td className={`${td} text-right font-mono text-zinc-100`}>{formatCurrency(totalDebit)}</td>
+                    <td className={`${td} text-right font-mono text-emerald-400`}>{formatCurrency(totalCredit)}</td>
+                    <td className={`${td} text-right font-mono text-[#f1d68a]`}>{formatCurrency(runningBalance)}</td>
                   </tr>
                 </tfoot>
               </table>
 
-              <div className="flex justify-between items-end mt-12 pt-6 border-t border-slate-200">
-                <div className="text-center w-40 border-t border-slate-400 pt-1">
-                  <p className="text-xs font-medium text-slate-800">Prepared By</p>
+              <div className="mt-10 flex items-end justify-between border-t border-[#2a2f37] pt-5">
+                <div className="w-36 border-t border-zinc-600 pt-1 text-center">
+                  <p className="text-[11px] font-medium text-zinc-300">Prepared By</p>
                 </div>
-                <div className="text-center w-40 border-t border-slate-400 pt-1">
-                  <p className="text-xs font-medium text-slate-800">Approved By</p>
+                <div className="w-36 border-t border-zinc-600 pt-1 text-center">
+                  <p className="text-[11px] font-medium text-zinc-300">Approved By</p>
                 </div>
               </div>
 
-              <div className="print-footer mt-8 border-t border-slate-200 pt-3">
-                <p className="text-[10px] text-slate-400 font-medium">This is a system generated report.</p>
+              <div className="print-footer mt-6 border-t border-[#2a2f37] pt-3">
+                <p className="text-center text-[10px] font-medium text-zinc-500">This is a system generated report.</p>
               </div>
             </div>
           </div>
@@ -427,10 +467,10 @@ export const FinancePage: React.FC = () => {
 
       </div>
 
-      {showExpenseForm && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><AddExpenseForm onClose={() => { setShowExpenseForm(false); fetchFinanceData(); }} /></div>}
-      {showInvoiceForm && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><AddInvoiceForm onClose={() => { setShowInvoiceForm(false); fetchFinanceData(); }} /></div>}
-      {showPaymentForm && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"><AddPaymentForm onClose={() => setShowPaymentForm(false)} onSuccess={fetchFinanceData} /></div>}
-      
+      {showExpenseForm && <div className={FIN.overlay}><AddExpenseForm onClose={() => { setShowExpenseForm(false); fetchFinanceData(); }} /></div>}
+      {showInvoiceForm && <div className={FIN.overlay}><AddInvoiceForm onClose={() => { setShowInvoiceForm(false); fetchFinanceData(); }} /></div>}
+      {showPaymentForm && <div className={FIN.overlay}><AddPaymentForm onClose={() => setShowPaymentForm(false)} onSuccess={fetchFinanceData} /></div>}
+
       <InvoiceDetailDrawer invoice={selectedInvoice} onClose={() => setSelectedInvoice(null)} onRecordPayment={() => { setSelectedInvoice(null); setShowPaymentForm(true); }} />
       <PaymentReceiptDrawer payment={selectedReceipt} onClose={() => setSelectedReceipt(null)} />
       <ExpenseDetailDrawer expense={selectedExpense} onClose={() => setSelectedExpense(null)} />
