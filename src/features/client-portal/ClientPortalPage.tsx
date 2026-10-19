@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FiBriefcase, FiCheckCircle, FiFileText, FiDollarSign, FiDownload, FiPlay, FiCalendar } from "react-icons/fi";
+import { FiGrid, FiCheckCircle, FiFileText, FiDollarSign, FiDownload, FiMonitor, FiCalendar } from "react-icons/fi";
 import { useSession } from "@/hooks/useSession";
 
 export const ClientPortalPage: React.FC = () => {
@@ -72,14 +72,14 @@ export const ClientPortalPage: React.FC = () => {
             onClick={() => setActiveTab('campaigns')} 
             className={`px-6 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-all flex items-center gap-2 ${activeTab === 'campaigns' ? 'border-emerald-500 text-emerald-400 bg-emerald-500/5' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/30'}`}
           >
-            <FiBriefcase size={14} /> Campaigns
+            <FiGrid size={14} /> Campaigns
           </button>
           
           <button 
             onClick={() => setActiveTab('pop')} 
             className={`px-6 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-all flex items-center gap-2 ${activeTab === 'pop' ? 'border-cyan-500 text-cyan-400 bg-cyan-500/5' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/30'}`}
           >
-            <FiPlay size={14} /> Proof of Play
+            <FiMonitor size={14} /> Proof of Play
           </button>
 
           <button 
@@ -142,7 +142,7 @@ export const ClientPortalPage: React.FC = () => {
                     {/* Placeholder for Proof of Play */}
                     <div className="bg-[#0B1120] border border-slate-800 rounded-xl overflow-hidden group">
                       <div className="h-40 bg-slate-800/50 flex items-center justify-center relative">
-                         <FiPlay size={40} className="text-slate-600 group-hover:text-cyan-400 transition-colors" />
+                         <FiMonitor size={40} className="text-slate-600 group-hover:text-cyan-400 transition-colors" />
                          <span className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] px-2 py-1 rounded">Camera 01</span>
                       </div>
                       <div className="p-3">
