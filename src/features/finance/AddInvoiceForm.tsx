@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { getDefaultCurrency } from "@/lib/companyDefaults";
 import { FIN, ModalTitle } from './financeUi';
 
 export default function AddInvoiceForm({ onClose }: { onClose: () => void }) {
@@ -6,7 +7,7 @@ export default function AddInvoiceForm({ onClose }: { onClose: () => void }) {
   const [formData, setFormData] = useState<any>({
     client_id: '', issue_date: new Date().toISOString().split('T')[0],
     due_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    status: 'draft', discount_amount: 0, tax_rate: 0, currency: 'PKR'
+    status: 'draft', discount_amount: 0, tax_rate: 0, currency: getDefaultCurrency()
   });
   const [items, setItems] = useState<any[]>([{ description: 'Screen Advertising Services', quantity: 1, rate: 0 }]);
 
