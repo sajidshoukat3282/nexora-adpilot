@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { FIN, ModalTitle } from '../finance/financeUi';
 import { findDuplicates } from './crmTools';
+import { getDefaultCurrency } from '@/lib/companyDefaults';
+import { CURRENCY_CODES } from '@/domain';
 import type { DupCandidate } from './AddLeadForm';
 
 export default function AddClientForm({ onClose, existing = [] }: { onClose: () => void; existing?: DupCandidate[] }) {
   const [formData, setFormData] = useState({
     name: '', client_type: 'direct', industry: '', city: '', phone: '', email: '',
     credit_limit: 0,
-    currency: 'PKR', // Default currency
+    currency: getDefaultCurrency(), // company default currency
     notes: ''
   });
 
@@ -87,12 +89,9 @@ export default function AddClientForm({ onClose, existing = [] }: { onClose: () 
             <select className={FIN.input}
               value={formData.currency}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({...formData, currency: e.target.value})}>
-              <option value="PKR">PKR - Pakistani Rupee</option>
-              <option value="USD">USD - US Dollar</option>
-              <option value="AED">AED - UAE Dirham</option>
-              <option value="GBP">GBP - British Pound</option>
-              <option value="EUR">EUR - Euro</option>
-              <option value="SAR">SAR - Saudi Riyal</option>
+              {CURRENCY_CODES.map((code) => (
+                <option key={code} value={code}>{code}</option>
+              ))}
             </select>
           </div>
         </div>
