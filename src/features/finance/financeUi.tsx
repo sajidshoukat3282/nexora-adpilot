@@ -106,6 +106,12 @@ const CURRENCY_WORDS: Record<string, [string, string]> = {
   SAR: ["Saudi Riyals", "Halalas"],
   CAD: ["Canadian Dollars", "Cents"],
   AUD: ["Australian Dollars", "Cents"],
+  QAR: ["Qatari Riyals", "Dirhams"],
+  CNY: ["Yuan", "Fen"],
+  JPY: ["Yen", "Sen"],
+  CHF: ["Swiss Francs", "Rappen"],
+  ZAR: ["Rand", "Cents"],
+  TRY: ["Turkish Lira", "Kurus"],
 };
 
 /** e.g. 465018 -> "Rupees Four Hundred Sixty-Five Thousand Eighteen Only" */
