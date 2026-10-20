@@ -3,7 +3,7 @@ import { FiDollarSign, FiTrendingUp, FiArrowDown, FiCreditCard, FiPlus, FiFileTe
 import AddExpenseForm from "./AddExpenseForm";
 import AddInvoiceForm from "./AddInvoiceForm";
 import AddPaymentForm from "./AddPaymentForm";
-import { PaymentReceiptDrawer } from "./PaymentReceiptDrawer";
+import { PaymentReceiptDrawer } from "./PaymentReceiptDrawer"; 
 import { InvoiceDetailDrawer } from "./InvoiceDetailDrawer";
 import { ExpenseDetailDrawer } from "./ExpenseDetailDrawer";
 import FinanceInsights from "./FinanceInsights";
