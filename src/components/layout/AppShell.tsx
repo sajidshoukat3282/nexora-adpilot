@@ -5,6 +5,7 @@ import { MobileNav } from "./MobileNav";
 import { useSession } from "@/hooks/useSession";
 import { useCompanyProfile } from "@/hooks/useCompanyProfile";
 import { Link } from "@/lib/router";
+import { setCompanyDefaults } from "@/lib/companyDefaults";
 
 const PRINT_CSS = `
 @media print {
@@ -43,6 +44,11 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const { company } = useSession();
+  const { profile } = useCompanyProfile();
+
+  // Share the workspace currency / country code with helpers (set before children render)
+  setCompanyDefaults({ currency: company?.defaultCurrency, country: profile?.country });
 
   return (
     // Deep Dark Background for the whole app
