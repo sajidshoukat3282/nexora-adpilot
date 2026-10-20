@@ -6,12 +6,13 @@ import AddPaymentForm from "./AddPaymentForm";
 import { PaymentReceiptDrawer } from "./PaymentReceiptDrawer";
 import { InvoiceDetailDrawer } from "./InvoiceDetailDrawer";
 import { ExpenseDetailDrawer } from "./ExpenseDetailDrawer";
+import FinanceInsights from "./FinanceInsights";
 import { useSession } from "@/hooks/useSession";
 import { useCompanyProfile } from "@/hooks/useCompanyProfile";
 import { FIN, GOLD_CARD, SILVER_CARD, SectionTitle, fit, statusPill } from "./financeUi";
 
 export const FinancePage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'payments' | 'expenses' | 'ledger'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'payments' | 'expenses' | 'ledger' | 'insights'>('overview');
 
   const { company } = useSession();
   const { profile } = useCompanyProfile();
@@ -249,9 +250,14 @@ export const FinancePage: React.FC = () => {
         <button onClick={() => setActiveTab('payments')} className={tabClass('payments')}>Payments ({payments.length})</button>
         <button onClick={() => setActiveTab('expenses')} className={tabClass('expenses')}>Expenses ({expenses.length})</button>
         <button onClick={() => setActiveTab('ledger')} className={tabClass('ledger')}>Client Ledger</button>
+        <button onClick={() => setActiveTab('insights')} className={tabClass('insights')}>Insights</button>
       </div>
 
       <div className={`${FIN.panel} min-w-0 overflow-hidden p-3`}>
+
+        {activeTab === 'insights' && (
+          <FinanceInsights invoices={invoices} payments={payments} expenses={expenses} />
+        )}
 
         {activeTab === 'overview' && (
           <div>
@@ -471,7 +477,7 @@ export const FinancePage: React.FC = () => {
       {showInvoiceForm && <div className={FIN.overlay}><AddInvoiceForm onClose={() => { setShowInvoiceForm(false); fetchFinanceData(); }} /></div>}
       {showPaymentForm && <div className={FIN.overlay}><AddPaymentForm onClose={() => setShowPaymentForm(false)} onSuccess={fetchFinanceData} /></div>}
 
-      <InvoiceDetailDrawer invoice={selectedInvoice} onClose={() => setSelectedInvoice(null)} onRecordPayment={() => { setSelectedInvoice(null); setShowPaymentForm(true); }} />
+      <InvoiceDetailDrawer invoice={selectedInvoice} client={clients.find((c: any) => c.id === selectedInvoice?.client_id) || null} onClose={() => setSelectedInvoice(null)} onRecordPayment={() => { setSelectedInvoice(null); setShowPaymentForm(true); }} />
       <PaymentReceiptDrawer payment={selectedReceipt} onClose={() => setSelectedReceipt(null)} />
       <ExpenseDetailDrawer expense={selectedExpense} onClose={() => setSelectedExpense(null)} />
     </div>
