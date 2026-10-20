@@ -2,12 +2,21 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "@/lib/router";
 import { useSession } from "@/hooks/useSession";
 import { resendVerificationEmail } from "@/lib/api/auth";
+import { CURRENCY_CODES } from "@/domain";
+
+const CURRENCY_NAMES: Record<string, string> = {
+  PKR: "Pakistani Rupee", USD: "US Dollar", GBP: "British Pound", EUR: "Euro", AED: "UAE Dirham",
+  CAD: "Canadian Dollar", AUD: "Australian Dollar", SAR: "Saudi Riyal", QAR: "Qatari Riyal",
+  INR: "Indian Rupee", CNY: "Chinese Yuan", JPY: "Japanese Yen", CHF: "Swiss Franc",
+  ZAR: "South African Rand", TRY: "Turkish Lira",
+};
 
 export const SignupPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, signUp, signingIn, error: sessionError } = useSession();
 
   const [companyName, setCompanyName] = useState("");
+  const [defaultCurrency, setDefaultCurrency] = useState("PKR");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -44,6 +53,7 @@ export const SignupPage: React.FC = () => {
     try {
       const result = await signUp({
         companyName: companyName.trim(),
+        defaultCurrency,
         email: email.trim(),
         password,
       });
@@ -189,6 +199,30 @@ export const SignupPage: React.FC = () => {
                 }
                 disabled={signingIn}
               />
+            </div>
+
+            <div>
+              <label className="label" htmlFor="signup-currency">
+                Payment currency
+              </label>
+              <select
+                id="signup-currency"
+                className="input w-full"
+                value={defaultCurrency}
+                onChange={(event: React.ChangeEvent<HTMLSelectElement>) =>
+                  setDefaultCurrency(event.target.value)
+                }
+                disabled={signingIn}
+              >
+                {CURRENCY_CODES.map((code) => (
+                  <option key={code} value={code}>
+                    {code} - {CURRENCY_NAMES[code] ?? code}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-slate-500">
+                The currency you invoice and get paid in. It becomes your workspace default.
+              </p>
             </div>
 
             <div>
