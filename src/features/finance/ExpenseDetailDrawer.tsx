@@ -1,5 +1,5 @@
 import React from "react";
-import { FDrawer, FIN } from "./financeUi";
+import { FDrawer, FIN, AmountWordsInline } from "./financeUi";
 import { useSession } from "@/hooks/useSession";
 import { useCompanyProfile } from "@/hooks/useCompanyProfile";
 
@@ -67,6 +67,7 @@ export const ExpenseDetailDrawer: React.FC<{
               <div className="mb-6 rounded-xl border border-[#c99b3b]/60 bg-[#f6f0e0] p-5 text-center">
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a7a52]">Total Amount Paid</p>
                 <p className="text-[28px] font-semibold leading-tight text-rose-700">{formatCurrency(expense.amount)}</p>
+                <AmountWordsInline amount={expense.amount} currency="PKR" className="mt-1.5" />
               </div>
 
               {/* Details Table */}
