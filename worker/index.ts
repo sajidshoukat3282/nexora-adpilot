@@ -412,10 +412,12 @@ export default {
     // AUTH ROUTES
     if (url.pathname === '/api/auth/register' && request.method === 'POST') {
       try {
-        const body = (await request.json()) as { email?: unknown; password?: unknown; companyName?: unknown; };
+        const body = (await request.json()) as { email?: unknown; password?: unknown; companyName?: unknown; defaultCurrency?: unknown; };
         const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
         const password = typeof body.password === 'string' ? body.password : '';
         const companyName = typeof body.companyName === 'string' ? body.companyName.trim() : '';
+        const requestedCurrency = typeof body.defaultCurrency === 'string' ? body.defaultCurrency.trim().toUpperCase() : '';
+        const defaultCurrency = ['PKR', 'USD', 'GBP', 'EUR', 'AED', 'CAD', 'AUD', 'SAR', 'QAR', 'INR', 'CNY', 'JPY', 'CHF', 'ZAR', 'TRY'].includes(requestedCurrency) ? requestedCurrency : 'PKR';
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || companyName.length < 2 || companyName.length > 100 || password.length < 12 || password.length > 256) return json({ ok: false, error: 'INVALID_INPUT', message: 'Enter a valid email, a company name (2–100 characters), and a password of 12–256 characters.' }, 400);
         const existing = await env.DB.prepare('SELECT id FROM accounts WHERE LOWER(email) = ? LIMIT 1').bind(email).first<{ id: string }>();
         if (existing) return json({ ok: false, error: 'EMAIL_UNAVAILABLE', message: 'This email cannot be used to create a new account. Try signing in or resetting your password.' }, 409);
@@ -426,7 +428,7 @@ export default {
         const passwordHash = await hashPassword(password);
         await env.DB.batch([
           env.DB.prepare(`INSERT INTO accounts (id, email, status, email_verified_at, last_login_at, mfa_enabled, auth_provider, created_at, updated_at, password_hash) VALUES (?, ?, 'active', NULL, ?, 0, 'password', ?, ?, ?)`).bind(accountId, email, now, now, now, passwordHash),
-          env.DB.prepare(`INSERT INTO companies (id, name, plan, logo_initial, seats_used, seats_limit, devices_active, devices_limit, timezone, default_currency, created_at, updated_at) VALUES (?, ?, 'trial', ?, 1, 2, 0, 0, 'Asia/Karachi', 'PKR', ?, ?)`).bind(companyId, companyName, companyName.charAt(0).toUpperCase(), now, now),
+          env.DB.prepare(`INSERT INTO companies (id, name, plan, logo_initial, seats_used, seats_limit, devices_active, devices_limit, timezone, default_currency, created_at, updated_at) VALUES (?, ?, 'trial', ?, 1, 2, 0, 0, 'Asia/Karachi', ?, ?, ?)`).bind(companyId, companyName, companyName.charAt(0).toUpperCase(), defaultCurrency, now, now),
           env.DB.prepare(`INSERT INTO company_memberships (id, company_id, account_id, role, designation, status, invited_by_user_id, created_at, updated_at, account_type) VALUES (?, ?, ?, 'owner', 'Owner', 'active', NULL, ?, ?, 'owner')`).bind(membershipId, companyId, accountId, now, now),
         ]);
         let emailSent = true;
