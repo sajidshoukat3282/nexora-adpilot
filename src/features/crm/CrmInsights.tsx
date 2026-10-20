@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { FIN, SectionTitle } from "../finance/financeUi";
 import { normalizePhone, whatsappUrl } from "../finance/financeTools";
 import {
-  STAGE_WEIGHT,
+  STAGE_WEIGHT,  
   buildTemplate,
   clientFinance,
   money,
