@@ -6,7 +6,7 @@ import React, {
   useState,
 } from "react";
 
-import type { Company, Permission, Role, User } from "@/domain";
+import type { Company, Permission, Role, User } from "@/domain";     
 import { initWorkspace } from "@/repositories/demo/store";
 import {
   getSession,
