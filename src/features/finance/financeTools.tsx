@@ -1,4 +1,5 @@
 import React from "react";
+import { getDefaultDialCode } from "@/lib/companyDefaults";
 
 /**
  * Pure helpers for the Finance extras (no extra npm packages needed):
@@ -357,15 +358,31 @@ export interface BankProfile {
 export const hasBankDetails = (p?: BankProfile | null): boolean =>
   !!p && !!(p.bankName || p.bankAccountTitle || p.bankIban);
 
-/** Digits only, Pakistan-friendly (0300… -> 92300…). Returns "" if unusable. */
-export function normalizePhone(raw: unknown): string {
-  let digits = String(raw ?? "").replace(/[^\d]/g, "");
+/**
+ * Digits only, ready for wa.me. Numbers starting with + or 00 are taken as
+ * international; a leading 0 or a short national number gets the company's
+ * country dial code (Pakistan 92, UK 44, US/Canada 1 ...). Returns "" if unusable.
+ */
+export function normalizePhone(raw: unknown, dial: string = getDefaultDialCode()): string {
+  const text = String(raw ?? "").trim();
+  let digits = text.replace(/[^\d]/g, "");
   if (!digits) return "";
-  if (digits.startsWith("00")) digits = digits.slice(2);
-  else if (digits.startsWith("0")) digits = "92" + digits.slice(1);
-  else if (digits.length === 10 && digits.startsWith("3")) digits = "92" + digits;
+  if (text.startsWith("+")) {
+    // already international
+  } else if (digits.startsWith("00")) {
+    digits = digits.slice(2);
+  } else if (digits.startsWith("0")) {
+    if (!dial) return "";
+    digits = dial + digits.slice(1);
+  } else if (dial && !digits.startsWith(dial) && digits.length <= 10) {
+    digits = dial + digits;
+  }
   return digits.length >= 8 ? digits : "";
 }
+
+/** sms: link (used for clients in countries where SMS beats WhatsApp) */
+export const smsUrl = (phone: string, message: string): string =>
+  `sms:${phone ? "+" + phone : ""}?body=${encodeURIComponent(message)}`;
 
 const cut = (s: unknown, n: number): string => String(s ?? "").trim().slice(0, n);
 
@@ -399,7 +416,7 @@ export interface InvoiceShareInput {
 
 export function buildInvoiceMessage(i: InvoiceShareInput): string {
   const lines = [
-    `Assalam o Alaikum ${i.clientName},`,
+    `Hello ${i.clientName},`,
     "",
     `Invoice ${i.invoiceNumber} from ${i.companyName}`,
     `Total: ${i.total}`,
