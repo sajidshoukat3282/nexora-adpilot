@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   FiGrid,
   FiMap,
@@ -12,6 +12,7 @@ import {
   FiBell,
   FiShield,
   FiShoppingBag,
+  FiChevronRight,
 } from "react-icons/fi";
 import { Link, useCurrentPath } from "@/lib/router";
 import { useSession } from "@/hooks/useSession";
@@ -122,35 +123,81 @@ export const Sidebar: React.FC = () => {
   const path = useCurrentPath();
   const { company, session, can } = useSession();
 
+  // Collapse to an icon-only rail (remembered in this browser)
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem("adpilot.sidebar.collapsed") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleCollapsed = () => {
+    setCollapsed((value) => {
+      const next = !value;
+      try {
+        window.localStorage.setItem("adpilot.sidebar.collapsed", next ? "1" : "0");
+      } catch {
+        /* storage unavailable - ignore */
+      }
+      return next;
+    });
+  };
+
   const visibleItems = NAV_ITEMS.filter(
     (item) => !item.permission || can(item.permission),
   );
 
   return (
-    // Deep Dark Sidebar with subtle right border
-    <aside className="hidden md:flex flex-col w-60 shrink-0 h-screen sticky top-0 bg-[#0B1120] border-r border-white/5">
+    // Luxury dark sidebar (matches the Commander's Dashboard)
+    <aside className={`hidden md:flex flex-col ${collapsed ? "w-[60px]" : "w-56"} shrink-0 h-screen sticky top-0 transition-[width] duration-200 bg-gradient-to-b from-[#12151a] to-[#0b0d10] border-r border-[#2a2f37] shadow-[8px_0_24px_rgba(0,0,0,0.35)]`}>
       
       {/* Brand */}
-      <div className="px-4 py-4 border-b border-white/5">
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-sm font-black text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.15)]">
+      <div className={`border-b border-[#2a2f37] py-3.5 ${collapsed ? "px-2" : "px-4"}`}>
+        <div className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`}>
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#f6e2a1]/40 text-sm font-black bg-gradient-to-br from-[#f1d68a] via-[#c99b3b] to-[#a97b22] text-[#1a1204] shadow-[0_4px_14px_rgba(201,155,59,0.3)]">
             {company?.logoInitial ?? "N"}
           </div>
 
-          <div className="min-w-0">
-            <div className="text-sm font-bold tracking-tight text-white">
-              Nexora AdPilot
+          {!collapsed && (
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-semibold tracking-tight text-zinc-50">
+                Nexora <span className="text-[#f1d68a]">AdPilot</span>
+              </div>
+              <div className="mt-0.5 truncate text-[10px] font-medium text-zinc-500">
+                {company?.name ?? "Workspace"}
+              </div>
             </div>
-            <div className="mt-0.5 truncate text-[10px] text-slate-500 font-medium">
-              {company?.name ?? "Workspace"}
-            </div>
-          </div>
+          )}
+
+          {!collapsed && (
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-white/5 hover:text-[#f1d68a]"
+              aria-label="Collapse sidebar"
+              title="Collapse sidebar"
+            >
+              <FiChevronRight size={14} className="rotate-180" />
+            </button>
+          )}
         </div>
       </div>
 
+      {collapsed && (
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          className="mx-auto mt-2 flex h-6 w-6 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-white/5 hover:text-[#f1d68a]"
+          aria-label="Expand sidebar"
+          title="Expand sidebar"
+        >
+          <FiChevronRight size={14} />
+        </button>
+      )}
+
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 custom-scrollbar">
-        <div className="space-y-5">
+      <nav className="flex-1 overflow-y-auto px-2.5 py-3 custom-scrollbar">
+        <div className="space-y-4">
           {GROUPS.map((group) => {
             const groupItems = visibleItems.filter(
               (item) => item.group === group,
@@ -162,8 +209,9 @@ export const Sidebar: React.FC = () => {
 
             return (
               <section key={group}>
-                <div className="px-2 mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500/80">
-                  {group}
+                <div className="mb-1.5 flex items-center gap-2 px-2 text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                  <span className={`h-px bg-gradient-to-r from-[#c99b3b] to-transparent ${collapsed ? "w-full" : "w-3"}`} />
+                  {!collapsed && group}
                 </div>
 
                 <div className="space-y-0.5">
@@ -173,32 +221,33 @@ export const Sidebar: React.FC = () => {
                       path.startsWith(item.path + "/");
 
                     return (
+                      <div key={item.path} title={collapsed ? item.label : undefined}>
                       <Link
-                        key={item.path}
                         to={item.path}
-                        className={`group relative flex items-center gap-3 rounded-md px-2.5 py-2 text-xs font-medium transition-all ${
+                        className={`group relative flex items-center ${collapsed ? "justify-center" : "gap-2.5"} rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition-all ${
                           active
-                            ? "bg-emerald-500/10 text-emerald-400"
-                            : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                            ? "border-[#c99b3b]/30 bg-gradient-to-r from-[#c99b3b]/20 to-[#c99b3b]/5 text-[#f1d68a]"
+                            : "border-transparent text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100"
                         }`}
                       >
-                        {/* Neon Green Active Line */}
+                        {/* Gold active line */}
                         {active && (
-                          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-emerald-400 rounded-r-md shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
+                          <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r-md bg-gradient-to-b from-[#f1d68a] to-[#a97b22] shadow-[0_0_8px_rgba(201,155,59,0.6)]" />
                         )}
 
                         <span
                           className={`flex shrink-0 items-center justify-center ${
                             active
-                              ? "text-emerald-400"
-                              : "text-slate-500 group-hover:text-slate-300"
+                              ? "text-[#f1d68a]"
+                              : "text-zinc-500 group-hover:text-zinc-300"
                           }`}
                         >
                           {item.icon}
                         </span>
 
-                        <span className="truncate">{item.label}</span>
+                        {!collapsed && <span className="truncate">{item.label}</span>}
                       </Link>
+                      </div>
                     );
                   })}
                 </div>
@@ -209,18 +258,22 @@ export const Sidebar: React.FC = () => {
       </nav>
 
       {/* Workspace status */}
-      <div className="border-t border-white/5 p-3">
-        <div className="rounded-lg border border-white/5 bg-[#151E32]/50 p-3">
+      <div className="border-t border-[#2a2f37] p-2.5">
+        <div className={`rounded-lg border border-[#2a2f37] bg-gradient-to-b from-[#171a20] to-[#0f1216] ${collapsed ? "flex justify-center p-2" : "p-2.5"}`} title={collapsed ? "Workspace active" : undefined}>
           <div className="flex items-center gap-2">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_5px_rgba(16,185,129,0.8)]" />
-            <span className="text-[11px] font-medium text-slate-300">
-              Workspace active
-            </span>
+            {!collapsed && (
+              <span className="text-[11px] font-medium text-zinc-200">
+                Workspace active
+              </span>
+            )}
           </div>
 
-          <div className="mt-1.5 truncate text-[10px] text-slate-500">
-            {session?.designation ?? "Workspace user"}
-          </div>
+          {!collapsed && (
+            <div className="mt-1 truncate text-[10px] text-[#d9b45a]/80">
+              {session?.designation ?? "Workspace user"}
+            </div>
+          )}
         </div>
       </div>
     </aside>
