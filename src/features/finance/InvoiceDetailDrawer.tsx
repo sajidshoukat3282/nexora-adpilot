@@ -1,12 +1,43 @@
-import React, { useState } from "react";
-import { FDrawer, FIN, statusPill } from "./financeUi";
+import React, { useEffect, useState } from "react";
+import { FDrawer, FIN, AmountWordsInline, statusPill } from "./financeUi";
+import { useCompanyProfile } from "@/hooks/useCompanyProfile";
+import {
+  QrSvg,
+  buildInvoiceMessage,
+  buildPaymentQrText,
+  hasBankDetails,
+  mailtoUrl,
+  normalizePhone,
+  whatsappUrl,
+} from "./financeTools";
 
 export const InvoiceDetailDrawer: React.FC<{
   invoice: any | null;
   onClose: () => void;
   onRecordPayment?: () => void;
-}> = ({ invoice, onClose, onRecordPayment }) => {
+  client?: any | null;
+}> = ({ invoice, onClose, onRecordPayment, client }) => {
   const [copied, setCopied] = useState(false);
+  const { profile } = useCompanyProfile();
+  const [reminders, setReminders] = useState<any[]>([]);
+  const [sending, setSending] = useState(false);
+  const [remindMsg, setRemindMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const loadReminders = async (invoiceId: string) => {
+    try {
+      const res = await fetch(`/api/invoice-reminders?invoice_id=${encodeURIComponent(invoiceId)}`);
+      const data = await res.json();
+      if (data.ok) setReminders(data.data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    setRemindMsg(null);
+    setReminders([]);
+    if (invoice?.id) loadReminders(invoice.id);
+  }, [invoice?.id]);
 
   // Safe Data Access (Kyunke DB se snake_case aa raha hai)
   const totalAmount = invoice?.total_amount || 0;
@@ -26,6 +57,63 @@ export const InvoiceDetailDrawer: React.FC<{
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-PK', { style: 'currency', currency: currency, minimumFractionDigits: 0 }).format(amount);
+  };
+
+  const clientPhone = normalizePhone(client?.phone ?? invoice?.client_phone);
+  const clientEmail = String(client?.email ?? invoice?.client_email ?? "").trim();
+  const companyName = profile?.legalName || "Nexora Technologies";
+  const showBank = hasBankDetails(profile);
+
+  const shareMessage = () =>
+    buildInvoiceMessage({
+      clientName: invoice?.client_name ?? "",
+      companyName,
+      invoiceNumber: invoice?.invoice_number ?? "",
+      dueDate: invoice?.due_date ?? "",
+      total: formatCurrency(totalAmount),
+      paid: formatCurrency(amountPaid),
+      balance: formatCurrency(balanceDue),
+      profile,
+    });
+
+  const handleWhatsApp = () => {
+    window.open(whatsappUrl(clientPhone, shareMessage()), "_blank", "noopener");
+  };
+
+  const handleEmail = () => {
+    window.location.href = mailtoUrl(
+      clientEmail,
+      `Invoice ${invoice?.invoice_number ?? ""} from ${companyName}`,
+      shareMessage(),
+    );
+  };
+
+  const REMIND_ERRORS: Record<string, string> = {
+    CLIENT_EMAIL_MISSING: "This client has no email address saved.",
+    EMAIL_PROVIDER_NOT_CONFIGURED: "Email sending is not configured on the server.",
+    ALREADY_PAID: "This invoice is already paid.",
+    NOT_FOUND: "Invoice not found.",
+  };
+
+  const handleSendReminder = async () => {
+    if (!invoice || sending) return;
+    if (!window.confirm(`Email a payment reminder for ${invoice.invoice_number} to ${clientEmail || "the client"}?`)) return;
+    setSending(true);
+    setRemindMsg(null);
+    try {
+      const res = await fetch(`/api/invoices/${invoice.id}/remind`, { method: "POST" });
+      const data = await res.json();
+      if (data.ok) {
+        setRemindMsg({ ok: true, text: `Reminder sent to ${data.to}` });
+        loadReminders(invoice.id);
+      } else {
+        setRemindMsg({ ok: false, text: REMIND_ERRORS[data.error] || "Could not send the reminder." });
+      }
+    } catch {
+      setRemindMsg({ ok: false, text: "Network error. Please try again." });
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -74,6 +162,24 @@ export const InvoiceDetailDrawer: React.FC<{
                 </button>
               </div>
             </div>
+
+            {/* Share / remind row (hidden during print) */}
+            <div className="no-print flex flex-wrap items-center gap-2">
+              <button onClick={handleWhatsApp} className={FIN.btnGhost} title={clientPhone ? `WhatsApp +${clientPhone}` : "Choose a contact in WhatsApp"}>
+                💬 WhatsApp
+              </button>
+              <button onClick={handleEmail} className={FIN.btnGhost} title={clientEmail || "Opens your email app"}>
+                ✉️ Email
+              </button>
+              {balanceDue > 0 && (
+                <button onClick={handleSendReminder} disabled={sending} className={`${FIN.btnGhost} disabled:opacity-50`}>
+                  {sending ? "Sending…" : "🔔 Send Reminder"}
+                </button>
+              )}
+            </div>
+            {remindMsg && (
+              <p className={`no-print text-[11px] ${remindMsg.ok ? "text-emerald-400" : "text-rose-400"}`}>{remindMsg.text}</p>
+            )}
 
             {/* ================= PRINTABLE AREA ================= */}
             <div id="printable-invoice" className={`${FIN.paper} border-t-[3px] border-[#c99b3b] p-6`}>
@@ -140,6 +246,7 @@ export const InvoiceDetailDrawer: React.FC<{
                     <span>Total Amount</span>
                     <span>{formatCurrency(totalAmount)}</span>
                   </div>
+                  <AmountWordsInline amount={totalAmount} currency={currency} className="text-right" />
                   <div className="flex justify-between text-[12px] font-medium text-emerald-700">
                     <span>Amount Paid</span>
                     <span>-{formatCurrency(amountPaid)}</span>
@@ -150,6 +257,25 @@ export const InvoiceDetailDrawer: React.FC<{
                   </div>
                 </div>
               </div>
+
+              {/* Payment Details + QR */}
+              {showBank && (
+                <div className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-[#e4dccb] bg-[#f6f0e0] p-3">
+                  <div className="min-w-0">
+                    <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#a8914f]">Payment Details</p>
+                    {profile?.bankAccountTitle && <p className="text-[11px] text-slate-700"><span className="text-slate-500">Account Title:</span> <span className="font-medium">{profile.bankAccountTitle}</span></p>}
+                    {profile?.bankName && <p className="text-[11px] text-slate-700"><span className="text-slate-500">Bank:</span> <span className="font-medium">{profile.bankName}</span></p>}
+                    {profile?.bankIban && <p className="break-all font-mono text-[11px] text-slate-700"><span className="font-sans text-slate-500">IBAN:</span> <span className="font-medium">{profile.bankIban}</span></p>}
+                    <p className="mt-1 text-[10px] text-slate-500">Reference: <span className="font-mono">{invoice.invoice_number}</span></p>
+                  </div>
+                  {balanceDue > 0 && (
+                    <div className="shrink-0 text-center">
+                      <QrSvg text={buildPaymentQrText(profile ?? {}, invoice.invoice_number, currency, balanceDue)} size={84} />
+                      <p className="mt-0.5 text-[8px] uppercase tracking-wider text-slate-500">Scan for details</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Notes */}
               <div className="mb-8">
@@ -182,6 +308,20 @@ export const InvoiceDetailDrawer: React.FC<{
             <div className="no-print border-t border-[#2a2f37] pt-4">
               <h4 className="mb-2 text-[12px] font-semibold text-zinc-200">Payment History</h4>
               <p className="text-[12px] text-zinc-500">Total Received: <span className="font-semibold text-emerald-400">{formatCurrency(amountPaid)}</span></p>
+
+              {reminders.length > 0 && (
+                <div className="mt-3 rounded-lg border border-[#2a2f37] bg-[#0f1216] p-2.5">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">Reminders sent</p>
+                  <ul className="space-y-0.5">
+                    {reminders.slice(0, 5).map((r: any) => (
+                      <li key={r.id} className="flex justify-between text-[11px] text-zinc-400">
+                        <span>{String(r.sent_at).slice(0, 16).replace("T", " ")} · {r.kind === "auto" ? "auto" : "manual"}</span>
+                        <span className={r.status === "sent" ? "text-emerald-400" : "text-rose-400"}>{r.status}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {onRecordPayment && balanceDue > 0 && (
                 <button onClick={onRecordPayment} className={`${FIN.btnGold} mt-3 w-full`}>
