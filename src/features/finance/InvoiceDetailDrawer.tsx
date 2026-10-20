@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";    
 import { getDefaultCurrency } from "@/lib/companyDefaults";
 import { FDrawer, FIN, AmountWordsInline, statusPill } from "./financeUi";
 import { useCompanyProfile } from "@/hooks/useCompanyProfile";
