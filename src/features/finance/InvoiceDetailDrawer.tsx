@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { getDefaultCurrency } from "@/lib/companyDefaults";
 import { FDrawer, FIN, AmountWordsInline, statusPill } from "./financeUi";
 import { useCompanyProfile } from "@/hooks/useCompanyProfile";
 import {
@@ -43,7 +44,7 @@ export const InvoiceDetailDrawer: React.FC<{
   const totalAmount = invoice?.total_amount || 0;
   const amountPaid = invoice?.amount_paid || 0;
   const balanceDue = totalAmount - amountPaid;
-  const currency = invoice?.currency || 'PKR';
+  const currency = invoice?.currency || getDefaultCurrency();
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -155,10 +156,10 @@ export const InvoiceDetailDrawer: React.FC<{
               </span>
               <div className="flex items-center gap-2">
                 <button onClick={handleCopyLink} className={FIN.btnGhost}>
-                  {copied ? "✓ Copied" : "Share"}
+                  {copied ? "âœ“ Copied" : "Share"}
                 </button>
                 <button onClick={handlePrint} className={FIN.btnGold}>
-                  🖨️ Print / PDF
+                  ðŸ–¨ï¸ Print / PDF
                 </button>
               </div>
             </div>
@@ -166,14 +167,14 @@ export const InvoiceDetailDrawer: React.FC<{
             {/* Share / remind row (hidden during print) */}
             <div className="no-print flex flex-wrap items-center gap-2">
               <button onClick={handleWhatsApp} className={FIN.btnGhost} title={clientPhone ? `WhatsApp +${clientPhone}` : "Choose a contact in WhatsApp"}>
-                💬 WhatsApp
+                ðŸ’¬ WhatsApp
               </button>
               <button onClick={handleEmail} className={FIN.btnGhost} title={clientEmail || "Opens your email app"}>
-                ✉️ Email
+                âœ‰ï¸ Email
               </button>
               {balanceDue > 0 && (
                 <button onClick={handleSendReminder} disabled={sending} className={`${FIN.btnGhost} disabled:opacity-50`}>
-                  {sending ? "Sending…" : "🔔 Send Reminder"}
+                  {sending ? "Sendingâ€¦" : "ðŸ”” Send Reminder"}
                 </button>
               )}
             </div>
@@ -315,7 +316,7 @@ export const InvoiceDetailDrawer: React.FC<{
                   <ul className="space-y-0.5">
                     {reminders.slice(0, 5).map((r: any) => (
                       <li key={r.id} className="flex justify-between text-[11px] text-zinc-400">
-                        <span>{String(r.sent_at).slice(0, 16).replace("T", " ")} · {r.kind === "auto" ? "auto" : "manual"}</span>
+                        <span>{String(r.sent_at).slice(0, 16).replace("T", " ")} Â· {r.kind === "auto" ? "auto" : "manual"}</span>
                         <span className={r.status === "sent" ? "text-emerald-400" : "text-rose-400"}>{r.status}</span>
                       </li>
                     ))}
