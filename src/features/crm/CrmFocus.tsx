@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { FIN, SectionTitle } from "../finance/financeUi";
-import { normalizePhone, whatsappUrl } from "../finance/financeTools";
+import { normalizePhone, whatsappUrl } from "../finance/financeTools";  
 import { buildTemplate, type FocusItem, type FocusKind } from "./crmTools";
 
 const KIND_STYLE: Record<FocusKind, { icon: string; label: string; cls: string }> = {
