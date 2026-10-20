@@ -1,4 +1,4 @@
-import type { GeographicLocation } from '../src/domain/geography.types';
+import type { GeographicLocation } from '../src/domain/geography.types';      
 import { ProductionGeographyRepository } from '../src/repositories/GeographyRepository';
 import { NominatimGeocodingProvider } from '../src/providers/NominatimGeocodingProvider';
 import {
