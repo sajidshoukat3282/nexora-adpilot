@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";     
 import { getDefaultCurrency } from "@/lib/companyDefaults";
 import { FiDollarSign, FiTrendingUp, FiArrowDown, FiCreditCard, FiPlus, FiFileText } from "react-icons/fi";
 import AddExpenseForm from "./AddExpenseForm";
