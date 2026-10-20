@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { FiSearch, FiPlus, FiDownload, FiTarget, FiTrendingUp, FiUsers, FiCheck } from "react-icons/fi";
 import { LeadsBoard } from "./LeadsBoard";
-import { ClientDetailDrawer } from "./ClientDetailDrawer";
+import { ClientDetailDrawer } from "./ClientDetailDrawer";  
 import { LeadActivityPanel } from "./LeadActivityPanel";
 import { CrmFocus } from "./CrmFocus";
 import { CrmInsights } from "./CrmInsights";
