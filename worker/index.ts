@@ -39,6 +39,8 @@ export interface Env {
   MAIL_FROM_NAME?: string;
   OWNER_MAGIC_LINK_EMAIL?: string;
   GEOAPIFY_API_KEY?: string; 
+  /** set to 'on' to let the daily cron e-mail overdue-invoice reminders (default: off) */
+  AUTO_INVOICE_REMINDERS?: string;
 }
 
 function json(data: unknown, status = 200, setCookie?: string): Response {
@@ -90,6 +92,153 @@ async function sendMagicLinkEmail(env: Env, email: string, token: string): Promi
     }),
   });
   if (!response.ok) throw new Error('EMAIL_SEND_FAILED');
+}
+
+// ==========================================
+// INVOICE REMINDERS (manual button + opt-in auto)
+// ==========================================
+const escHtml = (v: unknown): string =>
+  String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+async function ensureReminderTable(env: Env): Promise<void> {
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS invoice_reminders (
+       id TEXT PRIMARY KEY,
+       company_id TEXT NOT NULL,
+       invoice_id TEXT NOT NULL,
+       client_email TEXT,
+       kind TEXT NOT NULL,
+       status TEXT NOT NULL,
+       error TEXT,
+       sent_at TEXT NOT NULL
+     )`,
+  ).run();
+  await env.DB.prepare(
+    `CREATE INDEX IF NOT EXISTS idx_invoice_reminders_invoice ON invoice_reminders (invoice_id, sent_at)`,
+  ).run();
+}
+
+async function sendInvoiceReminder(
+  env: Env,
+  companyId: string,
+  invoiceId: string,
+  kind: 'manual' | 'auto',
+): Promise<{ ok: boolean; error?: string; to?: string }> {
+  if (!env.BREVO_API_KEY) return { ok: false, error: 'EMAIL_PROVIDER_NOT_CONFIGURED' };
+  await ensureReminderTable(env);
+
+  const inv = await env.DB.prepare(
+    `SELECT i.id, i.invoice_number, i.total_amount, i.amount_paid, i.due_date, i.status, i.currency,
+            c.name AS client_name, c.email AS client_email,
+            comp.name AS company_name
+       FROM invoices i
+       JOIN clients c ON i.client_id = c.id
+       JOIN companies comp ON i.company_id = comp.id
+      WHERE i.id = ? AND i.company_id = ?`,
+  ).bind(invoiceId, companyId).first<any>();
+  if (!inv) return { ok: false, error: 'NOT_FOUND' };
+
+  const balance = (Number(inv.total_amount) || 0) - (Number(inv.amount_paid) || 0);
+  if (balance <= 0 || inv.status === 'paid') return { ok: false, error: 'ALREADY_PAID' };
+  const to = String(inv.client_email || '').trim();
+  if (!to || !to.includes('@')) return { ok: false, error: 'CLIENT_EMAIL_MISSING' };
+
+  const profile = await env.DB.prepare(
+    `SELECT legal_name, phone, email, bank_name, bank_account_title, bank_iban, invoice_footer
+       FROM company_profiles WHERE company_id = ? LIMIT 1`,
+  ).bind(companyId).first<any>().catch(() => null);
+
+  const companyName = String(profile?.legal_name || inv.company_name || 'Nexora AdPilot');
+  const currency = String(inv.currency || 'PKR');
+  const fmt = (n: number) => `${currency} ${Math.round(n).toLocaleString('en-US')}`;
+  const today = new Date().toISOString().split('T')[0];
+  const daysLate = inv.due_date
+    ? Math.floor((Date.parse(today) - Date.parse(String(inv.due_date).slice(0, 10))) / 86400000)
+    : 0;
+  const dueLine = daysLate > 0
+    ? `was due on <b>${escHtml(inv.due_date)}</b> (${daysLate} day${daysLate === 1 ? '' : 's'} overdue)`
+    : `is due on <b>${escHtml(inv.due_date)}</b>`;
+
+  const bankRows = [
+    profile?.bank_account_title ? `<tr><td style="color:#777;padding:2px 12px 2px 0">Account title</td><td>${escHtml(profile.bank_account_title)}</td></tr>` : '',
+    profile?.bank_name ? `<tr><td style="color:#777;padding:2px 12px 2px 0">Bank</td><td>${escHtml(profile.bank_name)}</td></tr>` : '',
+    profile?.bank_iban ? `<tr><td style="color:#777;padding:2px 12px 2px 0">IBAN</td><td>${escHtml(profile.bank_iban)}</td></tr>` : '',
+  ].join('');
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#222;font-size:14px;line-height:1.55">
+      <p>Dear ${escHtml(inv.client_name)},</p>
+      <p>This is a friendly reminder that invoice <b>${escHtml(inv.invoice_number)}</b> from ${escHtml(companyName)} ${dueLine}.</p>
+      <table style="border-collapse:collapse;margin:12px 0">
+        <tr><td style="color:#777;padding:2px 12px 2px 0">Invoice total</td><td>${escHtml(fmt(Number(inv.total_amount) || 0))}</td></tr>
+        <tr><td style="color:#777;padding:2px 12px 2px 0">Paid so far</td><td>${escHtml(fmt(Number(inv.amount_paid) || 0))}</td></tr>
+        <tr><td style="color:#777;padding:2px 12px 2px 0"><b>Balance due</b></td><td><b>${escHtml(fmt(balance))}</b></td></tr>
+      </table>
+      ${bankRows ? `<p style="margin-bottom:4px"><b>Payment details</b></p><table style="border-collapse:collapse">${bankRows}</table><p style="color:#777;font-size:12px">Please use ${escHtml(inv.invoice_number)} as the payment reference.</p>` : ''}
+      <p>If you have already paid, please ignore this message and accept our thanks.</p>
+      <p>Regards,<br/>${escHtml(companyName)}${profile?.phone ? `<br/>${escHtml(profile.phone)}` : ''}</p>
+      ${profile?.invoice_footer ? `<p style="color:#999;font-size:11px">${escHtml(profile.invoice_footer)}</p>` : ''}
+    </div>`;
+
+  const senderEmail = env.MAIL_FROM_EMAIL || 'hello@nexoratechnologies.pk';
+  const senderName = env.MAIL_FROM_NAME || companyName;
+  const sentAt = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  let status = 'sent';
+  let error: string | null = null;
+  try {
+    const body: any = {
+      sender: { name: senderName, email: senderEmail },
+      to: [{ email: to, name: String(inv.client_name || '') }],
+      subject: `${daysLate > 0 ? 'Overdue: ' : 'Reminder: '}Invoice ${inv.invoice_number} - ${fmt(balance)}`,
+      htmlContent: html,
+    };
+    if (profile?.email && String(profile.email).includes('@')) body.replyTo = { email: String(profile.email), name: companyName };
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { accept: 'application/json', 'api-key': env.BREVO_API_KEY, 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) { status = 'failed'; error = `EMAIL_SEND_FAILED_${response.status}`; }
+  } catch (e: any) {
+    status = 'failed';
+    error = String(e?.message || 'EMAIL_SEND_FAILED').slice(0, 200);
+  }
+
+  await env.DB.prepare(
+    `INSERT INTO invoice_reminders (id, company_id, invoice_id, client_email, kind, status, error, sent_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).bind(crypto.randomUUID(), companyId, invoiceId, to, kind, status, error, sentAt).run();
+
+  return status === 'sent' ? { ok: true, to } : { ok: false, error: error || 'EMAIL_SEND_FAILED', to };
+}
+
+/**
+ * Daily cron step. OFF unless the AUTO_INVOICE_REMINDERS env var is 'on'.
+ * Rule: invoice is overdue, has a balance and a client e-mail; first reminder
+ * 1 day after the due date, then every 7 days, at most 3 automatic reminders
+ * per invoice, at most 50 e-mails per run.
+ */
+async function runAutoInvoiceReminders(env: Env): Promise<void> {
+  if ((env.AUTO_INVOICE_REMINDERS || '').toLowerCase() !== 'on' || !env.BREVO_API_KEY) return;
+  await ensureReminderTable(env);
+  const today = new Date().toISOString().split('T')[0];
+  const due = await env.DB.prepare(
+    `SELECT i.id, i.company_id
+       FROM invoices i
+       JOIN clients c ON i.client_id = c.id
+      WHERE i.status NOT IN ('paid', 'draft', 'cancelled')
+        AND i.total_amount - COALESCE(i.amount_paid, 0) > 0
+        AND i.due_date < ?
+        AND c.email IS NOT NULL AND c.email LIKE '%@%'
+        AND (SELECT COUNT(*) FROM invoice_reminders r WHERE r.invoice_id = i.id AND r.kind = 'auto' AND r.status = 'sent') < 3
+        AND NOT EXISTS (
+          SELECT 1 FROM invoice_reminders r
+           WHERE r.invoice_id = i.id AND r.status = 'sent' AND r.sent_at > datetime('now', '-7 days')
+        )
+      LIMIT 50`,
+  ).bind(today).all<{ id: string; company_id: string }>();
+  for (const row of due.results || []) {
+    try { await sendInvoiceReminder(env, row.company_id, row.id, 'auto'); } catch (err) { console.error('auto reminder failed', err); }
+  }
 }
 
 async function sendVerificationEmail(env: Env, email: string, token: string): Promise<void> {
@@ -778,6 +927,34 @@ if (url.pathname.startsWith('/api/crm/clients/') && url.pathname.endsWith('/invi
     // FINANCE / INVOICES ROUTES (PROFESSIONAL)
     // ==========================================
     
+    // ----- Invoice reminders (manual send + history) -----
+    if (url.pathname.startsWith('/api/invoices/') && url.pathname.endsWith('/remind') && request.method === 'POST') {
+      try {
+        const session = await resolveSession(request, env.DB);
+        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+        const invoiceId = url.pathname.split('/')[3];
+        const result = await sendInvoiceReminder(env, session.companyId, invoiceId, 'manual');
+        if (!result.ok) {
+          const status = result.error === 'NOT_FOUND' ? 404 : result.error === 'EMAIL_PROVIDER_NOT_CONFIGURED' ? 503 : 400;
+          return json({ ok: false, error: result.error }, status);
+        }
+        return json({ ok: true, to: result.to });
+      } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+    }
+
+    if (url.pathname === '/api/invoice-reminders' && request.method === 'GET') {
+      try {
+        const session = await resolveSession(request, env.DB);
+        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+        await ensureReminderTable(env);
+        const invoiceId = url.searchParams.get('invoice_id');
+        const rows = invoiceId
+          ? await env.DB.prepare(`SELECT id, invoice_id, client_email, kind, status, sent_at FROM invoice_reminders WHERE company_id = ? AND invoice_id = ? ORDER BY sent_at DESC LIMIT 20`).bind(session.companyId, invoiceId).all()
+          : await env.DB.prepare(`SELECT id, invoice_id, client_email, kind, status, sent_at FROM invoice_reminders WHERE company_id = ? ORDER BY sent_at DESC LIMIT 200`).bind(session.companyId).all();
+        return json({ ok: true, data: rows.results || [], auto_enabled: (env.AUTO_INVOICE_REMINDERS || '').toLowerCase() === 'on' });
+      } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+    }
+
     // 1. Get All Invoices
     if (url.pathname === '/api/invoices' && request.method === 'GET') {
       try {
@@ -1423,6 +1600,9 @@ if (url.pathname === '/api/auth/accept-client-invite' && request.method === 'POS
 // CRON JOB: AUTOMATED WEEKLY REPORTS
 // ==========================================
 async scheduled(event: any, env: Env, ctx: any) {
+  // opt-in overdue invoice reminders (needs AUTO_INVOICE_REMINDERS=on)
+  try { await runAutoInvoiceReminders(env); } catch (err) { console.error('auto invoice reminders', err); }
+
   try {
     const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
     
