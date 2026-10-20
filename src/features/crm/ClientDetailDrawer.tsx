@@ -12,6 +12,7 @@ import { FDrawer, FIN } from "../finance/financeUi";
 import { ActivityComposer, ActivityList, TemplateSender } from "./LeadActivityPanel";
 import { HEALTH_STYLE } from "./crmStyles";
 import { clientFinance, money, todayIso, type CrmActivity } from "./crmTools";
+import { getDefaultCurrency } from "@/lib/companyDefaults";
 
 const H = "mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400";
 
@@ -91,18 +92,18 @@ export const ClientDetailDrawer: React.FC<{ client: Client | null; onClose: () =
   const fin = client ? clientFinance(client, allInvoices, allCampaigns, today) : null;
   const health = fin ? HEALTH_STYLE[fin.health] : null;
   const c360: any = client ?? {};
-  const currency = c360.currency || "PKR";
+  const currency = c360.currency || getDefaultCurrency();
 
   // relationship timeline: invoices + campaigns + logged activity, newest first
   const timeline = client
     ? [
         ...allInvoices
           .filter((i) => i.client_id === client.id && i.status !== "draft")
-          .map((i) => ({ at: String(i.issue_date || i.created_at || "").slice(0, 10), icon: "🧾", text: `Invoice ${i.invoice_number} - ${money(Number(i.total_amount) || 0, i.currency || "PKR")} (${i.status})` })),
+          .map((i) => ({ at: String(i.issue_date || i.created_at || "").slice(0, 10), icon: "ðŸ§¾", text: `Invoice ${i.invoice_number} - ${money(Number(i.total_amount) || 0, i.currency || getDefaultCurrency())} (${i.status})` })),
         ...allCampaigns
           .filter((c) => c.client_id === client.id)
-          .map((c) => ({ at: String(c.start_date || c.created_at || "").slice(0, 10), icon: "📣", text: `Campaign "${c.name}" ${c.status} (${String(c.start_date || "").slice(0, 10)} to ${String(c.end_date || "").slice(0, 10)})` })),
-        ...activities.map((a) => ({ at: String(a.created_at).slice(0, 10), icon: "📝", text: `${a.kind}${a.note ? `: ${a.note}` : ""}` })),
+          .map((c) => ({ at: String(c.start_date || c.created_at || "").slice(0, 10), icon: "ðŸ“£", text: `Campaign "${c.name}" ${c.status} (${String(c.start_date || "").slice(0, 10)} to ${String(c.end_date || "").slice(0, 10)})` })),
+        ...activities.map((a) => ({ at: String(a.created_at).slice(0, 10), icon: "ðŸ“", text: `${a.kind}${a.note ? `: ${a.note}` : ""}` })),
       ]
         .filter((t) => t.at)
         .sort((a, b) => (a.at < b.at ? 1 : -1))
@@ -119,12 +120,12 @@ export const ClientDetailDrawer: React.FC<{ client: Client | null; onClose: () =
           <div className="flex items-center justify-between border-b border-[#2a2f37] pb-3">
             <div className="text-[12px] text-zinc-400">
               <span className="block">City: <span className="text-zinc-100">{(client as any).city || 'N/A'}</span></span>
-              <span className="mt-1 block">Limit: <span className="text-[#f1d68a]">{(client as any).credit_limit || 0} {(client as any).currency || 'PKR'}</span></span>
+              <span className="mt-1 block">Limit: <span className="text-[#f1d68a]">{(client as any).credit_limit || 0} {(client as any).currency || getDefaultCurrency()}</span></span>
             </div>
             <div className="flex items-center gap-2">
               <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${health.cls}`}>{health.label}</span>
               <button onClick={() => setShowEditForm(true)} className={FIN.btnGhost}>
-                ✏️ Edit Client
+                âœï¸ Edit Client
               </button>
             </div>
           </div>
@@ -165,8 +166,8 @@ export const ClientDetailDrawer: React.FC<{ client: Client | null; onClose: () =
             )}
 
             <p className="mt-2 text-[11px] text-zinc-500">
-              {fin.campaignCount} campaign{fin.campaignCount === 1 ? "" : "s"} ({fin.activeCampaigns} active) · {fin.invoiceCount} invoice{fin.invoiceCount === 1 ? "" : "s"}
-              {fin.healthReasons.length > 0 && <span className="text-zinc-400"> · {fin.healthReasons.join(" · ")}</span>}
+              {fin.campaignCount} campaign{fin.campaignCount === 1 ? "" : "s"} ({fin.activeCampaigns} active) Â· {fin.invoiceCount} invoice{fin.invoiceCount === 1 ? "" : "s"}
+              {fin.healthReasons.length > 0 && <span className="text-zinc-400"> Â· {fin.healthReasons.join(" Â· ")}</span>}
             </p>
           </section>
 
