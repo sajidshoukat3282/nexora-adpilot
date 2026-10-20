@@ -241,6 +241,28 @@ async function runAutoInvoiceReminders(env: Env): Promise<void> {
   }
 }
 
+// ==========================================
+// CRM ACTIVITIES (notes, calls, follow-ups)
+// ==========================================
+async function ensureCrmActivityTable(env: Env): Promise<void> {
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS crm_activities (
+       id TEXT PRIMARY KEY,
+       company_id TEXT NOT NULL,
+       entity_type TEXT NOT NULL,
+       entity_id TEXT NOT NULL,
+       kind TEXT NOT NULL,
+       note TEXT,
+       follow_up_date TEXT,
+       done INTEGER NOT NULL DEFAULT 0,
+       created_at TEXT NOT NULL
+     )`,
+  ).run();
+  await env.DB.prepare(
+    `CREATE INDEX IF NOT EXISTS idx_crm_activities_entity ON crm_activities (company_id, entity_type, entity_id, created_at)`,
+  ).run();
+}
+
 async function sendVerificationEmail(env: Env, email: string, token: string): Promise<void> {
   if (!env.BREVO_API_KEY) throw new Error('EMAIL_PROVIDER_NOT_CONFIGURED');
   const baseUrl = (env.AUTH_BASE_URL || 'http://localhost:5173').replace(/\/$/, '');
@@ -857,6 +879,58 @@ if (url.pathname.startsWith('/api/crm/clients/') && url.pathname.endsWith('/invi
     // ==========================================
     // CAMPAIGNS ROUTES
     // ==========================================
+    // ----- CRM activities: notes / calls / follow-ups -----
+    if (url.pathname === '/api/crm-activities' && request.method === 'GET') {
+      try {
+        const session = await resolveSession(request, env.DB);
+        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+        await ensureCrmActivityTable(env);
+        const entityType = url.searchParams.get('entity_type');
+        const entityId = url.searchParams.get('entity_id');
+        const rows = entityType && entityId
+          ? await env.DB.prepare(`SELECT id, entity_type, entity_id, kind, note, follow_up_date, done, created_at FROM crm_activities WHERE company_id = ? AND entity_type = ? AND entity_id = ? ORDER BY created_at DESC LIMIT 100`).bind(session.companyId, entityType, entityId).all()
+          : await env.DB.prepare(`SELECT id, entity_type, entity_id, kind, note, follow_up_date, done, created_at FROM crm_activities WHERE company_id = ? ORDER BY created_at DESC LIMIT 1000`).bind(session.companyId).all();
+        return json({ ok: true, data: rows.results || [] });
+      } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+    }
+
+    if (url.pathname === '/api/crm-activities' && request.method === 'POST') {
+      try {
+        const session = await resolveSession(request, env.DB);
+        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+        const body = (await request.json()) as any;
+        const entityType = body.entity_type === 'client' ? 'client' : body.entity_type === 'lead' ? 'lead' : '';
+        const kind = ['note', 'call', 'meeting', 'whatsapp', 'email'].includes(body.kind) ? body.kind : 'note';
+        const note = String(body.note ?? '').trim().slice(0, 1000);
+        const followUp = /^\d{4}-\d{2}-\d{2}$/.test(String(body.follow_up_date ?? '')) ? String(body.follow_up_date) : null;
+        if (!entityType || !body.entity_id) return json({ ok: false, error: 'INVALID_INPUT' }, 400);
+        if (!note && !followUp) return json({ ok: false, error: 'EMPTY_ACTIVITY' }, 400);
+        const owner = await env.DB.prepare(
+          entityType === 'lead'
+            ? `SELECT id FROM leads WHERE id = ? AND company_id = ?`
+            : `SELECT id FROM clients WHERE id = ? AND company_id = ?`,
+        ).bind(body.entity_id, session.companyId).first<any>();
+        if (!owner) return json({ ok: false, error: 'NOT_FOUND' }, 404);
+        await ensureCrmActivityTable(env);
+        const id = crypto.randomUUID();
+        await env.DB.prepare(
+          `INSERT INTO crm_activities (id, company_id, entity_type, entity_id, kind, note, follow_up_date, done, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+        ).bind(id, session.companyId, entityType, String(body.entity_id), kind, note || null, followUp, new Date().toISOString().replace('T', ' ').slice(0, 19)).run();
+        return json({ ok: true, id });
+      } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+    }
+
+    if (url.pathname.startsWith('/api/crm-activities/') && url.pathname.endsWith('/done') && request.method === 'PUT') {
+      try {
+        const session = await resolveSession(request, env.DB);
+        if (!session) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+        await ensureCrmActivityTable(env);
+        const activityId = url.pathname.split('/')[3];
+        await env.DB.prepare(`UPDATE crm_activities SET done = 1 WHERE id = ? AND company_id = ?`).bind(activityId, session.companyId).run();
+        return json({ ok: true });
+      } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
+    }
+
     if (url.pathname === '/api/campaigns' && request.method === 'GET') {
       try {
         const session = await resolveSession(request, env.DB);
