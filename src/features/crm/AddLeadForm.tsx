@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FIN, ModalTitle } from '../finance/financeUi';  
 import { findDuplicates } from './crmTools';
+import { getDefaultCurrency } from '@/lib/companyDefaults';
 
 export type DupCandidate = { id: string; name: string; phone?: string | null; email?: string | null };
 
@@ -64,7 +65,7 @@ export default function AddLeadForm({ onClose, existing = [] }: { onClose: () =>
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, email: e.target.value})} />
           </div>
           <div>
-            <label className={FIN.label}>Est. Value (PKR)</label>
+            <label className={FIN.label}>Est. Value ({getDefaultCurrency()})</label>
             <input type="number" className={FIN.input}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({...formData, estimated_value: Number(e.target.value)})} placeholder="0" />
           </div>
