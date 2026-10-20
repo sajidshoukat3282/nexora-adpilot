@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { getDefaultCurrency } from "@/lib/companyDefaults";
 import { FiDollarSign, FiTrendingUp, FiArrowDown, FiCreditCard, FiPlus, FiFileText } from "react-icons/fi";
 import AddExpenseForm from "./AddExpenseForm";
 import AddInvoiceForm from "./AddInvoiceForm";
@@ -86,7 +87,7 @@ export const FinancePage: React.FC = () => {
     }
   }, [activeTab, selectedClientId]);
 
-  const formatCurrency = (amount: number, currency = 'PKR') => {
+  const formatCurrency = (amount: number, currency = getDefaultCurrency()) => {
     return new Intl.NumberFormat('en-PK', { style: 'currency', currency: currency, minimumFractionDigits: 0 }).format(amount);
   };
 
@@ -263,7 +264,7 @@ export const FinancePage: React.FC = () => {
           <div>
             <div className="no-print mb-3 flex items-center justify-between">
               <SectionTitle>Financial Statement</SectionTitle>
-              <button onClick={handlePrint} className={FIN.btnGhost}>🖨️ Print / PDF</button>
+              <button onClick={handlePrint} className={FIN.btnGhost}>ðŸ–¨ï¸ Print / PDF</button>
             </div>
             <div id="printable-area" className="relative mx-auto max-w-3xl rounded-xl border border-[#2a2f37] bg-[#0f1216] p-5 text-zinc-100">
               <PrintHeader title="Profit & Loss" />
@@ -298,7 +299,7 @@ export const FinancePage: React.FC = () => {
           <div>
             <div className="no-print mb-3 flex items-center justify-between">
               <SectionTitle>All Invoices</SectionTitle>
-              <button onClick={handlePrint} className={FIN.btnGhost}>🖨️ Print / PDF</button>
+              <button onClick={handlePrint} className={FIN.btnGhost}>ðŸ–¨ï¸ Print / PDF</button>
             </div>
             <div id="printable-area" className="relative overflow-x-auto rounded-xl border border-[#2a2f37] bg-[#0f1216] p-4 text-zinc-100">
               <PrintHeader title="Invoices List" />
@@ -333,7 +334,7 @@ export const FinancePage: React.FC = () => {
           <div>
             <div className="no-print mb-3 flex items-center justify-between">
               <SectionTitle>All Payments Received</SectionTitle>
-              <button onClick={handlePrint} className={FIN.btnGhost}>🖨️ Print / PDF</button>
+              <button onClick={handlePrint} className={FIN.btnGhost}>ðŸ–¨ï¸ Print / PDF</button>
             </div>
             <div id="printable-area" className="relative overflow-x-auto rounded-xl border border-[#2a2f37] bg-[#0f1216] p-4 text-zinc-100">
               <PrintHeader title="Payments Received" />
@@ -341,7 +342,7 @@ export const FinancePage: React.FC = () => {
                 <thead className="border-b border-[#2a2f37] bg-[#14171c]"><tr><th className={th}>Date</th><th className={th}>Invoice</th><th className={th}>Client</th><th className={th}>Method</th><th className={`${th} text-right`}>Amount</th></tr></thead>
                 <tbody className="divide-y divide-[#20242b]">
                   {payments.map((p: any) => (
-                    <tr key={p.id} onClick={() => setSelectedReceipt({ ...p, currency: 'PKR' })} className="cursor-pointer transition-colors hover:bg-white/[0.03]">
+                    <tr key={p.id} onClick={() => setSelectedReceipt({ ...p, currency: getDefaultCurrency() })} className="cursor-pointer transition-colors hover:bg-white/[0.03]">
                       <td className={`${td} text-zinc-300`}>{p.payment_date}</td>
                       <td className={`${td} font-mono text-[#e5c36a]`}>{p.invoice_number}</td>
                       <td className={`${td} text-zinc-200`}>{p.client_name}</td>
@@ -362,7 +363,7 @@ export const FinancePage: React.FC = () => {
           <div>
             <div className="no-print mb-3 flex items-center justify-between">
               <SectionTitle>All Expenses</SectionTitle>
-              <button onClick={handlePrint} className={FIN.btnGhost}>🖨️ Print / PDF</button>
+              <button onClick={handlePrint} className={FIN.btnGhost}>ðŸ–¨ï¸ Print / PDF</button>
             </div>
             <div id="printable-area" className="relative overflow-x-auto rounded-xl border border-[#2a2f37] bg-[#0f1216] p-4 text-zinc-100">
               <PrintHeader title="Expenses List" />
@@ -404,7 +405,7 @@ export const FinancePage: React.FC = () => {
                 </select>
               </div>
               <button onClick={handlePrint} className={FIN.btnGhost}>
-                🖨️ Print / PDF
+                ðŸ–¨ï¸ Print / PDF
               </button>
             </div>
 
