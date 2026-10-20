@@ -1,5 +1,5 @@
 import React from "react";
-import { getDefaultCurrency } from "@/lib/companyDefaults";      
+import { getDefaultCurrency } from "@/lib/companyDefaults";           
 import { FDrawer, FIN, AmountWordsInline } from "./financeUi";
 import { useSession } from "@/hooks/useSession";
 import { useCompanyProfile } from "@/hooks/useCompanyProfile";
