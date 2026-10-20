@@ -10,6 +10,7 @@ import { useSession } from "@/hooks/useSession";
 import type { Client } from "@/domain";
 import AddClientForm from "./AddClientForm";
 import AddLeadForm from "./AddLeadForm";
+import { getDefaultCurrency } from "@/lib/companyDefaults";
 import { FIN, GOLD_CARD, SILVER_CARD, fit } from "../finance/financeUi";
 import {
   buildFocus,
@@ -233,7 +234,7 @@ export const CrmPage: React.FC = () => {
   const sortTh = (label: string, key: SortKey, right = false) => (
     <th className={`${th} ${right ? "text-right" : ""}`}>
       <button type="button" onClick={() => toggleSort(key)} className="uppercase tracking-[0.12em] hover:text-[#f1d68a]">
-        {label} {sort.key === key ? (sort.dir === 1 ? "▲" : "▼") : ""}
+        {label} {sort.key === key ? (sort.dir === 1 ? "â–²" : "â–¼") : ""}
       </button>
     </th>
   );
@@ -409,10 +410,10 @@ export const CrmPage: React.FC = () => {
                           </td>
                           <td className="px-2.5 py-2.5 text-[12px] text-zinc-300">{c.industry}</td>
                           <td className="px-2.5 py-2.5 text-[12px] font-medium text-[#f1d68a]">
-                            {c.credit_limit ? c.credit_limit.toLocaleString() : '0'} <span className="text-[10px] text-zinc-500">{c.currency || 'PKR'}</span>
+                            {c.credit_limit ? c.credit_limit.toLocaleString() : '0'} <span className="text-[10px] text-zinc-500">{c.currency || getDefaultCurrency()}</span>
                           </td>
                           <td className={`px-2.5 py-2.5 text-right text-[12px] ${f && f.outstanding > 0 ? "text-zinc-100" : "text-zinc-600"}`}>
-                            {f && f.outstanding > 0 ? money(f.outstanding, c.currency || "PKR") : "-"}
+                            {f && f.outstanding > 0 ? money(f.outstanding, c.currency || getDefaultCurrency()) : "-"}
                           </td>
                           <td className="px-2.5 py-2.5">
                             {h && <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${h.cls}`}>{h.label}</span>}
