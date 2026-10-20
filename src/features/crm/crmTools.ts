@@ -1,3 +1,5 @@
+import { getDefaultCurrency } from "@/lib/companyDefaults";
+
 /**
  * Pure helpers for the CRM extras (no UI, no network):
  * lead scoring, pipeline forecast, client health, renewal radar,
@@ -27,7 +29,7 @@ export const daysBetween = (fromIso: unknown, toIso: string): number | null => {
   return a === null || b === null ? null : b - a;
 };
 
-export const money = (n: number, currency = "PKR"): string =>
+export const money = (n: number, currency: string = getDefaultCurrency()): string =>
   `${currency} ${Math.round(Number(n) || 0).toLocaleString("en-US")}`;
 
 export const moneyShort = (n: number): string => {
@@ -279,7 +281,7 @@ export function renewalRadar(campaigns: any[], today: string, window = 30, lookB
     out.push({
       clientId: String(c.client_id), clientName: String(c.client_name ?? ""), campaignId: String(c.id),
       campaignName: String(c.name ?? "Campaign"), endDate: String(c.end_date).slice(0, 10), daysLeft: left,
-      budget: Number(c.total_budget) || 0, currency: String(c.currency || "PKR"),
+      budget: Number(c.total_budget) || 0, currency: String(c.currency || getDefaultCurrency()),
     });
   }
   return out.sort((a, b) => a.daysLeft - b.daysLeft);
@@ -302,19 +304,19 @@ export const TEMPLATE_LABELS: Record<TemplateKey, string> = {
 export interface TemplateVars { name?: string; company?: string; campaign?: string; amount?: string; date?: string; sender?: string }
 
 export function buildTemplate(key: TemplateKey, v: TemplateVars): string {
-  const name = v.name || "Sir/Madam";
+  const name = v.name || "there";
   const sender = v.sender || "our team";
   switch (key) {
     case "followUp":
-      return `Assalam o Alaikum ${name},\n\nUmeed hai aap khairiyat se hain. Hum ne pichli baat-cheet ke baad follow-up karna tha. Kya aap ke saath is hafte OOH/DOOH campaign par baat ho sakti hai?\n\nShukriya,\n${sender}`;
+      return `Hello ${name},\n\nI hope you are doing well. I wanted to follow up on our recent conversation about your advertising campaign. Do you have time for a quick call this week?\n\nBest regards,\n${sender}`;
     case "proposalSent":
-      return `Assalam o Alaikum ${name},\n\nHum ne ${v.company ? v.company + " ke liye " : ""}apna proposal share kar diya hai. Meherbani karke dekh kar bata dein, koi sawal ho to hum haazir hain.\n\nShukriya,\n${sender}`;
+      return `Hello ${name},\n\nWe have shared our proposal${v.company ? ` for ${v.company}` : ""}. Please review it and let us know if you have any questions or would like any changes.\n\nBest regards,\n${sender}`;
     case "thanks":
-      return `Assalam o Alaikum ${name},\n\nHamare saath kaam karne ka bohat shukriya! ${v.campaign ? `"${v.campaign}" ` : "Aap ki campaign "}par kaam karke humein khushi hui. Agle campaign ke liye hum hamesha tayar hain.\n\nRegards,\n${sender}`;
+      return `Hello ${name},\n\nThank you for choosing us${v.campaign ? ` for "${v.campaign}"` : ""}. It was a pleasure working with you, and we look forward to supporting your next campaign.\n\nBest regards,\n${sender}`;
     case "paymentReminder":
-      return `Assalam o Alaikum ${name},\n\nFriendly reminder: ${v.amount ? v.amount + " ki " : ""}payment abhi baqi hai${v.date ? ` (due ${v.date})` : ""}. Meherbani karke jaldi clear kar dein. Agar pehle hi ho chuki hai to is message ko ignore kar dein.\n\nShukriya,\n${sender}`;
+      return `Hello ${name},\n\nThis is a friendly reminder that ${v.amount ? `a payment of ${v.amount}` : "a payment"} is still outstanding${v.date ? ` (due ${v.date})` : ""}. Please arrange it at your earliest convenience. If you have already paid, kindly ignore this message.\n\nThank you,\n${sender}`;
     case "renewal":
-      return `Assalam o Alaikum ${name},\n\nAap ki ${v.campaign ? `"${v.campaign}" ` : ""}campaign ${v.date ? `${v.date} ko ` : "jald "}khatam ho rahi hai. Kya hum isi location par renewal ya naye plan par baat karein? Hum aap ke liye behtareen rates arrange kar sakte hain.\n\nShukriya,\n${sender}`;
+      return `Hello ${name},\n\nYour ${v.campaign ? `"${v.campaign}" ` : ""}campaign ends ${v.date ? `on ${v.date}` : "soon"}. Would you like to renew on the same locations or discuss a new plan? We can arrange great rates for you.\n\nBest regards,\n${sender}`;
   }
 }
 
