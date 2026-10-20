@@ -362,7 +362,7 @@ export const CrmPage: React.FC = () => {
               loading={loading}
               onChanged={() => { fetchData(); fetchActivities(); }}
               activities={activities}
-              onOpenLead={(lead) => setSelectedLead(lead)}
+              onOpenLead={(lead: any) => setSelectedLead(lead)}
             />
           </div>
         )}
