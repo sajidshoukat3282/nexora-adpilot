@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { FDrawer, FIN } from "../finance/financeUi";
-import { mailtoUrl, normalizePhone, whatsappUrl } from "../finance/financeTools";
+import { mailtoUrl, normalizePhone, whatsappUrl } from "../finance/financeTools";  
 import {
   TEMPLATE_LABELS,
   buildTemplate,
