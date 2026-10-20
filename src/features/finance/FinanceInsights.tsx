@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { FIN, SectionTitle } from "./financeUi";
 import { AGE_BUCKETS, ageingReport, campaignProfit, monthlyCashFlow } from "./financeTools";
 
-const money = (n: number) => 
+const money = (n: number) =>    
   new Intl.NumberFormat("en-PK", { style: "currency", currency: "PKR", minimumFractionDigits: 0 }).format(n || 0);
 
 const short = (n: number) => {
