@@ -1,5 +1,5 @@
 import React from "react";
-import { FDrawer, FIN } from "./financeUi";
+import { FDrawer, FIN, AmountWordsInline } from "./financeUi";
 import { useSession } from "@/hooks/useSession";
 import { useCompanyProfile } from "@/hooks/useCompanyProfile";
 
@@ -88,6 +88,7 @@ export const PaymentReceiptDrawer: React.FC<{
               <div className="mb-6 rounded-xl border border-[#c99b3b]/60 bg-[#f6f0e0] p-5 text-center">
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a7a52]">Amount Received</p>
                 <p className="text-[28px] font-semibold leading-tight text-emerald-700">{formatCurrency(payment.amount, payment.currency || 'PKR')}</p>
+                <AmountWordsInline amount={payment.amount} currency={payment.currency || 'PKR'} className="mt-1.5" />
               </div>
 
               {/* Payment Details Table */}
