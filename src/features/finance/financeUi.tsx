@@ -60,6 +60,91 @@ export const SILVER_CARD: React.CSSProperties = {
 export const fit = (text: string, maxPx: number, boxPx = 150): number =>
   Math.max(12, Math.min(maxPx, Math.floor(boxPx / (Math.max(1, text.length) * 0.58))));
 
+/* ------------------------------------------------------------------ */
+/* amount in words                                                     */
+/* ------------------------------------------------------------------ */
+
+const ONES = [
+  "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
+  "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen",
+];
+const TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+const SCALES = ["", "Thousand", "Million", "Billion", "Trillion"];
+
+const below1000 = (n: number): string => {
+  const parts: string[] = [];
+  const h = Math.floor(n / 100);
+  const r = n % 100;
+  if (h) parts.push(`${ONES[h]} Hundred`);
+  if (r) {
+    if (r < 20) parts.push(ONES[r]);
+    else parts.push(TENS[Math.floor(r / 10)] + (r % 10 ? `-${ONES[r % 10]}` : ""));
+  }
+  return parts.join(" ");
+};
+
+const intToWords = (n: number): string => {
+  if (n === 0) return "Zero";
+  const chunks: string[] = [];
+  let i = 0;
+  while (n > 0 && i < SCALES.length) {
+    const c = n % 1000;
+    if (c) chunks.unshift(`${below1000(c)}${SCALES[i] ? ` ${SCALES[i]}` : ""}`);
+    n = Math.floor(n / 1000);
+    i++;
+  }
+  return chunks.join(" ");
+};
+
+const CURRENCY_WORDS: Record<string, [string, string]> = {
+  PKR: ["Rupees", "Paisa"],
+  INR: ["Rupees", "Paise"],
+  USD: ["US Dollars", "Cents"],
+  EUR: ["Euros", "Cents"],
+  GBP: ["Pounds Sterling", "Pence"],
+  AED: ["UAE Dirhams", "Fils"],
+  SAR: ["Saudi Riyals", "Halalas"],
+  CAD: ["Canadian Dollars", "Cents"],
+  AUD: ["Australian Dollars", "Cents"],
+};
+
+/** e.g. 465018 -> "Rupees Four Hundred Sixty-Five Thousand Eighteen Only" */
+export const amountInWords = (amount: number, currency = "PKR"): string => {
+  const value = Math.abs(Number(amount) || 0);
+  const cents = Math.round(value * 100);
+  const major = Math.floor(cents / 100);
+  const minor = cents % 100;
+  const [majorName, minorName] = CURRENCY_WORDS[currency] ?? [currency, "Cents"];
+  let text = `${majorName} ${intToWords(major)}`;
+  if (minor) text += ` and ${intToWords(minor)} ${minorName}`;
+  return `${text} Only`;
+};
+
+/** Strip shown at the very top of invoice / receipt / voucher. */
+export const AmountWords: React.FC<{ amount: number; currency?: string; label: string }> = ({
+  amount,
+  currency = "PKR",
+  label,
+}) => (
+  <div className="mb-5 rounded-md border border-[#c99b3b]/60 bg-[#f6f0e0] px-3 py-2">
+    <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#8a7a52]">{label}</p>
+    <p className="mt-0.5 text-[12px] font-semibold italic leading-snug text-[#1b1d21]">
+      {amountInWords(amount, currency)}
+    </p>
+  </div>
+);
+
+/** Words line shown directly under a numeric amount. */
+export const AmountWordsInline: React.FC<{ amount: number; currency?: string; className?: string }> = ({
+  amount,
+  currency = "PKR",
+  className = "",
+}) => (
+  <p className={`text-[10.5px] font-medium italic leading-snug text-[#5b5236] ${className}`}>
+    {amountInWords(amount, currency)}
+  </p>
+);
+
 /** Status pill used on invoice lists and the invoice drawer. */
 export const statusPill = (status: string): { cls: string; dot: string } => {
   if (status === "paid") return { cls: "text-emerald-300 bg-emerald-400/10 border-emerald-400/30", dot: "bg-emerald-400" };
