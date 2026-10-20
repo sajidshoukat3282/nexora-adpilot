@@ -132,6 +132,7 @@ export async function register(input: {
   email: string;
   password: string;
   companyName: string;
+  defaultCurrency?: string;
 }): Promise<RegistrationPendingVerification> {
   return apiRequest<RegistrationPendingVerification>(
     "/api/auth/register",
