@@ -1,4 +1,5 @@
 import React from "react";
+import { getDefaultCurrency } from "@/lib/companyDefaults";
 import { FDrawer, FIN, AmountWordsInline } from "./financeUi";
 import { useSession } from "@/hooks/useSession";
 import { useCompanyProfile } from "@/hooks/useCompanyProfile";
@@ -15,7 +16,7 @@ export const PaymentReceiptDrawer: React.FC<{
     window.print();
   };
 
-  const formatCurrency = (amount: number, currency = 'PKR') => {
+  const formatCurrency = (amount: number, currency = getDefaultCurrency()) => {
     return new Intl.NumberFormat('en-PK', { style: 'currency', currency: currency, minimumFractionDigits: 0 }).format(amount);
   };
 
@@ -42,7 +43,7 @@ export const PaymentReceiptDrawer: React.FC<{
             {/* Top Actions (Hide during print) */}
             <div className="no-print flex justify-end border-b border-[#2a2f37] pb-3">
               <button onClick={handlePrint} className={FIN.btnGold}>
-                🖨️ Print / PDF Receipt
+                ðŸ–¨ï¸ Print / PDF Receipt
               </button>
             </div>
 
@@ -87,8 +88,8 @@ export const PaymentReceiptDrawer: React.FC<{
               {/* Amount Box */}
               <div className="mb-6 rounded-xl border border-[#c99b3b]/60 bg-[#f6f0e0] p-5 text-center">
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a7a52]">Amount Received</p>
-                <p className="text-[28px] font-semibold leading-tight text-emerald-700">{formatCurrency(payment.amount, payment.currency || 'PKR')}</p>
-                <AmountWordsInline amount={payment.amount} currency={payment.currency || 'PKR'} className="mt-1.5" />
+                <p className="text-[28px] font-semibold leading-tight text-emerald-700">{formatCurrency(payment.amount, payment.currency || getDefaultCurrency())}</p>
+                <AmountWordsInline amount={payment.amount} currency={payment.currency || getDefaultCurrency()} className="mt-1.5" />
               </div>
 
               {/* Payment Details Table */}
