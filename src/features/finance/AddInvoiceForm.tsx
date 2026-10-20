@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getDefaultCurrency } from "@/lib/companyDefaults";
+import { getDefaultCurrency } from "@/lib/companyDefaults";      
 import { FIN, ModalTitle } from './financeUi';
 
 export default function AddInvoiceForm({ onClose }: { onClose: () => void }) {
