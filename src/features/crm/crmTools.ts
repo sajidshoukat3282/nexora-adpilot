@@ -1,4 +1,4 @@
-import { getDefaultCurrency } from "@/lib/companyDefaults";
+import { getDefaultCurrency } from "@/lib/companyDefaults";      
 
 /**
  * Pure helpers for the CRM extras (no UI, no network):
