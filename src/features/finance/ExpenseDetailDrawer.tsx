@@ -1,4 +1,5 @@
 import React from "react";
+import { getDefaultCurrency } from "@/lib/companyDefaults";
 import { FDrawer, FIN, AmountWordsInline } from "./financeUi";
 import { useSession } from "@/hooks/useSession";
 import { useCompanyProfile } from "@/hooks/useCompanyProfile";
@@ -16,7 +17,7 @@ export const ExpenseDetailDrawer: React.FC<{
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-PK', { style: 'currency', currency: 'PKR', minimumFractionDigits: 0 }).format(amount);
+    return new Intl.NumberFormat('en-PK', { style: 'currency', currency: getDefaultCurrency(), minimumFractionDigits: 0 }).format(amount);
   };
 
   return (
@@ -41,7 +42,7 @@ export const ExpenseDetailDrawer: React.FC<{
             {/* Top Actions */}
             <div className="no-print flex justify-end border-b border-[#2a2f37] pb-3">
               <button onClick={handlePrint} className={FIN.btnRose}>
-                🖨️ Print / PDF Voucher
+                ðŸ–¨ï¸ Print / PDF Voucher
               </button>
             </div>
 
@@ -67,7 +68,7 @@ export const ExpenseDetailDrawer: React.FC<{
               <div className="mb-6 rounded-xl border border-[#c99b3b]/60 bg-[#f6f0e0] p-5 text-center">
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a7a52]">Total Amount Paid</p>
                 <p className="text-[28px] font-semibold leading-tight text-rose-700">{formatCurrency(expense.amount)}</p>
-                <AmountWordsInline amount={expense.amount} currency="PKR" className="mt-1.5" />
+                <AmountWordsInline amount={expense.amount} currency={getDefaultCurrency()} className="mt-1.5" />
               </div>
 
               {/* Details Table */}
