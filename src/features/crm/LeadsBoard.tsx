@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FiArrowRight } from "react-icons/fi";
+import { FiArrowRight } from "react-icons/fi";  
 import type { LeadStage } from "@/domain";
 import { LEAD_STAGE_LABELS, LEAD_TRANSITIONS } from "@/domain";
 import { leadStageTone, StatusBadge } from "@/components/ui/StatusBadge";
