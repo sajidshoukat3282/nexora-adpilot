@@ -1,5 +1,5 @@
 import { apiRequest } from "@/lib/api/client";     
-import type { Company, Permission, Role, User } from "@/domain";
+import type { Company, Permission, Role, User } from "@/domain";    
 
 export interface ServerSession {
   accountId: string;
