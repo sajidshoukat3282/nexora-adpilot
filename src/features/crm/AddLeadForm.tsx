@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FIN, ModalTitle } from '../finance/financeUi';
+import { FIN, ModalTitle } from '../finance/financeUi';  
 import { findDuplicates } from './crmTools';
 
 export type DupCandidate = { id: string; name: string; phone?: string | null; email?: string | null };
