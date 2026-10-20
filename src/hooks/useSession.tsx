@@ -33,6 +33,7 @@ interface SessionContextValue {
     email: string;
     password: string;
     companyName: string;
+    defaultCurrency?: string;
   }) => Promise<RegistrationPendingVerification>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -138,6 +139,7 @@ export const SessionProvider: React.FC<{
       email: string;
       password: string;
       companyName: string;
+      defaultCurrency?: string;
     }): Promise<RegistrationPendingVerification> => {
       setSigningIn(true);
       setError(null);
