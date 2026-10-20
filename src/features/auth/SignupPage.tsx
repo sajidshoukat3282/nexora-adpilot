@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "@/lib/router";
+import { useNavigate } from "@/lib/router";     
 import { useSession } from "@/hooks/useSession";
 import { resendVerificationEmail } from "@/lib/api/auth";
 import { CURRENCY_CODES } from "@/domain";
