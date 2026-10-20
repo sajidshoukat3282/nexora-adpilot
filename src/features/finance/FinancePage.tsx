@@ -8,7 +8,7 @@ import { InvoiceDetailDrawer } from "./InvoiceDetailDrawer";
 import { ExpenseDetailDrawer } from "./ExpenseDetailDrawer";
 import FinanceInsights from "./FinanceInsights";
 import { useSession } from "@/hooks/useSession";
-import { useCompanyProfile } from "@/hooks/useCompanyProfile";
+import { useCompanyProfile } from "@/hooks/useCompanyProfile";  
 import { FIN, GOLD_CARD, SILVER_CARD, SectionTitle, fit, statusPill } from "./financeUi";
 
 export const FinancePage: React.FC = () => {
