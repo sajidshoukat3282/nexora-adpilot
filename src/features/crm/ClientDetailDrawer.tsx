@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { StatusBadge, campaignStatusTone, proposalStatusTone, invoiceStatusTone } from "@/components/ui/StatusBadge";
 import { Skeleton } from "@/components/ui/Feedback";
-import { useAsync } from "@/hooks/useAsync";
+import { useAsync } from "@/hooks/useAsync";  
 import { repo } from "@/repositories/demo";
 import { Link } from "@/lib/router";
 import type { Client } from "@/domain";
