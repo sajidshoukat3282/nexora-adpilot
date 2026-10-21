@@ -105,7 +105,7 @@ export const LeadsBoard: React.FC<{
               </div>
               <p className="mt-0.5 text-[10px] text-zinc-500">
                 {moneyShort(stageValue)}
-                {stage !== "won" && stage !== "lost" && stageValue > 0 && <span className="text-[#d9b45a]/80"> · wtd {moneyShort(weighted)}</span>}
+                {stage !== "won" && stage !== "lost" && stageValue > 0 && <span className="text-[#d9b45a]/80"> {"\u{B7}"} wtd {moneyShort(weighted)}</span>}
               </p>
             </div>
             <div className="min-h-[60px] space-y-2">
@@ -149,7 +149,7 @@ export const LeadsBoard: React.FC<{
                             className="rounded-md border border-[#2b3038] px-1.5 py-1 text-[11px] text-zinc-300 hover:border-[#c99b3b]/50"
                             title="Call"
                           >
-                            📞
+                            {"\u{1F4DE}"}
                           </a>
                         )}
                         <button
@@ -158,7 +158,7 @@ export const LeadsBoard: React.FC<{
                           className="rounded-md border border-[#2b3038] px-1.5 py-1 text-[11px] text-zinc-300 hover:border-[#c99b3b]/50"
                           title="WhatsApp"
                         >
-                          💬
+                          {"\u{1F4AC}"}
                         </button>
                         {lead.email && (
                           <button
@@ -169,7 +169,7 @@ export const LeadsBoard: React.FC<{
                             className="rounded-md border border-[#2b3038] px-1.5 py-1 text-[11px] text-zinc-300 hover:border-[#c99b3b]/50"
                             title="Email"
                           >
-                            ✉️
+                            {"\u{2709}\u{FE0F}"}
                           </button>
                         )}
                         <button

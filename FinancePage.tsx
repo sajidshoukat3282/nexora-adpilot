@@ -8,12 +8,15 @@ import { PaymentReceiptDrawer } from "./PaymentReceiptDrawer";
 import { InvoiceDetailDrawer } from "./InvoiceDetailDrawer";
 import { ExpenseDetailDrawer } from "./ExpenseDetailDrawer";
 import FinanceInsights from "./FinanceInsights";
+import { PayablesTab } from "./PayablesTab";
+import { AccountsTab } from "./AccountsTab";
+import { TaxExportTab } from "./TaxExportTab";
 import { useSession } from "@/hooks/useSession";
 import { useCompanyProfile } from "@/hooks/useCompanyProfile";  
 import { FIN, GOLD_CARD, SILVER_CARD, SectionTitle, fit, statusPill } from "./financeUi";
 
 export const FinancePage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'payments' | 'expenses' | 'ledger' | 'insights'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'payments' | 'expenses' | 'ledger' | 'insights' | 'payables' | 'accounts' | 'tax'>('overview');
 
   const { company } = useSession();
   const { profile } = useCompanyProfile();
@@ -252,6 +255,9 @@ export const FinancePage: React.FC = () => {
         <button onClick={() => setActiveTab('expenses')} className={tabClass('expenses')}>Expenses ({expenses.length})</button>
         <button onClick={() => setActiveTab('ledger')} className={tabClass('ledger')}>Client Ledger</button>
         <button onClick={() => setActiveTab('insights')} className={tabClass('insights')}>Insights</button>
+        <button onClick={() => setActiveTab('payables')} className={tabClass('payables')}>Payables</button>
+        <button onClick={() => setActiveTab('accounts')} className={tabClass('accounts')}>Accounts</button>
+        <button onClick={() => setActiveTab('tax')} className={tabClass('tax')}>Tax & Export</button>
       </div>
 
       <div className={`${FIN.panel} min-w-0 overflow-hidden p-3`}>
@@ -260,11 +266,17 @@ export const FinancePage: React.FC = () => {
           <FinanceInsights invoices={invoices} payments={payments} expenses={expenses} />
         )}
 
+        {activeTab === 'payables' && <PayablesTab />}
+        {activeTab === 'accounts' && <AccountsTab />}
+        {activeTab === 'tax' && (
+          <TaxExportTab invoices={invoices} payments={payments} expenses={expenses} clients={clients} />
+        )}
+
         {activeTab === 'overview' && (
           <div>
             <div className="no-print mb-3 flex items-center justify-between">
               <SectionTitle>Financial Statement</SectionTitle>
-              <button onClick={handlePrint} className={FIN.btnGhost}>🖨️ Print / PDF</button>
+              <button onClick={handlePrint} className={FIN.btnGhost}>{"\u{1F5A8}\u{FE0F}"} Print / PDF</button>
             </div>
             <div id="printable-area" className="relative mx-auto max-w-3xl rounded-xl border border-[#2a2f37] bg-[#0f1216] p-5 text-zinc-100">
               <PrintHeader title="Profit & Loss" />
@@ -299,7 +311,7 @@ export const FinancePage: React.FC = () => {
           <div>
             <div className="no-print mb-3 flex items-center justify-between">
               <SectionTitle>All Invoices</SectionTitle>
-              <button onClick={handlePrint} className={FIN.btnGhost}>🖨️ Print / PDF</button>
+              <button onClick={handlePrint} className={FIN.btnGhost}>{"\u{1F5A8}\u{FE0F}"} Print / PDF</button>
             </div>
             <div id="printable-area" className="relative overflow-x-auto rounded-xl border border-[#2a2f37] bg-[#0f1216] p-4 text-zinc-100">
               <PrintHeader title="Invoices List" />
@@ -334,7 +346,7 @@ export const FinancePage: React.FC = () => {
           <div>
             <div className="no-print mb-3 flex items-center justify-between">
               <SectionTitle>All Payments Received</SectionTitle>
-              <button onClick={handlePrint} className={FIN.btnGhost}>🖨️ Print / PDF</button>
+              <button onClick={handlePrint} className={FIN.btnGhost}>{"\u{1F5A8}\u{FE0F}"} Print / PDF</button>
             </div>
             <div id="printable-area" className="relative overflow-x-auto rounded-xl border border-[#2a2f37] bg-[#0f1216] p-4 text-zinc-100">
               <PrintHeader title="Payments Received" />
@@ -363,7 +375,7 @@ export const FinancePage: React.FC = () => {
           <div>
             <div className="no-print mb-3 flex items-center justify-between">
               <SectionTitle>All Expenses</SectionTitle>
-              <button onClick={handlePrint} className={FIN.btnGhost}>🖨️ Print / PDF</button>
+              <button onClick={handlePrint} className={FIN.btnGhost}>{"\u{1F5A8}\u{FE0F}"} Print / PDF</button>
             </div>
             <div id="printable-area" className="relative overflow-x-auto rounded-xl border border-[#2a2f37] bg-[#0f1216] p-4 text-zinc-100">
               <PrintHeader title="Expenses List" />
@@ -405,7 +417,7 @@ export const FinancePage: React.FC = () => {
                 </select>
               </div>
               <button onClick={handlePrint} className={FIN.btnGhost}>
-                🖨️ Print / PDF
+                {"\u{1F5A8}\u{FE0F}"} Print / PDF
               </button>
             </div>
 

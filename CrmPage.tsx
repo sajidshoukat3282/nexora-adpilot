@@ -234,7 +234,7 @@ export const CrmPage: React.FC = () => {
   const sortTh = (label: string, key: SortKey, right = false) => (
     <th className={`${th} ${right ? "text-right" : ""}`}>
       <button type="button" onClick={() => toggleSort(key)} className="uppercase tracking-[0.12em] hover:text-[#f1d68a]">
-        {label} {sort.key === key ? (sort.dir === 1 ? "▲" : "▼") : ""}
+        {label} {sort.key === key ? (sort.dir === 1 ? "\u{25B2}" : "\u{25BC}") : ""}
       </button>
     </th>
   );

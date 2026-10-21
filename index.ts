@@ -418,7 +418,7 @@ export default {
         const companyName = typeof body.companyName === 'string' ? body.companyName.trim() : '';
         const requestedCurrency = typeof body.defaultCurrency === 'string' ? body.defaultCurrency.trim().toUpperCase() : '';
         const defaultCurrency = ['PKR', 'USD', 'GBP', 'EUR', 'AED', 'CAD', 'AUD', 'SAR', 'QAR', 'INR', 'CNY', 'JPY', 'CHF', 'ZAR', 'TRY'].includes(requestedCurrency) ? requestedCurrency : 'PKR';
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || companyName.length < 2 || companyName.length > 100 || password.length < 12 || password.length > 256) return json({ ok: false, error: 'INVALID_INPUT', message: 'Enter a valid email, a company name (2–100 characters), and a password of 12–256 characters.' }, 400);
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || companyName.length < 2 || companyName.length > 100 || password.length < 12 || password.length > 256) return json({ ok: false, error: 'INVALID_INPUT', message: 'Enter a valid email, a company name (2\u{2013}100 characters), and a password of 12\u{2013}256 characters.' }, 400);
         const existing = await env.DB.prepare('SELECT id FROM accounts WHERE LOWER(email) = ? LIMIT 1').bind(email).first<{ id: string }>();
         if (existing) return json({ ok: false, error: 'EMAIL_UNAVAILABLE', message: 'This email cannot be used to create a new account. Try signing in or resetting your password.' }, 409);
         const now = new Date().toISOString();
@@ -1436,7 +1436,7 @@ if (url.pathname === '/api/ledger' && request.method === 'GET') {
           const expenses = Number(c.expenses) || 0;
           const ooh = Number(c.ooh_screens) || 0;
           const dooh = Number(c.dooh_screens) || 0;
-          const type = ooh > 0 && dooh > 0 ? 'OOH + DOOH' : dooh > 0 ? 'DOOH' : ooh > 0 ? 'OOH' : '—';
+          const type = ooh > 0 && dooh > 0 ? 'OOH + DOOH' : dooh > 0 ? 'DOOH' : ooh > 0 ? 'OOH' : '\u{2014}';
           return {
             id: c.id,
             name: c.name,
@@ -1536,7 +1536,7 @@ if (url.pathname === '/api/ledger' && request.method === 'GET') {
           SELECT name, status, city FROM inventory WHERE company_id = ? AND status != 'online' LIMIT 3
         `).bind(companyId).all<any>();
         for (const s of offline.results || []) {
-          events.push({ kind: 'warn', title: `Screen ${s.status}: ${s.name}`, sub: s.city ? `Inventory · ${s.city}` : 'Inventory', at: today });
+          events.push({ kind: 'warn', title: `Screen ${s.status}: ${s.name}`, sub: s.city ? `Inventory \u{B7} ${s.city}` : 'Inventory', at: today });
         }
 
         const overdue = await env.DB.prepare(`
@@ -1550,7 +1550,7 @@ if (url.pathname === '/api/ledger' && request.method === 'GET') {
         }
 
         for (const c of campaigns.filter((x: any) => x.status === 'live').slice(0, 3)) {
-          events.push({ kind: 'ok', title: `Campaign live: ${c.name}`, sub: `${c.type} · ${c.start_date} → ${c.end_date}`, at: c.start_date || '' });
+          events.push({ kind: 'ok', title: `Campaign live: ${c.name}`, sub: `${c.type} \u{B7} ${c.start_date} \u{2192} ${c.end_date}`, at: c.start_date || '' });
         }
 
         const recentPay = await env.DB.prepare(`
@@ -1565,7 +1565,7 @@ if (url.pathname === '/api/ledger' && request.method === 'GET') {
           events.push({
             kind: 'ok',
             title: `Payment received: ${p.currency || 'PKR'} ${Number(p.amount).toLocaleString('en-US')}`,
-            sub: `${p.client_name} · ${String(p.payment_date).slice(0, 10)}`,
+            sub: `${p.client_name} \u{B7} ${String(p.payment_date).slice(0, 10)}`,
             at: String(p.payment_date).slice(0, 10),
           });
         }
@@ -1577,7 +1577,7 @@ if (url.pathname === '/api/ledger' && request.method === 'GET') {
           events.push({
             kind: 'info',
             title: `New lead: ${l.company_name}`,
-            sub: `${l.source ? l.source + ' · ' : ''}${String(l.created_at).slice(0, 10)}`,
+            sub: `${l.source ? l.source + ' \u{B7} ' : ''}${String(l.created_at).slice(0, 10)}`,
             at: String(l.created_at).slice(0, 10),
           });
         }
@@ -1707,7 +1707,7 @@ async scheduled(event: any, env: Env, ctx: any) {
 
       const emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-          <h2 style="color: #0f172a; text-align: center;">Weekly Business Digest 📊</h2>
+          <h2 style="color: #0f172a; text-align: center;">Weekly Business Digest \u{1F4CA}</h2>
           <p style="text-align: center; color: #666;">Here is what happened at <b>${companyName}</b> in the last 7 days.</p>
           
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0;">

@@ -365,7 +365,7 @@ export function toCsv(rows: Record<string, unknown>[], columns: { key: string; l
 }
 
 export function downloadCsv(filename: string, csv: string): void {
-  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+  const blob = new Blob(["\u{FEFF}" + csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -418,7 +418,7 @@ export function buildFocus(
     items.push({
       key: `fu-${a.id}`, kind: "followup", severity: state === "overdue" ? 3 : 2,
       title: `Follow up: ${name}`,
-      detail: `${state === "overdue" ? "Overdue since" : "Due"} ${String(a.follow_up_date).slice(0, 10)}${a.note ? ` · ${a.note}` : ""}`,
+      detail: `${state === "overdue" ? "Overdue since" : "Due"} ${String(a.follow_up_date).slice(0, 10)}${a.note ? ` \u{B7} ${a.note}` : ""}`,
       target: { type: a.entity_type, id: a.entity_id }, phone: ent.phone, template: "followUp",
       templateVars: { name: a.entity_type === "lead" ? leadContact(ent) || name : name, company: name },
     });
@@ -433,7 +433,7 @@ export function buildFocus(
     items.push({
       key: `stale-${l.id}`, kind: "hot_stale", severity: 2,
       title: `Reconnect: ${leadName(l)}`,
-      detail: `${l.stage} stage · quiet for ${daysSinceTouch(l, today)} days · ${money(leadValue(l))}`,
+      detail: `${l.stage} stage \u{B7} quiet for ${daysSinceTouch(l, today)} days \u{B7} ${money(leadValue(l))}`,
       target: { type: "lead", id: String(l.id) }, phone: l.phone, template: "followUp",
       templateVars: { name: leadContact(l) || leadName(l), company: leadName(l) },
     });
@@ -447,7 +447,7 @@ export function buildFocus(
       items.push({
         key: `pay-${c.id}`, kind: "payment", severity: f.maxOverdueDays > 30 ? 3 : 2,
         title: `Chase payment: ${c.name}`,
-        detail: `${money(f.overdue)} overdue · ${f.maxOverdueDays} days`,
+        detail: `${money(f.overdue)} overdue \u{B7} ${f.maxOverdueDays} days`,
         target: { type: "client", id: String(c.id) }, phone: c.phone, template: "paymentReminder",
         templateVars: { name: c.name, amount: money(f.overdue) },
       });
