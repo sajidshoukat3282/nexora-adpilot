@@ -1,151 +1,116 @@
-import React, { useState } from "react";
-import { Drawer } from "@/components/ui/Drawer";
-import { StatusBadge, proposalStatusTone } from "@/components/ui/StatusBadge";
-import { PermissionGate } from "@/components/ui/PermissionGate";
-import { repo } from "@/repositories/demo";
-import { useAsync } from "@/hooks/useAsync";
-import type { Proposal, ProposalStatus } from "@/domain";
-import { PROPOSAL_STATUS_LABELS, PROPOSAL_TRANSITIONS, formatMoney } from "@/domain";
-import { Link } from "@/lib/router";
-import { useSession } from "@/hooks/useSession";
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "@/lib/router";
+import { FDrawer, FIN } from "../finance/financeUi";
+import { proposalsApi, type ProposalDetail } from "@/lib/api/proposals";
+import { useCompanyProfile } from "@/hooks/useCompanyProfile";
+import { buildProposalHtml, flagsFor, phoneDigits, printProposal, shareText, STATUS_ACTION, statusLabel, statusTone, type Letterhead } from "./proposalTools";
 
 export const ProposalDetailDrawer: React.FC<{
-  proposal: Proposal | null;
+  id: string | null;
   onClose: () => void;
   onChanged: () => void;
-}> = ({ proposal, onClose, onChanged }) => {
-  const { company } = useSession();
-  const client = useAsync(() => (proposal ? repo.crm.getClient(proposal.clientId) : Promise.resolve(null)), [proposal?.id]);
-  const [transitioning, setTransitioning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  onEdit: (id: string) => void;
+}> = ({ id, onClose, onChanged, onEdit }) => {
+  const navigate = useNavigate();
+  const { profile } = useCompanyProfile();
+  const [d, setD] = useState<ProposalDetail | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [conflict, setConflict] = useState("");
 
-  async function transition(next: ProposalStatus) {
-    if (!proposal) return;
-    setTransitioning(true);
-    setError(null);
+  const load = async (pid: string) => {
+    try { setD(await proposalsApi.get(pid)); } catch (e: any) { setMsg({ ok: false, text: e?.message || "Could not load the proposal." }); }
+  };
+  useEffect(() => {
+    setD(null); setMsg(null); setConflict("");
+    if (id) load(id);
+  }, [id]);
+
+  const lh: Letterhead = useMemo(() => ({
+    name: profile?.legalName || "Your Company",
+    address: [profile?.address, profile?.city, profile?.country].filter(Boolean).join(", "),
+    phone: profile?.phone, email: profile?.email, ntn: profile?.ntn,
+    bankName: profile?.bankName, bankTitle: profile?.bankAccountTitle, bankIban: profile?.bankIban,
+  }), [profile]);
+
+  const run = async (fn: () => Promise<any>, ok: string) => {
+    setBusy(true); setMsg(null);
+    try { await fn(); setMsg({ ok: true, text: ok }); onChanged(); if (id) await load(id); }
+    catch (e: any) { setMsg({ ok: false, text: e?.message || "Something went wrong." }); }
+    finally { setBusy(false); }
+  };
+
+  const convert = async (force: boolean) => {
+    if (!d) return;
+    setBusy(true); setMsg(null);
     try {
-      await repo.proposals.transitionProposalStatus(proposal.id, next);
+      const r = await proposalsApi.convert(d.proposal.id, force);
       onChanged();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setTransitioning(false);
-    }
-  }
+      navigate(`/campaigns/${r.campaign_id}`);
+    } catch (e: any) {
+      if (e?.code === "CONFLICT") setConflict(e.message || "Some screens do not have enough free slots.");
+      else setMsg({ ok: false, text: e?.message || "Could not create the campaign." });
+    } finally { setBusy(false); }
+  };
 
-  const nextOptions = proposal ? PROPOSAL_TRANSITIONS[proposal.status] : [];
+  const p = d?.proposal;
+  const html = useMemo(() => (d ? buildProposalHtml(d, lh) : ""), [d, lh]);
+  const flags = p ? flagsFor({ ...p } as any) : [];
+  const tone = p ? statusTone(p.status) : null;
+  const waLink = d ? `https://wa.me/${phoneDigits(p?.client_phone)}?text=${encodeURIComponent(shareText(d, lh.name))}` : "#";
+  const mailLink = d ? `mailto:${p?.client_email || ""}?subject=${encodeURIComponent(`Proposal ${p?.code} - ${p?.campaign_name}`)}&body=${encodeURIComponent(shareText(d, lh.name).replace(/\*/g, ""))}` : "#";
 
   return (
-    <Drawer
-      open={!!proposal}
-      onClose={onClose}
-      title={proposal?.code ?? ""}
-      subtitle={proposal?.campaignName}
-      width="max-w-2xl"
-      footer={
-        proposal && nextOptions.length > 0 ? (
-          <PermissionGate permission="proposals.manage" action="update this proposal's status">
-            <div className="flex gap-2 flex-wrap">
-              {nextOptions.map((opt) => (
-                <button key={opt} className="btn-secondary" disabled={transitioning} onClick={() => transition(opt)}>
-                  {opt === "accepted" || opt === "sent" || opt === "preview" ? "→ " : ""}
-                  {PROPOSAL_STATUS_LABELS[opt]}
-                </button>
-              ))}
-            </div>
-          </PermissionGate>
-        ) : undefined
-      }
-    >
-      {proposal && (
-        <div className="space-y-6">
-          {error && <div className="text-sm text-signal-red bg-signal-red/10 border border-signal-red/25 rounded-lg px-3 py-2">{error}</div>}
-
-          <div className="flex items-center justify-between">
-            <StatusBadge label={PROPOSAL_STATUS_LABELS[proposal.status]} tone={proposalStatusTone(proposal.status)} />
-            <span className="text-xs text-ink-500">
-              {proposal.startDate} → {proposal.endDate}
-            </span>
+    <FDrawer open={!!id} onClose={onClose} title={p ? `${p.code} \u00b7 ${p.campaign_name}` : "Proposal"} subtitle={p?.client_name || undefined} width="max-w-[760px]">
+      {!d && !msg && <p className="text-[12px] text-zinc-500">Loading...</p>}
+      {msg && <div className={`mb-3 rounded-lg border px-3 py-2 text-[12px] ${msg.ok ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300" : "border-rose-400/30 bg-rose-500/10 text-rose-300"}`}>{msg.text}</div>}
+      {d && p && tone && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${tone.cls}`}><span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />{statusLabel(p.status)}</span>
+            {flags.map((f) => <span key={f.text} className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[10px] text-amber-300">{f.text}</span>)}
+            {d.campaign && <Link to={`/campaigns/${d.campaign.id}`} className="text-[11px] text-[#d9b45a] underline">Campaign: {d.campaign.name}</Link>}
           </div>
 
-          {/* Document-style preview — this is what a client would see */}
-          <div className="bg-ink-850 border border-ink-700/60 rounded-xl2 p-6">
-            <div className="flex items-start justify-between mb-6 pb-4 border-b border-ink-700/60">
-              <div>
-                <div className="text-lg font-bold text-ink-50">{company?.name ?? "Your company"}</div>
-                <div className="text-xs text-ink-500 mt-0.5">Media Proposal</div>
-              </div>
-              <div className="text-right">
-                <div className="text-sm font-semibold text-ink-100">{proposal.code}</div>
-                <div className="text-xs text-ink-500">{client.data?.name ?? "..."}</div>
-              </div>
-            </div>
-
-            <div className="text-sm font-semibold text-ink-100 mb-3">{proposal.campaignName}</div>
-
-            <table className="w-full text-sm mb-4">
-              <thead>
-                <tr className="text-xs text-ink-500 border-b border-ink-700/60">
-                  <th className="text-left font-medium pb-2">Item</th>
-                  <th className="text-right font-medium pb-2">Days</th>
-                  <th className="text-right font-medium pb-2">Rate/day</th>
-                  <th className="text-right font-medium pb-2">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {proposal.items.map((item) => (
-                  <tr key={item.id} className="border-b border-ink-800/60">
-                    <td className="py-2.5 text-ink-200">{item.description}</td>
-                    <td className="py-2.5 text-right text-ink-400">{item.days}</td>
-                    <td className="py-2.5 text-right text-ink-400">{formatMoney({ amountCents: item.unitPriceCents, currency: "USD" })}</td>
-                    <td className="py-2.5 text-right text-ink-100 font-medium">{formatMoney({ amountCents: item.totalCents, currency: "USD" })}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <div className="flex justify-end">
-              <div className="w-48 space-y-1 text-sm">
-                <div className="flex justify-between text-ink-400">
-                  <span>Subtotal</span>
-                  <span>{formatMoney({ amountCents: proposal.items.reduce((s, i) => s + i.totalCents, 0), currency: "USD" })}</span>
-                </div>
-                {proposal.discountPct > 0 && (
-                  <div className="flex justify-between text-signal-green">
-                    <span>Discount ({proposal.discountPct}%)</span>
-                    <span>
-                      -{formatMoney({
-                        amountCents: Math.round(proposal.items.reduce((s, i) => s + i.totalCents, 0) * (proposal.discountPct / 100)),
-                        currency: "USD",
-                      })}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between text-base font-bold text-ink-50 pt-1.5 border-t border-ink-700/60">
-                  <span>Total</span>
-                  <span>{formatMoney(proposal.total)}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-5 pt-4 border-t border-ink-700/60 text-xs text-ink-500">
-              Estimated impressions: {proposal.estimatedImpressions.toLocaleString()} · This proposal is illustrative demo output.
-            </div>
+          <div className="flex flex-wrap gap-2">
+            {d.nextStatuses.map((s) => (
+              <button key={s} disabled={busy} className={s === "rejected" ? FIN.btnGhost : FIN.btnGold} onClick={() => run(() => proposalsApi.setStatus(p.id, s), `Status updated to ${statusLabel(s)}.`)}>{STATUS_ACTION[s] ?? statusLabel(s)}</button>
+            ))}
+            {p.status === "accepted" && !p.campaign_id && <button disabled={busy} className={FIN.btnGold} onClick={() => convert(false)}>Convert to Campaign</button>}
+            {p.status === "draft" && <button className={FIN.btnGhost} onClick={() => onEdit(p.id)}>Edit</button>}
+            <button disabled={busy} className={FIN.btnGhost} onClick={() => run(async () => { const r = await proposalsApi.revise(p.id); onChanged(); if (r.id) await load(r.id); }, "A revised copy was created as a new draft.")}>Revise</button>
+            {p.status === "draft" && <button disabled={busy} className={FIN.btnGhost} onClick={() => { if (window.confirm("Delete this draft proposal?")) { setBusy(true); proposalsApi.remove(p.id).then(() => { onChanged(); onClose(); }).catch((e: any) => setMsg({ ok: false, text: e?.message || "Could not delete." })).finally(() => setBusy(false)); } }}>Delete</button>}
           </div>
 
-          {proposal.status === "accepted" && (
-            <div className="panel p-4 flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold text-ink-100">Ready to book</div>
-                <div className="text-xs text-ink-500">Convert this accepted proposal into a campaign.</div>
+          {conflict && (
+            <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-[12px] text-amber-200">
+              {conflict}
+              <div className="mt-2 flex gap-2">
+                <button className={FIN.btnGold} disabled={busy} onClick={() => convert(true)}>Convert anyway</button>
+                <button className={FIN.btnText} onClick={() => setConflict("")}>Cancel</button>
               </div>
-              <Link to={`/campaigns?fromProposal=${proposal.id}`} className="btn-primary !py-2 !px-3 text-xs">
-                Convert to Campaign →
-              </Link>
             </div>
           )}
+
+          <div className="flex flex-wrap gap-2 border-y border-[#2a2f37] py-3">
+            <button className={FIN.btnGhost} onClick={() => { if (!printProposal(d, lh)) setMsg({ ok: false, text: "Please allow pop-ups to print." }); }}>Print / PDF</button>
+            <a className={FIN.btnGhost} href={waLink} target="_blank" rel="noreferrer">Share on WhatsApp</a>
+            <a className={FIN.btnGhost} href={mailLink}>Share by email</a>
+          </div>
+
+          <iframe title="Proposal preview" srcDoc={html} className="h-[560px] w-full rounded-lg border border-[#c99b3b]/30 bg-[#fbf9f4]" />
+
+          <div>
+            <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#d9b45a]">Activity</h4>
+            {d.activity.length === 0 && <p className="text-[12px] text-zinc-500">No activity yet.</p>}
+            <ul className="space-y-1.5">
+              {d.activity.map((a) => (
+                <li key={a.id} className="text-[12px] text-zinc-300"><span className="text-zinc-100">{a.action}</span>{a.detail ? ` \u00b7 ${a.detail}` : ""}<span className="ml-2 text-[10px] text-zinc-500">{(a.actor_email || "")} {String(a.created_at).slice(0, 16).replace("T", " ")}</span></li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
-    </Drawer>
+    </FDrawer>
   );
 };

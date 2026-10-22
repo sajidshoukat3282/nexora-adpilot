@@ -124,6 +124,9 @@ export const ClientDetailDrawer: React.FC<{ client: Client | null; onClose: () =
             </div>
             <div className="flex items-center gap-2">
               <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${health.cls}`}>{health.label}</span>
+              <a href={`/proposals?client=${client.id}`} className={FIN.btnGhost}>
+                Create Proposal
+              </a>
               <button onClick={() => setShowEditForm(true)} className={FIN.btnGhost}>
                 {"\u{270F}\u{FE0F}"} Edit Client
               </button>

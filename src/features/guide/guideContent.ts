@@ -252,23 +252,40 @@ export const PAGE_GUIDES: PageGuide[] = [
   {
     path: "/proposals",
     title: "Proposals",
-    summary: "Build, send and track commercial proposals.",
+    summary: "Quote clients, send branded proposals, track the pipeline and turn accepted deals into campaigns.",
     topics: [
       {
         title: "Create a proposal",
         steps: [
-          "Click New proposal.",
-          "Enter Campaign Name, Client, Start Date and End Date.",
-          "Add Inventory Line Items (screens with days and rate per day). Totals are calculated for you.",
-          "Save it. The proposal appears in the list with its status and total.",
+          "Click + New Proposal, or open a client in CRM and click Create Proposal.",
+          "Choose the Client, enter the Campaign name and the Start and End dates.",
+          "Tick the screens you want. For each screen set the Slots and the Rate. Digital screens show their slot capacity and a warning appears if there are not enough free slots.",
+          "Set Discount %, Tax %, Valid until, Terms and Notes. The total updates live in your company currency.",
+          "Click Save Draft. The proposal gets an automatic code such as PRO-0001.",
         ],
       },
       {
-        title: "Track and close",
+        title: "Send and close",
         steps: [
-          "Open a proposal to see the Media Proposal with Subtotal and Total.",
-          "The top cards show your Open pipeline and Accepted value.",
-          "When the client accepts, the proposal is Ready to book.",
+          "Open a proposal to see the client document. Use Print / PDF, Share on WhatsApp or Share by email.",
+          "Click Mark as sent when you send it. Then click Client accepted or Client rejected when you hear back.",
+          "Sent proposals past their Valid until date become Expired. Sent proposals with no reply for 5 days show a follow-up reminder.",
+          "Use Revise to make a new draft copy, for example after a price change.",
+        ],
+      },
+      {
+        title: "Convert to a campaign",
+        steps: [
+          "Open an Accepted proposal and click Convert to Campaign.",
+          "A draft campaign is created with the client, dates, screens and slots filled in. If slots are no longer free you will be warned and can choose Convert anyway.",
+          "The proposal then shows a link to its campaign.",
+        ],
+      },
+      {
+        title: "Read the pipeline",
+        steps: [
+          "The top cards show Open pipeline, Accepted value, Win rate and Expiring soon.",
+          "Use the status filters, search and Export CSV to review your proposals.",
         ],
       },
     ],

@@ -13,6 +13,7 @@ import { handleCampaignRoutes } from '../campaigns/campaignRoutes';
 import { handleCampaignExtras } from '../campaigns/campaignExtras';
 import { handleCampaignSlots } from '../campaigns/campaignSlots';
 import { handleReportRoutes } from '../reports/reportRoutes';
+import { handleProposalRoutes } from '../proposals/proposalRoutes';
 import {
   ROLE_PERMISSIONS,
   type Permission,
@@ -915,6 +916,9 @@ export async function handleTeamRoutes(
 
   const inventoryResponse = await handleInventoryRoutes(request, env, url);
   if (inventoryResponse) return inventoryResponse;
+
+  const proposalsResponse = await handleProposalRoutes(request, env, url);
+  if (proposalsResponse) return proposalsResponse;
 
   const reportsResponse = await handleReportRoutes(request, env, url);
   if (reportsResponse) return reportsResponse;

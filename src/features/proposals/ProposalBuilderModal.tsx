@@ -1,203 +1,179 @@
-import React, { useState, useMemo } from "react";
-import { FiPlus, FiTrash2 } from "react-icons/fi";
-import { Modal } from "@/components/ui/Modal";
-import { useAsync } from "@/hooks/useAsync";
-import { repo } from "@/repositories/demo";
-import { formatMoney, money } from "@/domain";
+import React, { useEffect, useMemo, useState } from "react";
+import { getDefaultCurrency } from "@/lib/companyDefaults";
+import { FIN, ModalTitle } from "../finance/financeUi";
+import { screenCapacity } from "../campaigns/campaignTools";
+import { proposalsApi } from "@/lib/api/proposals";
+import { addDays, calcTotals, campaignDays, DEFAULT_TERMS, todayIso } from "./proposalTools";
 
-interface LineItemDraft {
-  key: string;
-  assetId: string;
-  days: number;
-}
+interface Line { inventory_id: string; slots: number; rate: number }
 
 export const ProposalBuilderModal: React.FC<{
   open: boolean;
   onClose: () => void;
-  onCreated: () => void;
-}> = ({ open, onClose, onCreated }) => {
-  const clients = useAsync(() => repo.crm.listClients(), []);
-  const assets = useAsync(() => repo.inventory.listAssets(), []);
+  onSaved: (id: string) => void;
+  editId?: string | null;
+  presetClientId?: string | null;
+}> = ({ open, onClose, onSaved, editId, presetClientId }) => {
+  const [clients, setClients] = useState<any[]>([]);
+  const [inventory, setInventory] = useState<any[]>([]);
+  const [f, setF] = useState<any>({});
+  const [lines, setLines] = useState<Line[]>([]);
+  const [avail, setAvail] = useState<any[]>([]);
+  const [query, setQuery] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const [clientId, setClientId] = useState("");
-  const [campaignName, setCampaignName] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [discountPct, setDiscountPct] = useState(0);
-  const [items, setItems] = useState<LineItemDraft[]>([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    setError(""); setQuery(""); setAvail([]);
+    (async () => {
+      try {
+        const [c, i] = await Promise.all([fetch("/api/crm/clients").then((r) => r.json()), fetch("/api/inventory").then((r) => r.json())]);
+        if (c.ok) setClients(c.data || []);
+        if (i.ok) setInventory(i.data || []);
+      } catch { setError("Could not load clients and inventory."); }
+      if (editId) {
+        try {
+          const d = await proposalsApi.get(editId);
+          const p = d.proposal;
+          setF({ client_id: p.client_id, campaign_name: p.campaign_name, start_date: p.start_date, end_date: p.end_date, discount_pct: p.discount_pct, tax_rate: p.tax_rate, valid_until: p.valid_until || "", currency: p.currency, terms: p.terms || "", notes: p.notes || "" });
+          setLines(d.items.map((x) => ({ inventory_id: x.inventory_id, slots: x.slots, rate: x.rate })));
+        } catch { setError("Could not load this proposal."); }
+      } else {
+        const s = todayIso();
+        setF({ client_id: presetClientId || "", campaign_name: "", start_date: s, end_date: addDays(s, 29), discount_pct: 0, tax_rate: 0, valid_until: addDays(s, 14), currency: getDefaultCurrency(), terms: DEFAULT_TERMS, notes: "" });
+        setLines([]);
+      }
+    })();
+  }, [open, editId, presetClientId]);
 
-  function addItem() {
-    if (!assets.data?.length) return;
-    setItems((prev) => [...prev, { key: `${Date.now()}-${prev.length}`, assetId: assets.data![0].id, days: 7 }]);
-  }
-  function removeItem(key: string) {
-    setItems((prev) => prev.filter((i) => i.key !== key));
-  }
-  function updateItem(key: string, patch: Partial<LineItemDraft>) {
-    setItems((prev) => prev.map((i) => (i.key === key ? { ...i, ...patch } : i)));
-  }
+  const set = (k: string) => (e: any) => setF((p: any) => ({ ...p, [k]: e.target.value }));
+  const days = f.start_date && f.end_date ? campaignDays(f.start_date, f.end_date) : 0;
+  const byId = useMemo(() => new Map(inventory.map((s) => [s.id, s])), [inventory]);
+  const totals = calcTotals(lines.map((l) => ({ rate: l.rate, slots: l.slots, days })), f.discount_pct, f.tax_rate);
+  const money = (n: number) => `${f.currency || ""} ${Math.round(n).toLocaleString("en-US")}`;
 
-  const computed = useMemo(() => {
-    const lines = items.map((item) => {
-      const asset = assets.data?.find((a) => a.id === item.assetId);
-      const unitPriceCents = asset?.pricing.baseDailyRateCents ?? 0;
-      const totalCents = unitPriceCents * item.days;
-      return { ...item, asset, unitPriceCents, totalCents };
-    });
-    const subtotal = lines.reduce((s, l) => s + l.totalCents, 0);
-    const discount = Math.round(subtotal * (discountPct / 100));
-    return { lines, subtotal, discount, total: subtotal - discount };
-  }, [items, assets.data, discountPct]);
+  useEffect(() => {
+    if (!open || !f.start_date || !f.end_date || lines.length === 0 || f.end_date < f.start_date) { setAvail([]); return; }
+    const t = setTimeout(async () => {
+      try {
+        const slots: Record<string, number> = {};
+        lines.forEach((l) => (slots[l.inventory_id] = l.slots));
+        const r = await fetch("/api/campaigns/check-availability", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ inventory_ids: lines.map((l) => l.inventory_id), start_date: f.start_date, end_date: f.end_date, slots }) }).then((x) => x.json());
+        if (r.ok) setAvail(r.screens || []);
+      } catch { /* warning only */ }
+    }, 600);
+    return () => clearTimeout(t);
+  }, [open, f.start_date, f.end_date, lines]);
 
-  function reset() {
-    setClientId("");
-    setCampaignName("");
-    setStartDate("");
-    setEndDate("");
-    setDiscountPct(0);
-    setItems([]);
-    setError(null);
-  }
+  if (!open) return null;
 
-  async function submit() {
-    if (!clientId || !campaignName || !startDate || !endDate || items.length === 0) {
-      setError("Fill in client, campaign name, dates, and at least one inventory line item.");
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
+  const toggle = (s: any) =>
+    setLines((p) => (p.some((l) => l.inventory_id === s.id) ? p.filter((l) => l.inventory_id !== s.id) : [...p, { inventory_id: s.id, slots: 1, rate: Number(s.rate) || 0 }]));
+  const upd = (id: string, k: "slots" | "rate", v: number) => setLines((p) => p.map((l) => (l.inventory_id === id ? { ...l, [k]: v } : l)));
+  const shown = inventory.filter((s) => `${s.name} ${s.city}`.toLowerCase().includes(query.toLowerCase()));
+  const tight = avail.filter((a) => a.fits === false);
+
+  const save = async (e: any) => {
+    e.preventDefault();
+    setError("");
+    if (!f.client_id) return setError("Please choose a client.");
+    if (!f.campaign_name.trim()) return setError("Please enter a campaign name.");
+    if (!f.start_date || !f.end_date || f.end_date < f.start_date) return setError("Please check the campaign dates.");
+    if (lines.length === 0) return setError("Please add at least one screen.");
+    setSaving(true);
     try {
-      await repo.proposals.createProposal({
-        clientId,
-        campaignName,
-        startDate,
-        endDate,
-        discountPct,
-        items: computed.lines.map((l) => ({
-          assetId: l.assetId,
-          description: `${l.asset?.name ?? "Asset"} — ${l.days} days`,
-          days: l.days,
-          unitPriceCents: l.unitPriceCents,
-        })),
-      });
-      reset();
-      onCreated();
+      const payload = { ...f, discount_pct: Number(f.discount_pct) || 0, tax_rate: Number(f.tax_rate) || 0, items: lines.map((l) => ({ ...l, days })) };
+      if (editId) { await proposalsApi.edit(editId, payload); onSaved(editId); }
+      else { const r = await proposalsApi.create(payload); onSaved(r.id); }
       onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSubmitting(false);
-    }
-  }
+    } catch (err: any) {
+      setError(err?.message || "Could not save the proposal.");
+    } finally { setSaving(false); }
+  };
 
   return (
-    <Modal
-      open={open}
-      onClose={() => {
-        onClose();
-      }}
-      title="New Proposal"
-      size="lg"
-      footer={
-        <>
-          <button className="btn-secondary" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="btn-primary" onClick={submit} disabled={submitting}>
-            {submitting ? "Creating..." : "Create Proposal"}
-          </button>
-        </>
-      }
-    >
-      <div className="space-y-4">
-        {error && <div className="text-sm text-signal-red bg-signal-red/10 border border-signal-red/25 rounded-lg px-3 py-2">{error}</div>}
+    <div className={FIN.overlay}>
+      <form onSubmit={save} className={`${FIN.modal} max-w-4xl`}>
+        <ModalTitle>{editId ? "Edit Proposal" : "New Proposal"}</ModalTitle>
+        {error && <div className="mb-3 rounded-lg border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-[12px] text-rose-300">{error}</div>}
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="label">Client</label>
-            <select className="input" value={clientId} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setClientId(e.target.value)}>
-              <option value="">Select client...</option>
-              {clients.data?.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="label">Campaign Name</label>
-            <input className="input" value={campaignName} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCampaignName(e.target.value)} placeholder="e.g. Summer Push" />
-          </div>
-          <div>
-            <label className="label">Start Date</label>
-            <input type="date" className="input" value={startDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStartDate(e.target.value)} />
-          </div>
-          <div>
-            <label className="label">End Date</label>
-            <input type="date" className="input" value={endDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEndDate(e.target.value)} />
-          </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <div><label className={FIN.label}>Client</label>
+            <select className={FIN.input} value={f.client_id || ""} onChange={set("client_id")}>
+              <option value="">Select a client</option>
+              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select></div>
+          <div><label className={FIN.label}>Campaign name</label>
+            <input className={FIN.input} value={f.campaign_name || ""} onChange={set("campaign_name")} maxLength={120} placeholder="e.g. Eid Collection Launch" /></div>
+          <div><label className={FIN.label}>Start date</label><input type="date" className={FIN.input} value={f.start_date || ""} onChange={set("start_date")} /></div>
+          <div><label className={FIN.label}>End date</label><input type="date" className={FIN.input} value={f.end_date || ""} min={f.start_date} onChange={set("end_date")} /></div>
         </div>
 
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="label !mb-0">Inventory Line Items</label>
-            <button className="btn-ghost !py-1 !px-2 text-xs" onClick={addItem} disabled={!assets.data?.length}>
-              <FiPlus size={13} /> Add Item
-            </button>
+        <div className="mt-4">
+          <div className="mb-1 flex items-center justify-between">
+            <label className={FIN.label}>Screens ({lines.length} selected, {days} days)</label>
+            <input className={`${FIN.input} !w-48`} placeholder="Search screens" value={query} onChange={(e: any) => setQuery(e.target.value)} />
           </div>
-          <div className="space-y-2">
-            {computed.lines.map((line) => (
-              <div key={line.key} className="flex items-center gap-2 panel p-2.5">
-                <select
-                  className="input !py-1.5 flex-1"
-                  value={line.assetId}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => updateItem(line.key, { assetId: e.target.value })}
-                >
-                  {assets.data?.map((a) => (
-                    <option key={a.id} value={a.id}>{a.name} — {formatMoney(money(a.pricing.baseDailyRateCents))}/day</option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  min={1}
-                  className="input !py-1.5 w-20"
-                  value={line.days}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateItem(line.key, { days: Math.max(1, Number(e.target.value)) })}
-                />
-                <span className="text-xs text-ink-500 w-8">days</span>
-                <span className="text-sm font-semibold text-ink-100 w-24 text-right">{formatMoney(money(line.totalCents))}</span>
-                <button onClick={() => removeItem(line.key)} className="text-ink-500 hover:text-signal-red p-1">
-                  <FiTrash2 size={14} />
-                </button>
-              </div>
+          <div className="max-h-44 overflow-y-auto rounded-lg border border-[#2b3038] bg-[#0f1216]">
+            {shown.length === 0 && <p className="p-3 text-[12px] text-zinc-500">No screens found.</p>}
+            {shown.map((s) => (
+              <label key={s.id} className="flex cursor-pointer items-center gap-2 border-b border-[#1d2128] px-3 py-1.5 text-[12px] hover:bg-white/5">
+                <input type="checkbox" checked={lines.some((l) => l.inventory_id === s.id)} onChange={() => toggle(s)} />
+                <span className="grow text-zinc-100">{s.name}</span>
+                <span className="text-zinc-500">{s.city}</span>
+                <span className="text-[#d9b45a]">{s.screen_type === "static" ? "Static" : `Digital \u00b7 ${screenCapacity(s.screen_type, s.specs)} slots`}</span>
+              </label>
             ))}
-            {computed.lines.length === 0 && (
-              <p className="text-xs text-ink-500 py-3 text-center border border-dashed border-ink-700 rounded-lg">
-                No line items yet — add inventory above.
-              </p>
-            )}
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-2 border-t border-ink-700/60">
-          <div className="flex items-center gap-2">
-            <label className="label !mb-0">Discount %</label>
-            <input
-              type="number"
-              min={0}
-              max={100}
-              className="input !py-1.5 w-20"
-              value={discountPct}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDiscountPct(Math.min(100, Math.max(0, Number(e.target.value))))}
-            />
+        {lines.length > 0 && (
+          <div className="mt-3 overflow-x-auto rounded-lg border border-[#2b3038]">
+            <table className="w-full text-[12px]">
+              <thead><tr className="text-left text-[10px] uppercase tracking-wider text-zinc-500"><th className="p-2">Screen</th><th className="p-2 w-20">Slots</th><th className="p-2 w-28">Rate / slot / day</th><th className="p-2 text-right">Amount</th></tr></thead>
+              <tbody>
+                {lines.map((l) => {
+                  const s = byId.get(l.inventory_id);
+                  const cap = s ? screenCapacity(s.screen_type, s.specs) : 1;
+                  const a = avail.find((x) => x.inventory_id === l.inventory_id);
+                  return (
+                    <tr key={l.inventory_id} className="border-t border-[#1d2128]">
+                      <td className="p-2 text-zinc-100">{s?.name ?? "Screen"}{a && a.fits === false && <span className="ml-2 text-[10px] text-rose-300">Only {a.free} of {a.capacity} slots free</span>}</td>
+                      <td className="p-1"><input type="number" min={1} max={cap} className={FIN.cellInput} value={l.slots} onChange={(e: any) => upd(l.inventory_id, "slots", Math.min(cap, Math.max(1, Number(e.target.value) || 1)))} /></td>
+                      <td className="p-1"><input type="number" min={0} className={FIN.cellInput} value={l.rate} onChange={(e: any) => upd(l.inventory_id, "rate", Math.max(0, Number(e.target.value) || 0))} /></td>
+                      <td className="p-2 text-right text-zinc-200">{money(l.rate * l.slots * days)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-          <div className="text-right">
-            <div className="text-xs text-ink-500">Subtotal: {formatMoney(money(computed.subtotal))}</div>
-            {discountPct > 0 && <div className="text-xs text-signal-green">-{formatMoney(money(computed.discount))} discount</div>}
-            <div className="text-lg font-bold text-ink-50">{formatMoney(money(computed.total))}</div>
+        )}
+        {tight.length > 0 && <p className="mt-2 text-[11px] text-amber-300">Some screens are short on free slots for these dates. You can still save, but converting to a campaign will warn you.</p>}
+
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <div><label className={FIN.label}>Discount %</label><input type="number" min={0} max={100} className={FIN.input} value={f.discount_pct ?? 0} onChange={set("discount_pct")} /></div>
+          <div><label className={FIN.label}>Tax %</label><input type="number" min={0} max={100} className={FIN.input} value={f.tax_rate ?? 0} onChange={set("tax_rate")} /></div>
+          <div><label className={FIN.label}>Valid until</label><input type="date" className={FIN.input} value={f.valid_until || ""} onChange={set("valid_until")} /></div>
+          <div><label className={FIN.label}>Currency</label><input className={FIN.input} value={f.currency || ""} onChange={set("currency")} maxLength={6} /></div>
+        </div>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <div><label className={FIN.label}>Terms</label><textarea rows={3} className={FIN.input} value={f.terms || ""} onChange={set("terms")} /></div>
+          <div><label className={FIN.label}>Notes for client</label><textarea rows={3} className={FIN.input} value={f.notes || ""} onChange={set("notes")} /></div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#2a2f37] pt-3">
+          <div className="text-[12px] text-zinc-400">
+            Subtotal {money(totals.subtotal)}{totals.discount > 0 && ` \u00b7 Discount -${money(totals.discount)}`}{totals.tax > 0 && ` \u00b7 Tax ${money(totals.tax)}`}
+            <div className="text-[16px] font-semibold text-[#f1d68a]">Total {money(totals.total)}</div>
+          </div>
+          <div className="flex gap-2">
+            <button type="button" onClick={onClose} className={FIN.btnText}>Cancel</button>
+            <button type="submit" disabled={saving} className={FIN.btnGold}>{saving ? "Saving..." : editId ? "Save Changes" : "Save Draft"}</button>
           </div>
         </div>
-      </div>
-    </Modal>
+      </form>
+    </div>
   );
 };
