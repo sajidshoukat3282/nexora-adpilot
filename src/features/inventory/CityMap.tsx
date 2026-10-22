@@ -14,8 +14,8 @@ const TONE_HEX: Record<string, string> = {
 };
 
 /**
- * Self-contained SVG map — no Leaflet/Mapbox available in this environment
- * (see Phase 0 architecture review). Real asset lat/lng is normalized into
+ * Self-contained SVG map - no Leaflet/Mapbox available in this environment
+ * Real asset lat/lng is normalized into
  * a per-city viewBox so relative positioning is still meaningful, on a
  * stylised city-block background rather than real map tiles.
  */
@@ -59,17 +59,17 @@ export const CityMap: React.FC<{
   for (let i = 1; i < 5; i++) blockLinesH.push(pad + ((height - pad * 2) / 5) * i);
 
   return (
-    <div className="relative panel p-3">
+    <div className="relative rounded-xl border border-[#2a2f37] bg-gradient-to-b from-[#171a20] to-[#0f1216] p-3 shadow-[0_8px_24px_rgba(0,0,0,0.5)]">
       <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto" style={{ height: 420 }}>
-        <rect x={0} y={0} width={width} height={height} fill="#0d121c" rx={12} />
+        <rect x={0} y={0} width={width} height={height} fill="#0b0d10" rx={12} />
         {blockLines.map((x) => (
-          <line key={`v-${x}`} x1={x} y1={pad - 10} x2={x} y2={height - pad + 10} stroke="#182234" strokeWidth={1} />
+          <line key={`v-${x}`} x1={x} y1={pad - 10} x2={x} y2={height - pad + 10} stroke="#1d2128" strokeWidth={1} />
         ))}
         {blockLinesH.map((y) => (
-          <line key={`h-${y}`} x1={pad - 10} y1={y} x2={width - pad + 10} y2={y} stroke="#182234" strokeWidth={1} />
+          <line key={`h-${y}`} x1={pad - 10} y1={y} x2={width - pad + 10} y2={y} stroke="#1d2128" strokeWidth={1} />
         ))}
-        <text x={width / 2} y={24} textAnchor="middle" fontSize={12} fill="#5c6b82" fontWeight={600} letterSpacing={1}>
-          {city.toUpperCase()} — ILLUSTRATIVE LAYOUT, NOT TO SCALE
+        <text x={width / 2} y={24} textAnchor="middle" fontSize={11} fill="#d9b45a" fontWeight={600} letterSpacing={1}>
+          {city.toUpperCase()} - ILLUSTRATIVE LAYOUT, NOT TO SCALE
         </text>
 
         {cityAssets.map((asset) => {
@@ -91,9 +91,9 @@ export const CityMap: React.FC<{
               <circle r={7} fill={color} stroke="#0a0e16" strokeWidth={2} />
               {(isSelected || isHover) && (
                 <g transform="translate(0 -14)">
-                  <rect x={-70} y={-22} width={140} height={20} rx={5} fill="#151519" stroke="#2b2c31" />
+                  <rect x={-70} y={-22} width={140} height={20} rx={5} fill="#14171c" stroke="#c99b3b" />
                   <text x={0} y={-8} textAnchor="middle" fontSize={10} fill="#dde3ec" fontWeight={600}>
-                    {asset.name.length > 24 ? asset.name.slice(0, 22) + "…" : asset.name}
+                    {asset.name.length > 24 ? asset.name.slice(0, 22) + "..." : asset.name}
                   </text>
                 </g>
               )}
@@ -101,10 +101,10 @@ export const CityMap: React.FC<{
           );
         })}
       </svg>
-      <div className="flex items-center gap-4 mt-2 flex-wrap text-xs text-ink-400">
-        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-signal-green" /> Online</span>
-        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-signal-violet" /> Maintenance</span>
-        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-signal-red" /> Offline</span>
+      <div className="flex items-center gap-4 mt-2 flex-wrap text-[11px] text-zinc-400">
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400" /> Online</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-violet-400" /> Maintenance</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-400" /> Offline</span>
       </div>
     </div>
   );

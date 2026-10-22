@@ -45,6 +45,13 @@ export const parseSpecs = (raw: unknown): Record<string, any> => {
   }
 };
 
+/** "lahore " and "LAHORE" become "Lahore", so one city is never split into two tabs. */
+export const tidyCity = (c: unknown): string => {
+  const t = String(c ?? "").trim().replace(/\s+/g, " ");
+  if (!t) return "Unknown";
+  return t.toLowerCase().replace(/(^|\s)([a-z])/g, (_m, a, b) => a + b.toUpperCase());
+};
+
 /** Turn a row from /api/inventory into the asset shape the page, map and drawer use. */
 export function mapInventory(item: any): any {
   const specs = parseSpecs(item.specs);
@@ -64,7 +71,7 @@ export function mapInventory(item: any): any {
     specs,
     rawSize: item.size || "",
     location: {
-      city: item.city || "Unknown",
+      city: tidyCity(item.city),
       address: item.location || "No address provided",
       lat,
       lng,
