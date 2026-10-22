@@ -1,6 +1,6 @@
 /**
  * Company-wide defaults (currency, phone country code) that plain helper
- * functions can read without props. AppShell refreshes them on every render,     
+ * functions can read without props. AppShell refreshes them on every render,
  * so they are always in sync with the signed-in workspace.
  */
 

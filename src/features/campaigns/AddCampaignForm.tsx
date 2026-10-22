@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { getDefaultCurrency } from '@/lib/companyDefaults';
+import { FIN, ModalTitle } from '../finance/financeUi';
+import { screenCapacity } from './campaignTools';
 
 export default function AddCampaignForm({ onClose }: { onClose: () => void }) {
   const [formData, setFormData] = useState<any>({
@@ -7,12 +10,15 @@ export default function AddCampaignForm({ onClose }: { onClose: () => void }) {
     start_date: '',
     end_date: '',
     status: 'draft',
-    currency: 'PKR'
+    currency: getDefaultCurrency()
   });
+  const [error, setError] = useState('');
 
   const [clients, setClients] = useState<any[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
   const [selectedScreens, setSelectedScreens] = useState<string[]>([]);
+  const [slotsFor, setSlotsFor] = useState<Record<string, number>>({});
+  const [avail, setAvail] = useState<any[]>([]);
   
   const [conflicts, setConflicts] = useState<any[]>([]);
   const [checking, setChecking] = useState(false);
@@ -49,10 +55,10 @@ export default function AddCampaignForm({ onClose }: { onClose: () => void }) {
     let total = 0;
     selectedScreens.forEach(id => {
       const screen = inventory.find(s => s.id === id);
-      if (screen) total += (screen.rate || 0) * days;
+      if (screen) total += (screen.rate || 0) * (slotsFor[id] || 1) * days;
     });
     return total;
-  }, [formData.start_date, formData.end_date, selectedScreens, inventory]);
+  }, [formData.start_date, formData.end_date, selectedScreens, inventory, slotsFor]);
 
   // 3. Check Availability (Double Booking Warning)
   useEffect(() => {
@@ -70,12 +76,14 @@ export default function AddCampaignForm({ onClose }: { onClose: () => void }) {
           body: JSON.stringify({
             inventory_ids: selectedScreens,
             start_date: formData.start_date,
-            end_date: formData.end_date
+            end_date: formData.end_date,
+            slots: slotsFor
           })
         });
         const data = await res.json();
         if (data.ok) {
           setConflicts(data.conflicts || []);
+          setAvail(data.screens || []);
         }
       } catch (err) {
         console.error(err);
@@ -84,10 +92,10 @@ export default function AddCampaignForm({ onClose }: { onClose: () => void }) {
       }
     };
     
-    // Thora delay lagaya hai taake har click par API na chale (Debounce)
+    // Debounce so the API is not called on every click
     const timer = setTimeout(checkAvail, 600); 
     return () => clearTimeout(timer);
-  }, [formData.start_date, formData.end_date, selectedScreens]);
+  }, [formData.start_date, formData.end_date, selectedScreens, slotsFor]);
 
   const handleScreenToggle = (id: string) => {
     setSelectedScreens(prev => 
@@ -95,19 +103,20 @@ export default function AddCampaignForm({ onClose }: { onClose: () => void }) {
     );
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: any) => {
     e.preventDefault();
     if (conflicts.length > 0) {
-      alert("Cannot save! Some screens are already booked for these dates.");
+      setError("Some screens are already booked for these dates.");
       return;
     }
 
     setSaving(true);
+    setError('');
     try {
-      // Screens data tayyar karein
+      // Prepare the screens data
       const screensData = selectedScreens.map(id => {
         const screen = inventory.find(s => s.id === id);
-        return { inventory_id: id, rate_applied: screen?.rate || 0 };
+        return { inventory_id: id, rate_applied: screen?.rate || 0, slots: slotsFor[id] || 1 };
       });
 
       const res = await fetch('/api/campaigns', {
@@ -121,56 +130,55 @@ export default function AddCampaignForm({ onClose }: { onClose: () => void }) {
       });
 
       if (res.ok) {
-        alert('Campaign Created Successfully!');
         onClose();
       } else {
-        alert('Error creating campaign.');
+        const d = await res.json().catch(() => null);
+        setError(d?.message || d?.error || 'Could not create the campaign.');
       }
     } catch (err) {
       console.error(err);
-      alert('Network error.');
+      setError('Network error. Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="bg-[#0f172a] text-white p-6 rounded-xl border border-gray-700 w-full max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto">
-      <h2 className="text-xl font-bold mb-4">Create New Campaign</h2>
-      
+    <div className={`${FIN.modal} max-w-4xl`}>
+      <ModalTitle>Create New Campaign</ModalTitle>
+
       <form onSubmit={handleSubmit} className="space-y-4">
-        
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label className="text-sm text-gray-400">Campaign Name *</label>
-            <input required type="text" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none" 
-              onChange={(e: any) => setFormData({...formData, name: e.target.value})} placeholder="e.g. Summer Sale Launch" />
+            <label className={FIN.label}>Campaign Name *</label>
+            <input required type="text" className={FIN.input}
+              onChange={(e: any) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Summer Sale Launch" />
           </div>
           <div>
-            <label className="text-sm text-gray-400">Select Client *</label>
-            <select required className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none"
-              onChange={(e: any) => setFormData({...formData, client_id: e.target.value})}>
-              <option value="">-- Choose Client --</option>
+            <label className={FIN.label}>Client *</label>
+            <select required className={FIN.input}
+              onChange={(e: any) => setFormData({ ...formData, client_id: e.target.value })}>
+              <option value="">Choose client</option>
               {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
-            <label className="text-sm text-gray-400">Start Date *</label>
-            <input required type="date" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none"
-              onChange={(e: any) => setFormData({...formData, start_date: e.target.value})} />
+            <label className={FIN.label}>Start Date *</label>
+            <input required type="date" className={FIN.input}
+              onChange={(e: any) => setFormData({ ...formData, start_date: e.target.value })} />
           </div>
           <div>
-            <label className="text-sm text-gray-400">End Date *</label>
-            <input required type="date" className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none"
-              onChange={(e: any) => setFormData({...formData, end_date: e.target.value})} />
+            <label className={FIN.label}>End Date *</label>
+            <input required type="date" className={FIN.input}
+              onChange={(e: any) => setFormData({ ...formData, end_date: e.target.value })} />
           </div>
           <div>
-            <label className="text-sm text-gray-400">Status</label>
-            <select className="w-full bg-[#1e293b] border border-gray-600 rounded p-2 mt-1 outline-none"
-              onChange={(e: any) => setFormData({...formData, status: e.target.value})}>
+            <label className={FIN.label}>Status</label>
+            <select className={FIN.input}
+              onChange={(e: any) => setFormData({ ...formData, status: e.target.value })}>
               <option value="draft">Draft</option>
               <option value="booked">Booked</option>
               <option value="live">Live</option>
@@ -178,53 +186,72 @@ export default function AddCampaignForm({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        {/* Multi-Screen Selection (WOW Feature) */}
-        <div className="border border-gray-600 p-3 rounded-lg bg-[#1e293b]/50">
-          <label className="text-sm text-blue-400 font-semibold mb-2 block">Select Screens / Billboards *</label>
-          <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-2">
+        <div className="rounded-xl border border-[#2a2f37] bg-[#0f1216] p-3">
+          <label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.12em] text-[#d9b45a]">Select Screens / Billboards *</label>
+          <div className="grid max-h-48 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
             {inventory.map(screen => (
-              <label key={screen.id} className="flex items-center gap-3 p-2 rounded hover:bg-[#1e293b] cursor-pointer border border-gray-700">
-                <input type="checkbox" className="w-4 h-4 rounded bg-[#0f172a] border-gray-600"
+              <label key={screen.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-[#2a2f37] p-2 transition hover:border-[#c99b3b]/50">
+                <input type="checkbox" className="h-4 w-4"
                   checked={selectedScreens.includes(screen.id)}
                   onChange={() => handleScreenToggle(screen.id)} />
-                <div>
-                  <div className="text-sm font-medium">{screen.name}</div>
-                  <div className="text-xs text-gray-400">{screen.city} • {screen.rate} {screen.currency}/day</div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[12px] font-medium text-zinc-100">{screen.name}</div>
+                  <div className="text-[10px] text-zinc-500">
+                    {screen.city} &middot; {screen.rate} {screen.currency}/{screenCapacity(screen.screen_type, screen.specs) > 1 ? 'slot/day' : 'day'}
+                    {screenCapacity(screen.screen_type, screen.specs) > 1 ? ` \u{00B7} ${screenCapacity(screen.screen_type, screen.specs)} slots` : ''}
+                  </div>
                 </div>
+                {selectedScreens.includes(screen.id) && screenCapacity(screen.screen_type, screen.specs) > 1 && (
+                  <select
+                    title="Advertiser slots"
+                    className="rounded border border-[#2b3038] bg-[#0f1216] px-1 py-1 text-[11px] text-zinc-100"
+                    value={slotsFor[screen.id] || 1}
+                    onClick={(e: any) => e.stopPropagation()}
+                    onChange={(e: any) => setSlotsFor({ ...slotsFor, [screen.id]: Number(e.target.value) })}
+                  >
+                    {Array.from({ length: screenCapacity(screen.screen_type, screen.specs) }, (_, k) => k + 1).map((n) => (
+                      <option key={n} value={n}>{n} slot{n === 1 ? '' : 's'}</option>
+                    ))}
+                  </select>
+                )}
               </label>
             ))}
-            {inventory.length === 0 && <div className="text-sm text-gray-500 col-span-2">No screens in inventory. Add screens first.</div>}
+            {inventory.length === 0 && <div className="col-span-2 text-[12px] text-zinc-500">No screens in inventory. Add screens first.</div>}
           </div>
         </div>
 
-        {/* Booking Conflicts Warning */}
-        {checking && <div className="text-sm text-yellow-400">Checking availability...</div>}
+        {checking && <div className="text-[12px] text-amber-300">Checking availability...</div>}
         {conflicts.length > 0 && (
-          <div className="bg-red-900/30 border border-red-700 p-3 rounded-lg">
-            <p className="text-red-400 font-bold text-sm mb-1">⚠️ Double Booking Warning!</p>
-            <ul className="text-xs text-red-300 list-disc pl-4">
-              {conflicts.map((c, i) => (
-                <li key={i}>Screen is already booked for campaign: <b>{c.campaign_name}</b> ({c.start_date} to {c.end_date})</li>
+          <div className="rounded-lg border border-rose-400/30 bg-rose-400/10 p-3">
+            <p className="mb-1 text-[12px] font-bold text-rose-300">Double booking warning</p>
+            <ul className="list-disc pl-4 text-[11px] text-rose-200">
+              {avail.filter((a) => !a.fits).map((a) => (
+                <li key={a.inventory_id}>
+                  <b>{a.name}</b>: only {a.free} of {a.capacity} slot{a.capacity === 1 ? '' : 's'} free (you need {a.requested}).
+                  {a.bookings.map((b: any, i: number) => (
+                    <span key={i} className="block pl-1 text-rose-300/80">{b.campaign_name} ({b.start_date} to {b.end_date}), {b.slots} slot{b.slots === 1 ? '' : 's'}</span>
+                  ))}
+                </li>
               ))}
             </ul>
           </div>
         )}
 
-        {/* Auto Price Calculation (WOW Feature) */}
-        <div className="bg-[#1e293b] p-4 rounded-lg flex justify-between items-center border border-gray-600">
+        <div className="flex items-center justify-between rounded-xl border border-[#c99b3b]/30 bg-[#0f1216] p-4">
           <div>
-            <div className="text-sm text-gray-400">Total Estimated Budget</div>
-            <div className="text-xs text-gray-500">Auto-calculated based on days & screens</div>
+            <div className="text-[12px] text-zinc-300">Total Estimated Budget</div>
+            <div className="text-[10px] text-zinc-500">Auto-calculated from days and screens</div>
           </div>
-          <div className="text-2xl font-bold text-emerald-400">
-            {totalBudget.toLocaleString()} <span className="text-sm text-gray-400">PKR</span>
+          <div className="text-xl font-bold text-[#f1d68a]">
+            {totalBudget.toLocaleString()} <span className="text-[11px] text-zinc-400">{formData.currency}</span>
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-700">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-gray-400 hover:text-white">Cancel</button>
-          <button type="submit" disabled={saving || conflicts.length > 0} 
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-500 rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+        {error && <p className="text-[12px] text-rose-300">{error}</p>}
+
+        <div className="mt-2 flex justify-end gap-2 border-t border-[#2a2f37] pt-4">
+          <button type="button" onClick={onClose} className={FIN.btnText}>Cancel</button>
+          <button type="submit" disabled={saving || conflicts.length > 0} className={FIN.btnGold}>
             {saving ? "Saving..." : "Save Campaign"}
           </button>
         </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";     
+import React, { useEffect, useMemo, useState } from "react";
 import { getDefaultCurrency } from "@/lib/companyDefaults";
 import { FIN, SectionTitle } from "./financeUi";
 import { AGE_BUCKETS, ageingReport, campaignProfit, monthlyCashFlow } from "./financeTools";
@@ -70,7 +70,7 @@ const FinanceInsights: React.FC<{ invoices: any[]; payments: any[]; expenses: an
       {/* ================= CASH FLOW ================= */}
       <div className={`${FIN.panel} p-4`}>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <SectionTitle>Cash Flow â€” last 6 months</SectionTitle>
+          <SectionTitle>Cash Flow {"\u{2014}"} last 6 months</SectionTitle>
           <div className="flex items-center gap-3 text-[10px] text-zinc-400">
             <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-emerald-400" />Money in</span>
             <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-sm bg-rose-400" />Money out</span>
@@ -134,7 +134,7 @@ const FinanceInsights: React.FC<{ invoices: any[]; payments: any[]; expenses: an
         <div className="mb-3 flex items-center justify-between">
           <SectionTitle>Receivables Ageing</SectionTitle>
           <span className="text-[11px] text-zinc-400">
-            Outstanding: <b className="text-[#f1d68a]">{money(ageing.total)}</b> Â· {ageing.invoices} invoice{ageing.invoices === 1 ? "" : "s"}
+            Outstanding: <b className="text-[#f1d68a]">{money(ageing.total)}</b> {"\u{B7}"} {ageing.invoices} invoice{ageing.invoices === 1 ? "" : "s"}
           </span>
         </div>
 
@@ -176,7 +176,7 @@ const FinanceInsights: React.FC<{ invoices: any[]; payments: any[]; expenses: an
                       <td className={`${td} font-medium text-zinc-100`}>{r.client}</td>
                       {AGE_BUCKETS.map((b) => (
                         <td key={b.key} className={`${td} text-right ${r.buckets[b.key] ? "text-zinc-200" : "text-zinc-600"}`}>
-                          {r.buckets[b.key] ? money(r.buckets[b.key]) : "â€”"}
+                          {r.buckets[b.key] ? money(r.buckets[b.key]) : "\u{2014}"}
                         </td>
                       ))}
                       <td className={`${td} text-right font-semibold text-[#f1d68a]`}>{money(r.total)}</td>
@@ -187,7 +187,7 @@ const FinanceInsights: React.FC<{ invoices: any[]; payments: any[]; expenses: an
             </div>
           </>
         ) : (
-          <p className="py-6 text-center text-[12px] text-zinc-500">No outstanding invoices â€” everything is collected.</p>
+          <p className="py-6 text-center text-[12px] text-zinc-500">No outstanding invoices {"\u{2014}"} everything is collected.</p>
         )}
       </div>
 
@@ -195,7 +195,7 @@ const FinanceInsights: React.FC<{ invoices: any[]; payments: any[]; expenses: an
       <div className={`${FIN.panel} p-4`}>
         <div className="mb-3">
           <SectionTitle>Campaign Profitability</SectionTitle>
-          <p className="mt-1 text-[10px] text-zinc-500">Profit = payments collected on the campaign's invoices âˆ’ expenses tagged to that campaign.</p>
+          <p className="mt-1 text-[10px] text-zinc-500">Profit = payments collected on the campaign's invoices {"\u{2212}"} expenses tagged to that campaign.</p>
         </div>
         {profit.rows.length || profit.unlinked ? (
           <div className="overflow-x-auto">
@@ -222,7 +222,7 @@ const FinanceInsights: React.FC<{ invoices: any[]; payments: any[]; expenses: an
                     <td className={`${td} text-right text-rose-300`}>{money(r.expenses)}</td>
                     <td className={`${td} text-right font-semibold ${r.profit >= 0 ? "text-[#f1d68a]" : "text-rose-400"}`}>{money(r.profit)}</td>
                     <td className={`${td} text-right ${r.margin === null ? "text-zinc-600" : r.margin >= 0 ? "text-zinc-200" : "text-rose-400"}`}>
-                      {r.margin === null ? "â€”" : `${r.margin.toFixed(0)}%`}
+                      {r.margin === null ? "\u{2014}" : `${r.margin.toFixed(0)}%`}
                     </td>
                   </tr>
                 ))}

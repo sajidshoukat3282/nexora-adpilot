@@ -188,6 +188,17 @@ export const TopBar: React.FC<{ onMobileMenu: () => void }> = ({
         {new Date().toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })}
       </div>
 
+      {/* Guide */}
+      <button
+        type="button"
+        className="flex h-8 w-8 items-center justify-center rounded-md text-[13px] font-bold text-zinc-400 transition-colors hover:bg-white/5 hover:text-[#f1d68a]"
+        onClick={() => window.dispatchEvent(new Event("adpilot:open-guide"))}
+        aria-label="Open guide"
+        title="Guide: how this page works"
+      >
+        ?
+      </button>
+
       {/* Notifications */}
       <button
         type="button"

@@ -1,4 +1,4 @@
-import React from "react";      
+import React from "react";
 import { getDefaultCurrency } from "@/lib/companyDefaults";
 import { FDrawer, FIN, AmountWordsInline } from "./financeUi";
 import { useSession } from "@/hooks/useSession";
@@ -43,7 +43,7 @@ export const PaymentReceiptDrawer: React.FC<{
             {/* Top Actions (Hide during print) */}
             <div className="no-print flex justify-end border-b border-[#2a2f37] pb-3">
               <button onClick={handlePrint} className={FIN.btnGold}>
-                ðŸ–¨ï¸ Print / PDF Receipt
+                {"\u{1F5A8}\u{FE0F}"} Print / PDF Receipt
               </button>
             </div>
 

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { StatusBadge } from "@/components/ui/StatusBadge";
+import { FIN, SectionTitle } from "../finance/financeUi";
+import { inviteExpiry, needsResend, timeAgo } from "./adminTools";
 import { useSession } from "@/hooks/useSession";
 import { ROLE_LABELS, ROLE_PERMISSIONS } from "@/domain";
 import type { Permission, Role } from "@/domain";
@@ -64,7 +65,7 @@ const PermissionChecklist: React.FC<{
       return (
         <label
           key={perm}
-          className="flex items-center gap-2 text-sm text-ink-200 cursor-pointer"
+          className="flex items-center gap-2 text-[12px] text-zinc-200 cursor-pointer"
         >
           <input
             type="checkbox"
@@ -83,14 +84,21 @@ const PermissionChecklist: React.FC<{
   </div>
 );
 
+const PILL = "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold";
 function statusBadge(status: TeamMember["status"]) {
-  if (status === "active") return <StatusBadge label="Active" tone="green" />;
-  if (status === "invited") return <StatusBadge label="Invite pending" tone="amber" />;
-  if (status === "suspended") return <StatusBadge label="Suspended" tone="red" />;
-  return <StatusBadge label="Removed" tone="slate" />;
+  if (status === "active") return <span className={`${PILL} border-emerald-400/30 bg-emerald-400/10 text-emerald-300`}>Active</span>;
+  if (status === "invited") return <span className={`${PILL} border-amber-400/30 bg-amber-400/10 text-amber-300`}>Invite pending</span>;
+  if (status === "suspended") return <span className={`${PILL} border-rose-400/30 bg-rose-400/10 text-rose-300`}>Suspended</span>;
+  return <span className={`${PILL} border-zinc-500/30 text-zinc-400`}>Removed</span>;
 }
 
-export const TeamPanel: React.FC = () => {
+const BTN = `${FIN.btnGhost} !px-2 !py-1 !text-[11px]`;
+
+export const TeamPanel: React.FC<{
+  invites?: { membershipId: string; expiresAt: string }[];
+  onTeam?: (team: TeamResponse) => void;
+  onChanged?: () => void;
+}> = ({ invites = [], onTeam, onChanged }) => {
   const { refresh } = useSession();
   const [team, setTeam] = useState<TeamResponse | null>(null);
   const [loadError, setLoadError] = useState("");
@@ -112,11 +120,14 @@ export const TeamPanel: React.FC = () => {
 
   const load = useCallback(async () => {
     try {
-      setTeam(await getTeam());
+      const next = await getTeam();
+      setTeam(next);
+      onTeam?.(next);
       setLoadError("");
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Unable to load the team.");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -138,6 +149,7 @@ export const TeamPanel: React.FC = () => {
       setNotice({ tone: "ok", text: result.message });
       await load();
       await refresh();
+      onChanged?.();
       return true;
     } catch (err) {
       setNotice({
@@ -190,27 +202,59 @@ export const TeamPanel: React.FC = () => {
     await run(() => memberAction(member.membershipId, action));
   }
 
+  const expiryOf = (id: string) => inviteExpiry(invites.find((i) => i.membershipId === id)?.expiresAt);
+  const resendTargets = (team?.members ?? []).filter((m) => m.status === "invited" && needsResend(expiryOf(m.membershipId)));
+
+  async function resendAll() {
+    if (resendTargets.length === 0) return;
+    setBusy(true);
+    setNotice(null);
+    let ok = 0;
+    for (const m of resendTargets) {
+      try {
+        await memberAction(m.membershipId, "resend-invite");
+        ok += 1;
+      } catch {
+        /* keep going */
+      }
+    }
+    setNotice({
+      tone: ok === resendTargets.length ? "ok" : "error",
+      text: `${ok} of ${resendTargets.length} invitations re-sent.`,
+    });
+    setBusy(false);
+    await load();
+    onChanged?.();
+  }
+
   return (
-    <div className="panel p-5 mb-5">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+    <div className={`${FIN.panel} p-4 mb-4`}>
+      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="font-semibold text-ink-50">Team</h3>
-          <p className="text-xs text-ink-500 mt-0.5">
-            {team ? `${team.seats.used} of ${team.seats.limit} seats used` : "Loading…"}
+          <SectionTitle>Team</SectionTitle>
+          <p className="mt-1 text-[11px] text-zinc-500">
+            {team ? `${team.seats.used} of ${team.seats.limit} seats used` : "Loading\u{2026}"}
           </p>
         </div>
-        <button
-          type="button"
-          className="btn-primary"
-          disabled={!team || seatsFull}
-          onClick={() => setShowInvite((v) => !v)}
-        >
-          {showInvite ? "Close" : "Invite employee"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          {resendTargets.length > 0 && (
+            <button type="button" className={FIN.btnGhost} disabled={busy} onClick={resendAll}>
+              Resend {resendTargets.length} expiring invite{resendTargets.length > 1 ? "s" : ""}
+            </button>
+          )}
+          <button
+            type="button"
+            className={FIN.btnGold}
+            disabled={!team || seatsFull}
+            onClick={() => setShowInvite((v) => !v)}
+          >
+            {showInvite ? "Close" : "Invite employee"}
+          </button>
+        </div>
       </div>
 
       {seatsFull && (
-        <div className="text-xs text-signal-amber bg-signal-amber/10 border border-signal-amber/25 rounded-lg px-3 py-2 mb-4">
+        <div className="mb-3 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-[11px] text-amber-300">
           All seats are in use. Remove a member or upgrade your plan to invite more people.
         </div>
       )}
@@ -220,42 +264,37 @@ export const TeamPanel: React.FC = () => {
           role="status"
           className={
             notice.tone === "ok"
-              ? "text-sm text-signal-green bg-signal-green/10 border border-signal-green/25 rounded-lg px-3 py-2 mb-4"
-              : "text-sm text-signal-red bg-signal-red/10 border border-signal-red/25 rounded-lg px-3 py-2 mb-4"
+              ? "mb-3 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-[12px] text-emerald-300"
+              : "mb-3 rounded-lg border border-rose-400/30 bg-rose-400/10 px-3 py-2 text-[12px] text-rose-300"
           }
         >
           {notice.text}
         </div>
       )}
 
-      {loadError && (
-        <div className="text-sm text-signal-red mb-4">{loadError}</div>
-      )}
+      {loadError && <div className="mb-3 text-[12px] text-rose-300">{loadError}</div>}
 
       {showInvite && (
-        <form
-          onSubmit={submitInvite}
-          className="rounded-xl border border-ink-700/60 bg-ink-850 p-4 mb-5 space-y-4"
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <form onSubmit={submitInvite} className="mb-4 space-y-4 rounded-xl border border-[#c99b3b]/25 bg-[#0f1216] p-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="label" htmlFor="invite-email">Email address</label>
+              <label className={FIN.label} htmlFor="invite-email">Email address</label>
               <input
                 id="invite-email"
                 type="email"
                 required
-                className="input w-full"
+                className={FIN.input}
                 value={email}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
               />
             </div>
             <div>
-              <label className="label" htmlFor="invite-title">Job title (optional)</label>
+              <label className={FIN.label} htmlFor="invite-title">Job title (optional)</label>
               <input
                 id="invite-title"
                 type="text"
                 maxLength={80}
-                className="input w-full"
+                className={FIN.input}
                 value={designation}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDesignation(e.target.value)}
               />
@@ -263,10 +302,10 @@ export const TeamPanel: React.FC = () => {
           </div>
 
           <div>
-            <label className="label" htmlFor="invite-role">Role (fills the permissions below)</label>
+            <label className={FIN.label} htmlFor="invite-role">Role (fills the permissions below)</label>
             <select
               id="invite-role"
-              className="input w-full sm:w-72"
+              className={`${FIN.input} sm:w-72`}
               value={role}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) => chooseRole(e.target.value as Role)}
             >
@@ -277,69 +316,87 @@ export const TeamPanel: React.FC = () => {
           </div>
 
           <div>
-            <div className="text-xs font-semibold text-ink-400 mb-2">
-              This employee can access:
-            </div>
+            <div className={FIN.label}>This employee can access:</div>
             <PermissionChecklist value={perms} onChange={setPerms} />
           </div>
 
           <div className="flex gap-2">
-            <button type="submit" className="btn-primary" disabled={busy}>
-              {busy ? "Sending…" : "Send invitation"}
+            <button type="submit" className={FIN.btnGold} disabled={busy}>
+              {busy ? "Sending\u{2026}" : "Send invitation"}
             </button>
-            <button type="button" className="btn-secondary" onClick={() => setShowInvite(false)}>
+            <button type="button" className={FIN.btnText} onClick={() => setShowInvite(false)}>
               Cancel
             </button>
           </div>
         </form>
       )}
 
-      <div className="divide-y divide-ink-800">
+      <div className="divide-y divide-[#1d2128]">
         {team?.members.map((m) => {
           const isOwner = m.accountType === "owner";
           const editing = editingId === m.membershipId;
+          const expiry = m.status === "invited" ? expiryOf(m.membershipId) : null;
           return (
-            <div key={m.membershipId} className="py-3">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-ink-700 flex items-center justify-center text-xs font-bold text-ink-100 shrink-0">
+            <div key={m.membershipId} className="py-2.5">
+              <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-[#f1d68a] to-[#a97b22] text-[12px] font-bold text-[#1a1204]">
                     {m.email.charAt(0).toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <div className="text-sm font-medium text-ink-100 truncate">
+                    <div className="truncate text-[12px] font-medium text-zinc-100">
                       {m.email}{m.isYou ? " (you)" : ""}
                     </div>
-                    <div className="text-xs text-ink-500 capitalize">
-                      {isOwner ? "Owner" : m.designation || ROLE_LABELS[m.role]}
+                    <div className="flex flex-wrap items-center gap-x-2 text-[11px] text-zinc-500">
+                      <span className="capitalize">{isOwner ? "Owner" : m.designation || ROLE_LABELS[m.role]}</span>
+                      {m.status === "active" && <span>{"\u{B7}"} Last login {timeAgo(m.lastLoginAt)}</span>}
+                      {m.status === "invited" && <span>{"\u{B7}"} Invited {timeAgo(m.createdAt)}</span>}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  {isOwner ? <StatusBadge label="Owner — full access" tone="cyan" dot={false} /> : statusBadge(m.status)}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {isOwner ? (
+                    <span className={`${PILL} border-sky-400/30 bg-sky-400/10 text-sky-300`}>Owner {"\u{2014}"} full access</span>
+                  ) : (
+                    statusBadge(m.status)
+                  )}
+                  {expiry && (
+                    <span
+                      className={`${PILL} ${
+                        expiry.tone === "expired"
+                          ? "border-rose-400/30 bg-rose-400/10 text-rose-300"
+                          : expiry.tone === "soon"
+                            ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
+                            : "border-zinc-500/30 text-zinc-400"
+                      }`}
+                    >
+                      {expiry.label}
+                    </span>
+                  )}
                   {!isOwner && (
                     <>
                       {m.status !== "removed" && (
-                        <button className="btn-secondary !py-1 !px-2 text-xs" disabled={busy} onClick={() => (editing ? setEditingId(null) : startEdit(m))}>
+                        <button className={BTN} disabled={busy} onClick={() => (editing ? setEditingId(null) : startEdit(m))}>
                           {editing ? "Close" : "Permissions"}
                         </button>
                       )}
                       {m.status === "invited" && (
-                        <button className="btn-secondary !py-1 !px-2 text-xs" disabled={busy} onClick={() => act(m, "resend-invite")}>
+                        <button className={BTN} disabled={busy} onClick={() => act(m, "resend-invite")}>
                           Resend invite
                         </button>
                       )}
                       {m.status === "active" && (
-                        <button className="btn-secondary !py-1 !px-2 text-xs" disabled={busy} onClick={() => act(m, "suspend")}>
+                        <button className={BTN} disabled={busy} onClick={() => act(m, "suspend")}>
                           Suspend
                         </button>
                       )}
                       {m.status === "suspended" && (
-                        <button className="btn-secondary !py-1 !px-2 text-xs" disabled={busy} onClick={() => act(m, "reactivate")}>
+                        <button className={BTN} disabled={busy} onClick={() => act(m, "reactivate")}>
                           Reactivate
                         </button>
                       )}
-                      <button className="btn-secondary !py-1 !px-2 text-xs text-signal-red" disabled={busy} onClick={() => act(m, "remove")}>
+                      <button className={`${BTN} !text-rose-300`} disabled={busy} onClick={() => act(m, "remove")}>
                         Remove
                       </button>
                     </>
@@ -347,22 +404,28 @@ export const TeamPanel: React.FC = () => {
                 </div>
               </div>
 
+              {!isOwner && m.status !== "removed" && !editing && (
+                <p className="mt-1.5 pl-11 text-[10px] text-zinc-600">
+                  {m.permissions.length} of {GRANTABLE.length} permissions
+                </p>
+              )}
+
               {editing && (
-                <div className="mt-3 rounded-xl border border-ink-700/60 bg-ink-850 p-4 space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="mt-3 space-y-4 rounded-xl border border-[#c99b3b]/25 bg-[#0f1216] p-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
-                      <label className="label">Job title</label>
+                      <label className={FIN.label}>Job title</label>
                       <input
-                        className="input w-full"
+                        className={FIN.input}
                         maxLength={80}
                         value={editTitle}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditTitle(e.target.value)}
                       />
                     </div>
                     <div>
-                      <label className="label">Role</label>
+                      <label className={FIN.label}>Role</label>
                       <select
-                        className="input w-full"
+                        className={FIN.input}
                         value={editRole}
                         onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEditRole(e.target.value as Role)}
                       >
@@ -374,10 +437,10 @@ export const TeamPanel: React.FC = () => {
                   </div>
                   <PermissionChecklist value={editPerms} onChange={setEditPerms} disabled={busy} />
                   <div className="flex gap-2">
-                    <button className="btn-primary" disabled={busy} onClick={() => saveEdit(m)}>
-                      {busy ? "Saving…" : "Save permissions"}
+                    <button className={FIN.btnGold} disabled={busy} onClick={() => saveEdit(m)}>
+                      {busy ? "Saving\u{2026}" : "Save permissions"}
                     </button>
-                    <button className="btn-secondary" onClick={() => setEditingId(null)}>
+                    <button className={FIN.btnText} onClick={() => setEditingId(null)}>
                       Cancel
                     </button>
                   </div>
@@ -387,7 +450,7 @@ export const TeamPanel: React.FC = () => {
           );
         })}
         {team && team.members.length === 0 && (
-          <div className="py-4 text-sm text-ink-500">No team members yet.</div>
+          <div className="py-4 text-[12px] text-zinc-500">No team members yet.</div>
         )}
       </div>
     </div>

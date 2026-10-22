@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";    
+import React, { useEffect, useState } from "react";
 import { getDefaultCurrency } from "@/lib/companyDefaults";
 import { FDrawer, FIN, AmountWordsInline, statusPill } from "./financeUi";
 import { useCompanyProfile } from "@/hooks/useCompanyProfile";
@@ -156,10 +156,10 @@ export const InvoiceDetailDrawer: React.FC<{
               </span>
               <div className="flex items-center gap-2">
                 <button onClick={handleCopyLink} className={FIN.btnGhost}>
-                  {copied ? "âœ“ Copied" : "Share"}
+                  {copied ? "\u{2713} Copied" : "Share"}
                 </button>
                 <button onClick={handlePrint} className={FIN.btnGold}>
-                  ðŸ–¨ï¸ Print / PDF
+                  {"\u{1F5A8}\u{FE0F}"} Print / PDF
                 </button>
               </div>
             </div>
@@ -167,14 +167,14 @@ export const InvoiceDetailDrawer: React.FC<{
             {/* Share / remind row (hidden during print) */}
             <div className="no-print flex flex-wrap items-center gap-2">
               <button onClick={handleWhatsApp} className={FIN.btnGhost} title={clientPhone ? `WhatsApp +${clientPhone}` : "Choose a contact in WhatsApp"}>
-                ðŸ’¬ WhatsApp
+                {"\u{1F4AC}"} WhatsApp
               </button>
               <button onClick={handleEmail} className={FIN.btnGhost} title={clientEmail || "Opens your email app"}>
-                âœ‰ï¸ Email
+                {"\u{2709}\u{FE0F}"} Email
               </button>
               {balanceDue > 0 && (
                 <button onClick={handleSendReminder} disabled={sending} className={`${FIN.btnGhost} disabled:opacity-50`}>
-                  {sending ? "Sendingâ€¦" : "ðŸ”” Send Reminder"}
+                  {sending ? "Sending\u{2026}" : "\u{1F514} Send Reminder"}
                 </button>
               )}
             </div>
@@ -316,7 +316,7 @@ export const InvoiceDetailDrawer: React.FC<{
                   <ul className="space-y-0.5">
                     {reminders.slice(0, 5).map((r: any) => (
                       <li key={r.id} className="flex justify-between text-[11px] text-zinc-400">
-                        <span>{String(r.sent_at).slice(0, 16).replace("T", " ")} Â· {r.kind === "auto" ? "auto" : "manual"}</span>
+                        <span>{String(r.sent_at).slice(0, 16).replace("T", " ")} {"\u{B7}"} {r.kind === "auto" ? "auto" : "manual"}</span>
                         <span className={r.status === "sent" ? "text-emerald-400" : "text-rose-400"}>{r.status}</span>
                       </li>
                     ))}

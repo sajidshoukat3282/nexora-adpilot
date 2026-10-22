@@ -1,5 +1,5 @@
-import React, { useState } from 'react';     
-import { FIN, ModalTitle } from '../finance/financeUi';       
+import React, { useState } from 'react';
+import { FIN, ModalTitle } from '../finance/financeUi';  
 import { findDuplicates } from './crmTools';
 import { getDefaultCurrency } from '@/lib/companyDefaults';
 

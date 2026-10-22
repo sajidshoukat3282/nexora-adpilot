@@ -7,24 +7,26 @@ import { CityMap } from "./CityMap";
 import { AssetDetailDrawer } from "./AssetDetailDrawer";
 import { useSearchParams } from "@/lib/router";
 import type { MediaAsset, MediaType, AssetOperationalStatus } from "@/domain";
-import { MEDIA_TYPE_LABELS, mediaCategory, formatMoney, money } from "@/domain";
+import { MEDIA_TYPE_LABELS } from "@/domain";
 import AddInventoryForm from "./AddInventoryForm";
+import { DIGITAL_KINDS, STATIC_KINDS, mapInventory, rateSuffix } from "./inventoryTools";
 
 const DEFAULT_CITIES = ["Lahore", "Karachi", "Islamabad"];
-const ALL_MEDIA_TYPES = Object.keys(MEDIA_TYPE_LABELS) as MediaType[];
+const ALL_KINDS = [...DIGITAL_KINDS, ...STATIC_KINDS];
 
 export const InventoryPage: React.FC = () => {
   const [view, setView] = useState<"map" | "list">("map");
   const [activeCity, setActiveCity] = useState(DEFAULT_CITIES[0]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<"all" | "static" | "digital">("all");
-  const [mediaType, setMediaType] = useState<MediaType | "">("");
+  const [mediaType, setMediaType] = useState<string>("");
   const [status, setStatus] = useState<AssetOperationalStatus | "">("");
   const [selected, setSelected] = useState<MediaAsset | null>(null);
 
   const [assetsData, setAssetsData] = useState<MediaAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
 
   const fetchInventory = async () => {
     setLoading(true);
@@ -33,27 +35,7 @@ export const InventoryPage: React.FC = () => {
       const result = await res.json();
       
       if (result.ok) {
-        const mappedData = result.data.map((item: any) => ({
-          id: item.id,
-          name: item.name,
-          code: `INV-${item.id.substring(0, 4).toUpperCase()}`,
-          mediaType: item.screen_type === 'digital' ? 'digital_billboard' : 'static_billboard', 
-          location: {
-            city: item.city || 'Unknown',
-            address: item.location || 'No address provided',
-            lat: item.latitude || 0,
-            lng: item.longitude || 0,
-          },
-          // Fallback values taake Drawer crash na ho
-          pricing: {
-            baseDailyRateCents: item.rate || 0,
-            currency: item.currency || 'PKR',
-            premiumTimeMultiplier: 1,
-          },
-          dimensions: { widthFt: 20, heightFt: 10 },
-          audience: { estimatedDailyImpressions: 15000, trafficNote: 'Estimated traffic data' },
-          operationalStatus: item.status || 'online',
-        }));
+        const mappedData = result.data.map((item: any) => mapInventory(item));
         setAssetsData(mappedData as any);
       }
     } catch (error) {
@@ -70,8 +52,8 @@ export const InventoryPage: React.FC = () => {
   const filteredAssets = useMemo(() => {
     return assetsData.filter((a: any) => {
       const matchSearch = a.name.toLowerCase().includes(search.toLowerCase()) || a.code.toLowerCase().includes(search.toLowerCase());
-      const matchCategory = category === "all" || mediaCategory(a.mediaType) === category;
-      const matchMediaType = mediaType ? a.mediaType === mediaType : true;
+      const matchCategory = category === "all" || a.screenType === category;
+      const matchMediaType = mediaType ? a.kind === mediaType : true;
       const matchStatus = status ? a.operationalStatus === status : true;
       return matchSearch && matchCategory && matchMediaType && matchStatus;
     });
@@ -134,10 +116,10 @@ export const InventoryPage: React.FC = () => {
           <option value="static">Static</option>
           <option value="digital">Digital</option>
         </select>
-        <select className="input w-auto" value={mediaType} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMediaType(e.target.value as MediaType | "")}>
+        <select className="input w-auto" value={mediaType} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMediaType(e.target.value)}>
           <option value="">All Media Types</option>
-          {ALL_MEDIA_TYPES.map((t) => (
-            <option key={t} value={t}>{MEDIA_TYPE_LABELS[t]}</option>
+          {ALL_KINDS.map((t) => (
+            <option key={t.value} value={t.value}>{t.label}</option>
           ))}
         </select>
         <select className="input w-auto" value={status} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setStatus(e.target.value as AssetOperationalStatus | "")}>
@@ -200,15 +182,24 @@ export const InventoryPage: React.FC = () => {
         </>
       )}
 
-      <AssetDetailDrawer asset={selected} onClose={() => setSelected(null)} />
+      <AssetDetailDrawer
+        asset={selected}
+        onClose={() => setSelected(null)}
+        onEdit={(a: any) => {
+          setSelected(null);
+          setEditing(a);
+        }}
+      />
 
-      {showAddForm && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <AddInventoryForm 
-            onClose={() => { 
-              setShowAddForm(false); 
-              fetchInventory(); 
-            }} 
+      {(showAddForm || editing) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <AddInventoryForm
+            asset={editing ?? undefined}
+            onClose={() => {
+              setShowAddForm(false);
+              setEditing(null);
+              fetchInventory();
+            }}
           />
         </div>
       )}
@@ -226,17 +217,17 @@ const assetColumns: ColumnDef<MediaAsset>[] = [
       </div>
     ),
   },
-  { key: "type", header: "Type", sortValue: (a) => a.mediaType, render: (a) => <span className="text-ink-300 text-sm">{MEDIA_TYPE_LABELS[a.mediaType] || a.mediaType}</span> },
+  { key: "type", header: "Type", sortValue: (a) => a.mediaType, render: (a) => <span className="text-ink-300 text-sm">{(a as any).kindLabel || MEDIA_TYPE_LABELS[a.mediaType] || a.mediaType}</span> },
   { key: "city", header: "City", sortValue: (a) => a.location.city, render: (a) => <span className="text-ink-300 text-sm">{a.location.city}</span> },
   {
     key: "category", header: "Category",
-    render: (a) => <span className="text-xs text-ink-400">{mediaCategory(a.mediaType) === "digital" ? "Digital" : "Static"}</span>,
+    render: (a) => <span className="text-xs text-ink-400">{(a as any).screenType === "digital" ? "Digital" : "Static"}</span>,
   },
   {
-    key: "price", header: "Rate/day", sortValue: (a) => a.pricing.baseDailyRateCents,
+    key: "price", header: "Rate", sortValue: (a) => a.pricing.baseDailyRateCents,
     render: (a) => (
       <span className="text-ink-100 font-semibold text-sm">
-        {formatMoney(money(a.pricing.baseDailyRateCents, (a.pricing as any).currency))}
+        {(a.pricing as any).currency} {Number(a.pricing.baseDailyRateCents).toLocaleString("en-US")}{rateSuffix((a.pricing as any).basis)}
       </span>
     ),
   },

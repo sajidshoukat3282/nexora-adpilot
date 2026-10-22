@@ -1,5 +1,5 @@
 import React from "react";
-import { getDefaultDialCode } from "@/lib/companyDefaults";     
+import { getDefaultDialCode } from "@/lib/companyDefaults";
 
 /**
  * Pure helpers for the Finance extras (no extra npm packages needed):

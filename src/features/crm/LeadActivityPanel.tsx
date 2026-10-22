@@ -1,4 +1,4 @@
-import React, { useState } from "react";        
+import React, { useState } from "react";
 import { FDrawer, FIN } from "../finance/financeUi";
 import { mailtoUrl, normalizePhone, smsUrl, whatsappUrl } from "../finance/financeTools";
 import { getDefaultDialCode } from "@/lib/companyDefaults";  
@@ -23,15 +23,15 @@ import {
 /* ------------------------------------------------------------------ */
 
 export const KIND_ICON: Record<string, string> = {
-  note: "ðŸ“",
-  call: "ðŸ“ž",
-  meeting: "ðŸ¤",
-  whatsapp: "ðŸ’¬",
-  email: "âœ‰ï¸",
+  note: "\u{1F4DD}",
+  call: "\u{1F4DE}",
+  meeting: "\u{1F91D}",
+  whatsapp: "\u{1F4AC}",
+  email: "\u{2709}\u{FE0F}",
 };
 
 export const TIER_STYLE: Record<string, { label: string; cls: string }> = {
-  hot: { label: "ðŸ”¥ Hot", cls: "border-rose-400/40 bg-rose-500/10 text-rose-300" },
+  hot: { label: "\u{1F525} Hot", cls: "border-rose-400/40 bg-rose-500/10 text-rose-300" },
   warm: { label: "Warm", cls: "border-amber-400/40 bg-amber-500/10 text-amber-300" },
   cold: { label: "Cold", cls: "border-sky-400/30 bg-sky-500/10 text-sky-300" },
   closed: { label: "Closed", cls: "border-zinc-500/30 bg-zinc-500/10 text-zinc-400" },
@@ -41,7 +41,7 @@ export const TierBadge: React.FC<{ score: LeadScore }> = ({ score }) => {
   const s = TIER_STYLE[score.tier];
   return (
     <span
-      title={score.reasons.join(" Â· ") || undefined}
+      title={score.reasons.join(" \u{B7} ") || undefined}
       className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${s.cls}`}
     >
       {s.label}
@@ -119,7 +119,7 @@ export const TemplateSender: React.FC<{
           onClick={() => window.open(whatsappUrl(wa, text), "_blank", "noopener")}
           className={FIN.btnGold}
         >
-          ðŸ’¬ Send on WhatsApp
+          {"\u{1F4AC}"} Send on WhatsApp
         </button>
         {wa && getDefaultDialCode() === "1" && (
           <button
@@ -129,7 +129,7 @@ export const TemplateSender: React.FC<{
             }}
             className={FIN.btnGhost}
           >
-            ðŸ“± SMS
+            {"\u{1F4F1}"} SMS
           </button>
         )}
         {email && (
@@ -140,11 +140,11 @@ export const TemplateSender: React.FC<{
             }}
             className={FIN.btnGhost}
           >
-            âœ‰ï¸ Email
+            {"\u{2709}\u{FE0F}"} Email
           </button>
         )}
         <button type="button" onClick={copy} className={FIN.btnGhost}>
-          {copied ? "âœ“ Copied" : "Copy"}
+          {copied ? "\u{2713} Copied" : "Copy"}
         </button>
       </div>
       {!wa && <p className="mt-1.5 text-[10px] text-zinc-500">No phone saved - WhatsApp will let you pick a contact.</p>}
@@ -271,7 +271,7 @@ export const ActivityList: React.FC<{
         const state = a.done ? "none" : followUpState(a.follow_up_date ? String(a.follow_up_date).slice(0, 10) : undefined, today);
         return (
           <li key={a.id} className="flex gap-2.5 rounded-lg border border-[#22262d] bg-[#0f1216] p-2.5">
-            <span className="mt-0.5 text-[14px]">{KIND_ICON[a.kind] ?? "ðŸ“"}</span>
+            <span className="mt-0.5 text-[14px]">{KIND_ICON[a.kind] ?? "\u{1F4DD}"}</span>
             <div className="min-w-0 flex-1">
               {a.note && <p className="whitespace-pre-wrap break-words text-[12px] text-zinc-200">{a.note}</p>}
               <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-zinc-500">
@@ -334,7 +334,7 @@ export const LeadActivityPanel: React.FC<{
           </div>
 
           {score.reasons.length > 0 && (
-            <p className="text-[11px] text-zinc-500">Why this score: {score.reasons.join(" Â· ")}</p>
+            <p className="text-[11px] text-zinc-500">Why this score: {score.reasons.join(" \u{B7} ")}</p>
           )}
 
           <div className="grid grid-cols-2 gap-2 text-[12px]">

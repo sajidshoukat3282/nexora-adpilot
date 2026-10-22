@@ -1,4 +1,4 @@
-import React, { useState } from "react";           
+import React, { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { MobileNav } from "./MobileNav";
@@ -6,6 +6,7 @@ import { useSession } from "@/hooks/useSession";
 import { useCompanyProfile } from "@/hooks/useCompanyProfile";
 import { Link } from "@/lib/router";
 import { setCompanyDefaults } from "@/lib/companyDefaults";
+import { GuideHost } from "@/features/guide/GuideHost";
 
 const PRINT_CSS = `
 @media print {
@@ -76,6 +77,7 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({
           </main>
         </div>
       </div>
+      <GuideHost />
     </div>
   );
 };

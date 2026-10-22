@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FIN, ModalTitle } from './financeUi';
+import { depositPayment, getAccounts, type CashAccount } from '@/lib/api/accounting';
 
 export default function AddPaymentForm({ onClose, onSuccess }: { onClose: () => void, onSuccess: () => void }) {
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -10,11 +11,17 @@ export default function AddPaymentForm({ onClose, onSuccess }: { onClose: () => 
     payment_method: 'Bank Transfer', received_by: '', reference_no: ''
   });
   const [saving, setSaving] = useState(false);
+  const [accounts, setAccounts] = useState<CashAccount[]>([]);
+  const [accountId, setAccountId] = useState('');
 
   useEffect(() => {
     fetch('/api/invoices').then(r => r.json()).then(d => {
       if(d.ok) setInvoices(d.data.filter((inv:any) => inv.status !== 'paid' && inv.status !== 'cancelled'));
     });
+  }, []);
+
+  useEffect(() => {
+    getAccounts().then((a) => { setAccounts(a); if (a.length === 1) setAccountId(a[0].id); }).catch(() => setAccounts([]));
   }, []);
 
   const handleInvoiceSelect = (e: any) => {
@@ -47,7 +54,15 @@ export default function AddPaymentForm({ onClose, onSuccess }: { onClose: () => 
       const data = await res.json();
 
       if (res.ok && data.ok) {
-        alert('Payment Recorded Successfully!');
+        let linkNote = '';
+        if (accountId && data.id) {
+          try {
+            await depositPayment(data.id, accountId);
+          } catch (linkErr: any) {
+            linkNote = ' (It could not be added to the account. You can link it from Finance > Accounts.)';
+          }
+        }
+        alert('Payment Recorded Successfully!' + linkNote);
         onSuccess();
         onClose();
       } else {
@@ -101,7 +116,7 @@ export default function AddPaymentForm({ onClose, onSuccess }: { onClose: () => 
           <div>
             <label className={FIN.label}>Amount Received *</label>
             <input required type="number" min="1" step="any" className={`${FIN.input} font-semibold`} value={formData.amount} onChange={(e: any) => setFormData({...formData, amount: Number(e.target.value)})} />
-            <p className="mt-1 text-[10px] text-zinc-500">Aap yahan partial amount bhi daal sakte hain.</p>
+            <p className="mt-1 text-[10px] text-zinc-500">You can enter a partial amount.</p>
           </div>
           <div>
             <label className={FIN.label}>Date *</label>
@@ -125,6 +140,18 @@ export default function AddPaymentForm({ onClose, onSuccess }: { onClose: () => 
             <input required type="text" className={FIN.input} onChange={(e: any) => setFormData({...formData, received_by: e.target.value})} placeholder="e.g. Ali" />
           </div>
         </div>
+
+        {accounts.length > 0 && (
+          <div>
+            <label className={FIN.label}>Deposit to account (optional)</label>
+            <select className={FIN.input} value={accountId} onChange={(e: any) => setAccountId(e.target.value)}>
+              <option value="">Do not track</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div>
           <label className={FIN.label}>Reference No (Optional)</label>

@@ -6,6 +6,12 @@ import {
 } from '../auth/session';
 import { hashPassword } from '../auth/password';
 import { handleCompanyRoutes } from '../company/companyRoutes';
+import { handleAdminRoutes, logAudit, memberEmail } from '../admin/adminRoutes';
+import { handleAccountingRoutes } from '../finance/accountingRoutes';
+import { handleInventoryRoutes } from '../inventory/inventoryRoutes';
+import { handleCampaignRoutes } from '../campaigns/campaignRoutes';
+import { handleCampaignExtras } from '../campaigns/campaignExtras';
+import { handleCampaignSlots } from '../campaigns/campaignSlots';
 import {
   ROLE_PERMISSIONS,
   type Permission,
@@ -818,7 +824,7 @@ async function acceptInvitation(request: Request, env: Env): Promise<Response> {
     return fail(400, 'INVALID_TOKEN', 'This invitation link is invalid or has expired.');
   }
   if (password.length < 12 || password.length > 256) {
-    return fail(400, 'INVALID_INPUT', 'Password must contain 12–256 characters.');
+    return fail(400, 'INVALID_INPUT', 'Password must contain 12\u{2013}256 characters.');
   }
 
   // Hash first so a slow hash can never leave a consumed-but-unused token.
@@ -900,8 +906,32 @@ export async function handleTeamRoutes(
   const path = url.pathname;
 
   // Company profile routes (/api/company/profile) share this entry point.
+  const adminResponse = await handleAdminRoutes(request, env, url);
+  if (adminResponse) return adminResponse;
+
+  const accountingResponse = await handleAccountingRoutes(request, env, url);
+  if (accountingResponse) return accountingResponse;
+
+  const inventoryResponse = await handleInventoryRoutes(request, env, url);
+  if (inventoryResponse) return inventoryResponse;
+
+  const slotsResponse = await handleCampaignSlots(request, env, url);
+  if (slotsResponse) return slotsResponse;
+
+  const extrasResponse = await handleCampaignExtras(request, env, url);
+  if (extrasResponse) return extrasResponse;
+
+  const campaignResponse = await handleCampaignRoutes(request, env, url);
+  if (campaignResponse) return campaignResponse;
+
   const companyResponse = await handleCompanyRoutes(request, env, url);
-  if (companyResponse) return companyResponse;
+  if (companyResponse) {
+    if (request.method === 'PUT' && companyResponse.status === 200) {
+      const s = await resolveSession(request, env.DB).catch(() => null);
+      if (s) await logAudit(env, s.companyId, s.accountId, 'Company profile updated');
+    }
+    return companyResponse;
+  }
 
   try {
     if (path === '/api/auth/invitation' && request.method === 'GET') {
@@ -914,14 +944,34 @@ export async function handleTeamRoutes(
       return await listTeam(request, env);
     }
     if (path === '/api/team/invite' && request.method === 'POST') {
-      return await inviteMember(request, env);
+      const inviteEmail = await request.clone().json().then((b: any) => String(b?.email ?? '')).catch(() => '');
+      const res = await inviteMember(request, env);
+      if (res.status === 200) {
+        const s = await resolveSession(request, env.DB).catch(() => null);
+        if (s) await logAudit(env, s.companyId, s.accountId, 'Employee invited', inviteEmail);
+      }
+      return res;
     }
 
     const match = path.match(
       /^\/api\/team\/([0-9a-fA-F-]{36})\/(permissions|suspend|reactivate|remove|resend-invite)$/,
     );
     if (match && request.method === 'POST') {
-      return await memberAction(request, env, match[1], match[2]);
+      const res = await memberAction(request, env, match[1], match[2]);
+      if (res.status === 200) {
+        const s = await resolveSession(request, env.DB).catch(() => null);
+        if (s) {
+          const labels: Record<string, string> = {
+            permissions: 'Permissions updated',
+            suspend: 'Member suspended',
+            reactivate: 'Member reactivated',
+            remove: 'Member removed',
+            'resend-invite': 'Invitation re-sent',
+          };
+          await logAudit(env, s.companyId, s.accountId, labels[match[2]] ?? match[2], await memberEmail(env, match[1]));
+        }
+      }
+      return res;
     }
   } catch (error) {
     const detail = error instanceof Error ? error.message : '';

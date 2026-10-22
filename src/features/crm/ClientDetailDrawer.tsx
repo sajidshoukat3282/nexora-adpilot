@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";    
+import React, { useState, useEffect } from "react";
 import { StatusBadge, campaignStatusTone, proposalStatusTone, invoiceStatusTone } from "@/components/ui/StatusBadge";
 import { Skeleton } from "@/components/ui/Feedback";
 import { useAsync } from "@/hooks/useAsync";  
@@ -99,11 +99,11 @@ export const ClientDetailDrawer: React.FC<{ client: Client | null; onClose: () =
     ? [
         ...allInvoices
           .filter((i) => i.client_id === client.id && i.status !== "draft")
-          .map((i) => ({ at: String(i.issue_date || i.created_at || "").slice(0, 10), icon: "ðŸ§¾", text: `Invoice ${i.invoice_number} - ${money(Number(i.total_amount) || 0, i.currency || getDefaultCurrency())} (${i.status})` })),
+          .map((i) => ({ at: String(i.issue_date || i.created_at || "").slice(0, 10), icon: "\u{1F9FE}", text: `Invoice ${i.invoice_number} - ${money(Number(i.total_amount) || 0, i.currency || getDefaultCurrency())} (${i.status})` })),
         ...allCampaigns
           .filter((c) => c.client_id === client.id)
-          .map((c) => ({ at: String(c.start_date || c.created_at || "").slice(0, 10), icon: "ðŸ“£", text: `Campaign "${c.name}" ${c.status} (${String(c.start_date || "").slice(0, 10)} to ${String(c.end_date || "").slice(0, 10)})` })),
-        ...activities.map((a) => ({ at: String(a.created_at).slice(0, 10), icon: "ðŸ“", text: `${a.kind}${a.note ? `: ${a.note}` : ""}` })),
+          .map((c) => ({ at: String(c.start_date || c.created_at || "").slice(0, 10), icon: "\u{1F4E3}", text: `Campaign "${c.name}" ${c.status} (${String(c.start_date || "").slice(0, 10)} to ${String(c.end_date || "").slice(0, 10)})` })),
+        ...activities.map((a) => ({ at: String(a.created_at).slice(0, 10), icon: "\u{1F4DD}", text: `${a.kind}${a.note ? `: ${a.note}` : ""}` })),
       ]
         .filter((t) => t.at)
         .sort((a, b) => (a.at < b.at ? 1 : -1))
@@ -125,7 +125,7 @@ export const ClientDetailDrawer: React.FC<{ client: Client | null; onClose: () =
             <div className="flex items-center gap-2">
               <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${health.cls}`}>{health.label}</span>
               <button onClick={() => setShowEditForm(true)} className={FIN.btnGhost}>
-                âœï¸ Edit Client
+                {"\u{270F}\u{FE0F}"} Edit Client
               </button>
             </div>
           </div>
@@ -166,8 +166,8 @@ export const ClientDetailDrawer: React.FC<{ client: Client | null; onClose: () =
             )}
 
             <p className="mt-2 text-[11px] text-zinc-500">
-              {fin.campaignCount} campaign{fin.campaignCount === 1 ? "" : "s"} ({fin.activeCampaigns} active) Â· {fin.invoiceCount} invoice{fin.invoiceCount === 1 ? "" : "s"}
-              {fin.healthReasons.length > 0 && <span className="text-zinc-400"> Â· {fin.healthReasons.join(" Â· ")}</span>}
+              {fin.campaignCount} campaign{fin.campaignCount === 1 ? "" : "s"} ({fin.activeCampaigns} active) {"\u{B7}"} {fin.invoiceCount} invoice{fin.invoiceCount === 1 ? "" : "s"}
+              {fin.healthReasons.length > 0 && <span className="text-zinc-400"> {"\u{B7}"} {fin.healthReasons.join(" \u{B7} ")}</span>}
             </p>
           </section>
 
