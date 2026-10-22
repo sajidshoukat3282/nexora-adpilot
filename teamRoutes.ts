@@ -8,6 +8,9 @@ import { hashPassword } from '../auth/password';
 import { handleCompanyRoutes } from '../company/companyRoutes';
 import { handleAdminRoutes, logAudit, memberEmail } from '../admin/adminRoutes';
 import { handleAccountingRoutes } from '../finance/accountingRoutes';
+import { handleInventoryRoutes } from '../inventory/inventoryRoutes';
+import { handleCampaignRoutes } from '../campaigns/campaignRoutes';
+import { handleCampaignExtras } from '../campaigns/campaignExtras';
 import {
   ROLE_PERMISSIONS,
   type Permission,
@@ -907,6 +910,15 @@ export async function handleTeamRoutes(
 
   const accountingResponse = await handleAccountingRoutes(request, env, url);
   if (accountingResponse) return accountingResponse;
+
+  const inventoryResponse = await handleInventoryRoutes(request, env, url);
+  if (inventoryResponse) return inventoryResponse;
+
+  const extrasResponse = await handleCampaignExtras(request, env, url);
+  if (extrasResponse) return extrasResponse;
+
+  const campaignResponse = await handleCampaignRoutes(request, env, url);
+  if (campaignResponse) return campaignResponse;
 
   const companyResponse = await handleCompanyRoutes(request, env, url);
   if (companyResponse) {

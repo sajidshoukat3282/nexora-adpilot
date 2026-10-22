@@ -2,14 +2,23 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { getDefaultCurrency } from "@/lib/companyDefaults";
 import { FIN, ModalTitle } from './financeUi';
 
-export default function AddInvoiceForm({ onClose }: { onClose: () => void }) {
+export interface InvoicePrefill {
+  client_id?: string;
+  campaign_id?: string;
+  currency?: string;
+  items?: { description: string; quantity: number; rate: number }[];
+}
+
+export default function AddInvoiceForm({ onClose, prefill }: { onClose: () => void; prefill?: InvoicePrefill }) {
   const [clients, setClients] = useState<any[]>([]);
   const [formData, setFormData] = useState<any>({
     client_id: '', issue_date: new Date().toISOString().split('T')[0],
     due_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    status: 'draft', discount_amount: 0, tax_rate: 0, currency: getDefaultCurrency()
+    status: 'draft', discount_amount: 0, tax_rate: 0, currency: prefill?.currency || getDefaultCurrency(),
+    ...(prefill?.client_id ? { client_id: prefill.client_id } : {}),
+    ...(prefill?.campaign_id ? { campaign_id: prefill.campaign_id } : {}),
   });
-  const [items, setItems] = useState<any[]>([{ description: 'Screen Advertising Services', quantity: 1, rate: 0 }]);
+  const [items, setItems] = useState<any[]>(prefill?.items && prefill.items.length ? prefill.items.map((i) => ({ ...i })) : [{ description: 'Screen Advertising Services', quantity: 1, rate: 0 }]);
 
   useEffect(() => {
     fetch('/api/crm/clients').then(r => r.json()).then(d => { if(d.ok) setClients(d.data); });
@@ -46,7 +55,7 @@ export default function AddInvoiceForm({ onClose }: { onClose: () => void }) {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="col-span-1">
             <label className={FIN.label}>Client</label>
-            <select required className={FIN.input} onChange={(e: any) => setFormData({...formData, client_id: e.target.value})}>
+            <select required className={FIN.input} value={formData.client_id} onChange={(e: any) => setFormData({...formData, client_id: e.target.value})}>
               <option value="">Select Client</option>
               {clients.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>

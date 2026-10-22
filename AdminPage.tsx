@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { PageHeader } from "@/components/layout/AppShell";
 import { TeamPanel, PERMISSION_LABELS, ALL_PERMISSIONS } from "./TeamPanel";
 import { CompanyProfilePanel } from "./CompanyProfilePanel";
 import { AuditLogCard, DefaultCurrencyCard, RoleCards, SecurityCard, TeamOverviewCards } from "./AdminExtras";
@@ -44,8 +43,11 @@ export const AdminPage: React.FC = () => {
 
   return (
     <PermissionGate permission="company.manage" action="view Admin & Roles">
-      <div className="min-w-0">
-        <PageHeader title="Admin & Roles" description={`Users, permissions and company settings for ${company?.name ?? "your company"}.`} />
+      <div className={FIN.page}>
+        <div className="mb-4">
+          <h1 className="text-lg font-semibold tracking-tight text-zinc-50">Admin &amp; Roles</h1>
+          <p className="text-[11px] text-zinc-500">{`Users, permissions and company settings for ${company?.name ?? "your company"}.`}</p>
+        </div>
 
         <div className="mb-4 rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-[11px] text-amber-300">
           Invitations, seats and permissions are enforced by the server. Hiding pages from an employee is still done in the
