@@ -169,23 +169,41 @@ export const PAGE_GUIDES: PageGuide[] = [
   {
     path: "/reports",
     title: "Analytics & Reports",
-    summary: "The Enterprise Report Center: revenue, expenses, receivables and campaign reports.",
+    summary: "Business analytics and branded reports: performance, profit and loss, receivables, client statements, campaigns, inventory and sales.",
     topics: [
       {
-        title: "Read and share reports",
+        title: "Choose a period",
         steps: [
-          "Review the totals: Total Revenue, Total Expenses and Pending Receivables.",
-          "Click Excel to download the report as a spreadsheet.",
-          "Click Print / PDF to print it or save it as a PDF.",
+          "Pick a quick period (This month, Last month, This quarter, This year, Last year, Last 30 days) or set your own From and To dates.",
+          "Every number and chart on the page follows this period. Cards show the change versus the previous period of the same length.",
         ],
-        tip: "Your company letterhead (from Admin & Roles) is printed on reports.",
       },
       {
-        title: "Automated Weekly Report",
+        title: "Reports in this page",
         steps: [
-          "In the weekly email card, choose the day (Select Day, Every Monday to Sunday).",
-          "Add any extra email addresses that should receive it.",
-          "Save the settings. The report is emailed automatically each week.",
+          "Overview: key cards, 12-month trend, top clients, top screens, receivables by age and plain-language key points.",
+          "Profit & Loss: revenue collected less expenses by category, with margin.",
+          "Receivables: what clients owe, grouped by how late it is, with the list of open invoices.",
+          "Client Statement: choose a client to see billed, received and the running balance.",
+          "Campaigns: contract, received, expenses and profit for each campaign.",
+          "Inventory: how much of each screen's slots were sold. Sales & CRM: lead stages and campaign mix.",
+        ],
+      },
+      {
+        title: "Print, PDF and Excel",
+        steps: [
+          "Click Preview to see the branded report with cover page and your company letterhead.",
+          "Click Print / PDF to print it or save it as a PDF. Click Export Excel for a real .xlsx file with one sheet per table.",
+          "Click Save view to keep the current report and period as a shortcut under Saved views.",
+        ],
+        tip: "Your company details come from Admin & Roles. Fill them in so reports look complete.",
+      },
+      {
+        title: "Weekly email digest",
+        steps: [
+          "Open Email & Schedule. Choose the day and add any extra email addresses, then Save schedule.",
+          "Check the preview. Use Send a test to me to see it in your inbox, or Send now to everyone.",
+          "The history table shows every digest that was sent.",
         ],
       },
     ],
