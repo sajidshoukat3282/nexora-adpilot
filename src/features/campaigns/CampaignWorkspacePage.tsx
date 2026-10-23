@@ -69,6 +69,11 @@ export const CampaignWorkspacePage: React.FC = () => {
 
   const load = useCallback(async () => {
     if (!id) return;
+    if (!/^[0-9a-fA-F-]{36}$/.test(id)) {
+      setError("This campaign link is not valid or is from old demo data. Please open the campaign from the Campaigns list.");
+      setLoading(false);
+      return;
+    }
     try {
       setData(await campaignsApi.get(id));
       setError("");
