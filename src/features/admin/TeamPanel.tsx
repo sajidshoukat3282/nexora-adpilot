@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { FIN, SectionTitle } from "../finance/financeUi";
+import { TemplatePicker } from "./AdminPanels";
 import { inviteExpiry, needsResend, timeAgo } from "./adminTools";
 import { useSession } from "@/hooks/useSession";
 import { ROLE_LABELS, ROLE_PERMISSIONS } from "@/domain";
@@ -315,6 +316,8 @@ export const TeamPanel: React.FC<{
             </select>
           </div>
 
+          <TemplatePicker value={perms} onApply={setPerms} />
+
           <div>
             <div className={FIN.label}>This employee can access:</div>
             <PermissionChecklist value={perms} onChange={setPerms} />
@@ -435,6 +438,7 @@ export const TeamPanel: React.FC<{
                       </select>
                     </div>
                   </div>
+                  <TemplatePicker value={editPerms} onApply={setEditPerms} disabled={busy} />
                   <PermissionChecklist value={editPerms} onChange={setEditPerms} disabled={busy} />
                   <div className="flex gap-2">
                     <button className={FIN.btnGold} disabled={busy} onClick={() => saveEdit(m)}>

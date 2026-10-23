@@ -22,7 +22,7 @@ const json = (data: unknown, status = 200) =>
 const fail = (status: number, message: string, error = 'INVALID_INPUT') => json({ ok: false, error, message }, status);
 
 let ready = false;
-async function ensure(db: D1Database): Promise<void> {
+export async function ensureFileTables(db: D1Database): Promise<void> {
   if (ready) return;
   await db.prepare(`CREATE TABLE IF NOT EXISTS uploaded_files (
     id TEXT PRIMARY KEY, company_id TEXT NOT NULL, campaign_id TEXT, name TEXT NOT NULL, ext TEXT NOT NULL,
@@ -32,11 +32,11 @@ async function ensure(db: D1Database): Promise<void> {
   ready = true;
 }
 
-const extOf = (name: string): string => (name.split('.').pop() || '').toLowerCase();
-const safeName = (n: string): string => n.replace(/[^A-Za-z0-9._ -]/g, '_').replace(/\s+/g, ' ').trim().slice(0, 100) || 'file';
+export const extOf = (name: string): string => (name.split('.').pop() || '').toLowerCase();
+export const safeName = (n: string): string => n.replace(/[^A-Za-z0-9._ -]/g, '_').replace(/\s+/g, ' ').trim().slice(0, 100) || 'file';
 
 /** Checks the first bytes so a renamed file (for example an .exe called .png) is refused. */
-function looksRight(ext: string, b: Uint8Array): boolean {
+export function looksRight(ext: string, b: Uint8Array): boolean {
   const at = (i: number, s: string) => s.split('').every((c, k) => b[i + k] === c.charCodeAt(0));
   if (ext === 'png') return b[0] === 0x89 && at(1, 'PNG');
   if (ext === 'jpg' || ext === 'jpeg') return b[0] === 0xff && b[1] === 0xd8;
@@ -54,13 +54,36 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(s);
 }
 
+/** Stores a checked file in small chunks and returns its id. Callers must validate type and size first. */
+export async function saveUploadedFile(env: Env, companyId: string, accountId: string, name: string, ext: string, buf: Uint8Array, campaignId: string | null): Promise<string> {
+  await ensureFileTables(env.DB);
+  const id = crypto.randomUUID();
+  const n = Math.ceil(buf.length / CHUNK);
+  const stmts = [
+    env.DB.prepare('INSERT INTO uploaded_files (id, company_id, campaign_id, name, ext, size, chunks, uploaded_by, created_at) VALUES (?,?,?,?,?,?,?,?,?)')
+      .bind(id, companyId, campaignId, name, ext, buf.length, n, accountId, new Date().toISOString()),
+  ];
+  for (let i = 0; i < n; i++) {
+    stmts.push(env.DB.prepare('INSERT INTO uploaded_file_chunks (file_id, idx, data) VALUES (?,?,?)').bind(id, i, toBase64(buf.subarray(i * CHUNK, (i + 1) * CHUNK))));
+  }
+  await env.DB.batch(stmts);
+  return id;
+}
+
+export async function deleteUploadedFile(env: Env, companyId: string, id: string): Promise<void> {
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM uploaded_file_chunks WHERE file_id = ? AND file_id IN (SELECT id FROM uploaded_files WHERE company_id = ?)').bind(id, companyId),
+    env.DB.prepare('DELETE FROM uploaded_files WHERE id = ? AND company_id = ?').bind(id, companyId),
+  ]);
+}
+
 export async function handleFileRoutes(request: Request, env: Env, url: URL): Promise<Response | null> {
   const path = url.pathname;
   if (path !== '/api/files' && !path.startsWith('/api/files/')) return null;
   try {
     const s = await resolveSession(request, env.DB);
     if (!s) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
-    await ensure(env.DB);
+    await ensureFileTables(env.DB);
 
     if (path === '/api/files' && request.method === 'POST') {
       if (s.accountType === 'client' || !s.permissions.includes('campaigns.manage')) return fail(403, 'You do not have permission to upload files.', 'FORBIDDEN');
@@ -78,16 +101,7 @@ export async function handleFileRoutes(request: Request, env: Env, url: URL): Pr
       if (buf.length === 0) return fail(400, 'The file is empty.');
       if (buf.length > MAX_BYTES) return fail(413, 'The file is too large. The limit is 5 MB. For bigger files, paste a link instead.', 'TOO_LARGE');
       if (!looksRight(ext, buf)) return fail(400, 'The file content does not match its type. Please choose a real image, PDF or video.');
-      const id = crypto.randomUUID();
-      const n = Math.ceil(buf.length / CHUNK);
-      const stmts = [
-        env.DB.prepare('INSERT INTO uploaded_files (id, company_id, campaign_id, name, ext, size, chunks, uploaded_by, created_at) VALUES (?,?,?,?,?,?,?,?,?)')
-          .bind(id, s.companyId, campaignId || null, name, ext, buf.length, n, s.accountId, new Date().toISOString()),
-      ];
-      for (let i = 0; i < n; i++) {
-        stmts.push(env.DB.prepare('INSERT INTO uploaded_file_chunks (file_id, idx, data) VALUES (?,?,?)').bind(id, i, toBase64(buf.subarray(i * CHUNK, (i + 1) * CHUNK))));
-      }
-      await env.DB.batch(stmts);
+      const id = await saveUploadedFile(env, s.companyId, s.accountId, name, ext, buf, campaignId || null);
       return json({ ok: true, id, name, size: buf.length, url: `/api/files/${id}/${encodeURIComponent(name)}` });
     }
 
@@ -103,7 +117,9 @@ export async function handleFileRoutes(request: Request, env: Env, url: URL): Pr
         ]);
         return json({ ok: true });
       }
-      if (s.accountType === 'client') {
+      let isLogo = false;
+      try { isLogo = !!(await env.DB.prepare('SELECT 1 AS x FROM company_branding WHERE company_id = ? AND logo_file_id = ?').bind(s.companyId, f.id).first()); } catch { /* no branding yet */ }
+      if (s.accountType === 'client' && !isLogo) {
         const cid = await clientIdOf(env, s);
         const own = f.campaign_id && cid
           ? await env.DB.prepare('SELECT id FROM campaigns WHERE id = ? AND company_id = ? AND client_id = ?').bind(f.campaign_id, s.companyId, cid).first()

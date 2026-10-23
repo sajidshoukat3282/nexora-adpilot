@@ -1,4 +1,5 @@
 import type { Env } from '../index';
+import { logAudit } from '../admin/adminRoutes';
 import { resolveSession, type SessionContext } from '../auth/session';
 
 /**
@@ -212,6 +213,9 @@ export async function logCreditEvent(env: Env, s: SessionContext, clientId: stri
     await ensure(env.DB);
     await env.DB.prepare('INSERT INTO credit_limit_history (id, company_id, client_id, kind, old_limit, new_limit, reason, actor_email, created_at) VALUES (?,?,?,?,?,?,?,?,?)')
       .bind(crypto.randomUUID(), s.companyId, clientId, kind, oldLimit, newLimit, reason.slice(0, 300), (s as any).email ?? null, now()).run();
+    const nm = (await env.DB.prepare('SELECT name FROM clients WHERE id = ? AND company_id = ?').bind(clientId, s.companyId).first<{ name: string }>())?.name ?? '';
+    const label = kind === 'limit' ? 'Credit limit changed' : kind === 'hold' ? 'Booking hold set' : kind === 'release' ? 'Booking hold released' : 'Credit exception approved';
+    await logAudit(env, s.companyId, s.accountId, label, kind === 'limit' ? `${nm}: ${oldLimit ?? 0} to ${newLimit ?? 0}` : `${nm}${reason ? ': ' + reason : ''}`);
   } catch { /* ignore */ }
 }
 

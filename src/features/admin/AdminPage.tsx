@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { TeamPanel, PERMISSION_LABELS, ALL_PERMISSIONS } from "./TeamPanel";
 import { CompanyProfilePanel } from "./CompanyProfilePanel";
 import { AuditLogCard, DefaultCurrencyCard, RoleCards, SecurityCard, TeamOverviewCards } from "./AdminExtras";
+import { AuditPanel, LogoCard } from "./AdminPanels";
 import { PermissionGate } from "@/components/ui/PermissionGate";
 import { useSession } from "@/hooks/useSession";
 import { useCompanyName } from "@/hooks/useCompanyProfile";
@@ -22,6 +23,7 @@ export const AdminPage: React.FC = () => {
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [setup, setSetup] = useState<SetupStatus | null>(null);
   const [showSetup, setShowSetup] = useState(true);
+  const [tab, setTab] = useState<"overview" | "company" | "team" | "roles" | "activity">("overview");
 
   const loadOverview = useCallback(async () => {
     try {
@@ -46,16 +48,22 @@ export const AdminPage: React.FC = () => {
   return (
     <PermissionGate permission="company.manage" action="view Admin & Roles">
       <div className={FIN.page}>
-        <div className="mb-4">
-          <h1 className="text-lg font-semibold tracking-tight text-zinc-50">Admin &amp; Roles</h1>
-          <p className="text-[11px] text-zinc-500">{`Users, permissions and company settings for ${companyName}.`}</p>
+        <div className="mb-4 border-b border-[#c99b3b]/30 pb-3">
+          <h1 className="text-[18px] font-semibold uppercase tracking-[0.24em] text-zinc-50">Admin &amp; Roles</h1>
+          <p className="mt-1 text-[11px] font-medium text-[#d9b45a]">{`Users, permissions and company settings for ${companyName}`}</p>
         </div>
 
+        <div className="mb-4 flex gap-1 overflow-x-auto border-b border-[#2a2f37]">
+          {([["overview", "Overview"], ["company", "Company"], ["team", "Team"], ["roles", "Roles & Permissions"], ["activity", "Activity"]] as const).map(([id, label]) => (
+            <button key={id} onClick={() => setTab(id)} className={`whitespace-nowrap border-b-2 px-3.5 py-2.5 text-[11px] font-semibold tracking-wide transition-colors ${tab === id ? "border-[#c99b3b] text-[#f1d68a]" : "border-transparent text-zinc-400 hover:text-zinc-100"}`}>{label}</button>
+          ))}
+        </div>
+
+        <div className={tab === "overview" ? "" : "hidden"}>
         <div className="mb-4 rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-[11px] text-amber-300">
           Invitations, seats and permissions are enforced by the server. Hiding pages from an employee is still done in the
           browser until each module (campaigns, finance, inventory{"\u{2026}"}) moves to server-side data access.
         </div>
-
         <TeamOverviewCards team={team} />
 
         {setup && !(setupDone && !showSetup) && (
@@ -72,12 +80,19 @@ export const AdminPage: React.FC = () => {
           </div>
         )}
 
-        <CompanyProfilePanel />
+        </div>
 
-        <DefaultCurrencyCard onChanged={loadOverview} />
+        <div className={tab === "company" ? "" : "hidden"}>
+          <CompanyProfilePanel />
+          <LogoCard />
+          <DefaultCurrencyCard onChanged={loadOverview} />
+        </div>
 
-        <TeamPanel invites={overview?.invites} onTeam={setTeam} onChanged={loadOverview} />
+        <div className={tab === "team" ? "" : "hidden"}>
+          <TeamPanel invites={overview?.invites} onTeam={setTeam} onChanged={loadOverview} />
+        </div>
 
+        <div className={tab === "roles" ? "" : "hidden"}>
         <RoleCards team={team} />
 
         <div className={`${FIN.panel} mb-4 overflow-x-auto p-4`}>
@@ -111,6 +126,9 @@ export const AdminPage: React.FC = () => {
           </table>
         </div>
 
+        </div>
+
+        <div className={tab === "overview" ? "" : "hidden"}>
         <div className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
           <SecurityCard security={overview?.security ?? null} team={team} />
           <div className={`${FIN.panel} p-4`}>
@@ -132,7 +150,12 @@ export const AdminPage: React.FC = () => {
           </div>
         </div>
 
-        <AuditLogCard entries={overview ? overview.auditLog : null} onRefresh={loadOverview} />
+        <AuditLogCard entries={overview ? overview.auditLog.slice(0, 8) : null} onRefresh={loadOverview} />
+        </div>
+
+        <div className={tab === "activity" ? "" : "hidden"}>
+          <AuditPanel />
+        </div>
       </div>
     </PermissionGate>
   );

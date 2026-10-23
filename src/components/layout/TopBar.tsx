@@ -12,6 +12,7 @@ import { useSession } from "@/hooks/useSession";
 import { useCurrentPath, useNavigate } from "@/lib/router";
 import { ROLE_LABELS } from "@/domain";
 import { NotificationBell } from "./NotificationBell";
+import { CompanyMark } from "./CompanyMark";
 import { useCompanyProfile } from "@/hooks/useCompanyProfile";
 
 const PAGE_TITLES: Record<string, string> = {
@@ -126,9 +127,7 @@ export const TopBar: React.FC<{ onMobileMenu: () => void }> = ({
 
       {/* Company (left) - Sleek Design */}
       <div className="flex items-center gap-2.5 min-w-0 max-w-[48vw] md:max-w-64 shrink-0">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[#f6e2a1]/40 text-xs font-bold bg-gradient-to-br from-[#f1d68a] via-[#c99b3b] to-[#a97b22] text-[#1a1204] shadow-[0_4px_14px_rgba(201,155,59,0.3)]">
-          {(profile?.legalName || company?.name || "A").charAt(0).toUpperCase()}
-        </div>
+        <CompanyMark name={profile?.legalName || company?.name || "A"} box="h-7 w-7" text="text-xs font-bold" rounded="rounded-md" />
         <div className="truncate text-[13px] font-semibold tracking-tight text-zinc-100">
           {profile?.legalName || company?.name || "Nexora AdPilot"}
         </div>

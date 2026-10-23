@@ -48,6 +48,7 @@ export function flagsFor(p: ProposalRow, today = todayIso()): Flag[] {
 const esc = (v: unknown): string =>
   String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string);
 
+export const abs = (u: string): string => (/^https?:/i.test(u) ? u : `${typeof window !== "undefined" ? window.location.origin : ""}${u}`);
 const money = (n: number, cur: string): string => `${cur} ${Math.round(Number(n) || 0).toLocaleString("en-US")}`;
 
 export interface Letterhead {
@@ -59,6 +60,7 @@ export interface Letterhead {
   bankName?: string;
   bankTitle?: string;
   bankIban?: string;
+  logoUrl?: string;
 }
 
 export const DEFAULT_TERMS =
@@ -82,7 +84,7 @@ export function buildProposalHtml(d: ProposalDetail, lh: Letterhead): string {
 .page{border-top:3px solid #c99b3b;padding:24px 26px 36px}
 .hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #e4dccb;padding-bottom:16px;margin-bottom:18px}
 .hdr h1{font-size:20px;font-weight:600;letter-spacing:.28em;margin:0}.hdr .no{font-family:monospace;font-size:11px;color:#8a7a52;margin-top:4px}
-.co{text-align:right}.co h2{font-size:13px;font-weight:600;margin:0}.co p{font-size:11px;color:#64748b;margin:0;line-height:1.6}
+.logo{max-height:46px;max-width:140px;object-fit:contain;display:block;margin-bottom:6px}.co{text-align:right}.co h2{font-size:13px;font-weight:600;margin:0}.co p{font-size:11px;color:#64748b;margin:0;line-height:1.6}
 .two{display:flex;justify-content:space-between;margin-bottom:22px}.lab{font-size:9px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:#a8914f;margin-bottom:4px}
 .big{font-size:13px;font-weight:600}.sm{font-size:10px;color:#64748b}.line{font-size:11px;color:#64748b}.line b{color:#1b1d21;font-weight:500}
 .camp{font-size:15px;font-weight:600;margin:0 0 4px}
@@ -96,7 +98,7 @@ td{font-size:12px;padding:9px 6px;border-bottom:1px solid #eee7d6;color:#334155;
 .foot{margin-top:26px;border-top:1px solid #e4dccb;padding-top:8px;text-align:center;font-size:10px;color:#94a3b8}
 @media screen{body{padding:12px}.page{max-width:820px;margin:0 auto;box-shadow:0 10px 30px rgba(0,0,0,.25)}}
 </style></head><body><div class="page">
-<div class="hdr"><div><h1>PROPOSAL</h1><div class="no">${esc(p.code)}</div></div><div class="co"><h2>${esc(lh.name)}</h2>${addr ? `<p>${esc(addr)}</p>` : ""}${lh.phone ? `<p>Tel: ${esc(lh.phone)}</p>` : ""}${lh.email ? `<p>${esc(lh.email)}</p>` : ""}${lh.ntn ? `<p>NTN: ${esc(lh.ntn)}</p>` : ""}</div></div>
+<div class="hdr"><div><h1>PROPOSAL</h1><div class="no">${esc(p.code)}</div></div><div class="co">${lh.logoUrl ? `<img class="logo" style="margin-left:auto" src="${esc(abs(lh.logoUrl))}" alt="">` : ""}<h2>${esc(lh.name)}</h2>${addr ? `<p>${esc(addr)}</p>` : ""}${lh.phone ? `<p>Tel: ${esc(lh.phone)}</p>` : ""}${lh.email ? `<p>${esc(lh.email)}</p>` : ""}${lh.ntn ? `<p>NTN: ${esc(lh.ntn)}</p>` : ""}</div></div>
 <div class="two"><div><div class="lab">Prepared for</div><div class="big">${esc(p.client_name ?? "-")}</div>${p.client_email ? `<div class="sm">${esc(p.client_email)}</div>` : ""}${p.client_phone ? `<div class="sm">${esc(p.client_phone)}</div>` : ""}</div>
 <div style="text-align:right"><div class="line">Date: <b>${esc((p.created_at || "").slice(0, 10))}</b></div><div class="line">Campaign: <b>${esc(p.start_date)} to ${esc(p.end_date)}</b></div>${p.valid_until ? `<div class="line">Valid until: <b>${esc(p.valid_until)}</b></div>` : ""}</div></div>
 <p class="camp">${esc(p.campaign_name)}</p><div class="sm">${campaignDays(p.start_date, p.end_date)} days &middot; ${d.items.length} screen${d.items.length === 1 ? "" : "s"}</div>

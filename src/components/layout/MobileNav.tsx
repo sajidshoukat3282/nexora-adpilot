@@ -16,6 +16,7 @@ import {
 } from "react-icons/fi";
 import { Link, useCurrentPath } from "@/lib/router";
 import { useSession } from "@/hooks/useSession";
+import { CompanyMark } from "./CompanyMark";
 import { useCompanyName } from "@/hooks/useCompanyProfile";
 import type { Permission } from "@/domain";
 
@@ -174,9 +175,7 @@ export const MobileNav: React.FC<{
         {/* Header */}
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-[#2a2f37] px-4">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#f6e2a1]/40 text-xs font-black bg-gradient-to-br from-[#f1d68a] via-[#c99b3b] to-[#a97b22] text-[#1a1204] shadow-[0_4px_14px_rgba(201,155,59,0.3)]">
-              NA
-            </div>
+            <CompanyMark name={companyName} box="h-9 w-9" text="text-xs font-black" rounded="rounded-xl" />
 
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold tracking-tight text-zinc-50">

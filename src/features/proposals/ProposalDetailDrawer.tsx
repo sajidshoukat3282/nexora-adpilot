@@ -3,6 +3,7 @@ import { Link, useNavigate } from "@/lib/router";
 import { FDrawer, FIN } from "../finance/financeUi";
 import { proposalsApi, type ProposalDetail } from "@/lib/api/proposals";
 import { useCompanyProfile } from "@/hooks/useCompanyProfile";
+import { useCompanyLogo } from "@/hooks/useCompanyLogo";
 import { buildProposalHtml, flagsFor, phoneDigits, printProposal, shareText, STATUS_ACTION, statusLabel, statusTone, type Letterhead } from "./proposalTools";
 
 export const ProposalDetailDrawer: React.FC<{
@@ -13,6 +14,7 @@ export const ProposalDetailDrawer: React.FC<{
 }> = ({ id, onClose, onChanged, onEdit }) => {
   const navigate = useNavigate();
   const { profile } = useCompanyProfile();
+  const logo = useCompanyLogo();
   const [d, setD] = useState<ProposalDetail | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -32,7 +34,8 @@ export const ProposalDetailDrawer: React.FC<{
     address: [profile?.address, profile?.city, profile?.country].filter(Boolean).join(", "),
     phone: profile?.phone, email: profile?.email, ntn: profile?.ntn,
     bankName: profile?.bankName, bankTitle: profile?.bankAccountTitle, bankIban: profile?.bankIban,
-  }), [profile]);
+    logoUrl: logo ?? undefined,
+  }), [profile, logo]);
 
   const run = async (fn: () => Promise<any>, ok: string) => {
     setBusy(true); setMsg(null);
