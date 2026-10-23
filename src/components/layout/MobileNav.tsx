@@ -16,6 +16,7 @@ import {
 } from "react-icons/fi";
 import { Link, useCurrentPath } from "@/lib/router";
 import { useSession } from "@/hooks/useSession";
+import { useCompanyName } from "@/hooks/useCompanyProfile";
 import type { Permission } from "@/domain";
 
 type NavItem = {
@@ -139,6 +140,7 @@ export const MobileNav: React.FC<{
 }> = ({ open, onClose }) => {
   const path = useCurrentPath();
   const { can, company, session } = useSession();
+  const companyName = useCompanyName();
 
   const visibleGroups = NAV_GROUPS.map((group) => ({
     ...group,
@@ -181,7 +183,7 @@ export const MobileNav: React.FC<{
                 Nexora AdPilot
               </div>
               <div className="truncate text-[10px] uppercase tracking-[0.14em] text-[#d9b45a]/80">
-                {company?.name ?? "Workspace"}
+                {companyName}
               </div>
             </div>
           </div>
@@ -267,7 +269,7 @@ export const MobileNav: React.FC<{
         <div className="shrink-0 border-t border-[#2a2f37] p-3">
           <div className="rounded-lg px-3 py-2 text-[10px] text-zinc-600">
             Nexora AdPilot
-            <span className="mx-1.5">•</span>
+            <span className="mx-1.5">{"\u2022"}</span>
             Secure workspace
           </div>
         </div>

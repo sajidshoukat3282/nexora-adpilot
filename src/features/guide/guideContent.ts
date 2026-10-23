@@ -108,8 +108,8 @@ export const PAGE_GUIDES: PageGuide[] = [
           "Screens: add or remove screens. For a digital screen with several advertiser slots, choose how many slots this campaign takes. Overbooking is blocked.",
           "Schedule: timeline of the campaign period.",
           "Billing: invoices of this campaign. Use Create invoice to prefill the client and screens.",
-          "Expenses and Activity show costs and the change history.",
-          "Creatives: add artwork with a Drive/Dropbox/image link. Changing the link creates a new version.",
+          "Expenses: click + Add Expense to record a cost for this campaign (printing, installation, media owner payment). It is linked to the campaign and counts in its profit. Activity shows the change history.",
+          "Creatives: add artwork by clicking Upload from computer (PNG, JPG, GIF, WEBP, PDF, MP4 or WEBM, up to 5 MB) or by pasting a Drive/Dropbox link for bigger files. Changing the file or link creates a new version. Proof of play photos can be uploaded the same way.",
           "Approvals: send a creative for internal review, then to the client, then Approved or Rejected (with a reason). Every step is logged.",
           "Delivery: screen condition and proof count per screen. Proof of Play: add a site photo link or note per screen and date.",
           "Analytics: revenue per day and per screen-day, collection %, margin and value by screen, from your own bookings and invoices.",
@@ -371,21 +371,32 @@ export const PAGE_GUIDES: PageGuide[] = [
   {
     path: "/clients/credit-risk",
     title: "Credit Risk",
-    summary: "See which clients owe too much and stay within credit limits.",
+    summary: "Control how much each client can owe, spot late payers early and stop over-booking.",
     topics: [
       {
-        title: "Watch exposure",
+        title: "Read the page",
         steps: [
-          "Top cards show Total Credit Limit, Total Outstanding Balance and High Risk Clients.",
-          "The table lists each client with Credit Limit, Outstanding Balance, Credit Utilization and Risk Status.",
-          "Credit Limit Alert warns you when a client is close to or over their limit.",
+          "The top cards show Total credit limit, Total exposure, Overdue and Clients at risk.",
+          "Exposure means unpaid invoices plus accepted proposals not yet booked plus booked or live campaigns not yet invoiced.",
+          "Each client has a Risk score from 0 to 100 and a level: Low, Watch, High or Critical. The score uses limit usage, how late overdue invoices are, and payment history.",
+          "Use the filters, search, sort and Export CSV to review clients.",
         ],
       },
       {
-        title: "Change a credit limit",
+        title: "Open a client",
         steps: [
-          "Click Update Credit Limit on a client.",
-          "Enter the New Credit Limit and save.",
+          "Click a client to see the reasons for the score, exposure breakdown, ageing (Current, 1-30, 31-60, 61-90, 90+ days), on-time payment rate, average delay and open invoices.",
+          "Click Edit limit to change the credit limit. You can add a reason, or use the suggested limit. Every change is saved in Limit history.",
+          "Use WhatsApp reminder or Email reminder to chase overdue payments.",
+        ],
+      },
+      {
+        title: "Limits are enforced",
+        steps: [
+          "A client over the limit, or on a booking hold, cannot get a new campaign or a converted proposal.",
+          "Users with finance access can click Approve exception. It is recorded in Limit history.",
+          "Click Hold new bookings on a client to stop all new bookings until you release the hold.",
+          "High and Critical clients also appear in the weekly email digest.",
         ],
       },
     ],
@@ -393,22 +404,33 @@ export const PAGE_GUIDES: PageGuide[] = [
   {
     path: "/client-portal",
     title: "Client Portal",
-    summary: "What your clients see when they sign in: campaigns, invoices and payments.",
+    summary: "A private page where your clients follow their campaigns, approve work, accept proposals and see their account.",
     topics: [
       {
         title: "Give a client access",
         steps: [
           "Go to CRM & Leads, open the Clients tab.",
           "Click Invite to Portal on the client's row. Their status changes to Invited, then Active.",
-          "The client signs in at the client login page.",
+          "The client signs in at the client login page. Each client sees only their own data.",
         ],
       },
       {
-        title: "What clients see",
+        title: "What clients can do",
         steps: [
-          "Your Campaigns: their campaigns and status.",
-          "Your Invoices: amounts, issue and due dates.",
-          "Payment History: payments received, with date and method.",
+          "Overview shows live campaigns, outstanding and overdue amounts, and what needs their attention.",
+          "Campaigns: see screens, creatives and proof-of-play photos. Approve a creative or request changes with a comment.",
+          "Proposals: read the proposal and accept it by typing their name, or decline it.",
+          "Invoices: view and print the invoice. Click I have paid to send a payment reference.",
+          "Payments and Statement: payment history and a printable account statement.",
+          "Messages: send a message to your team.",
+        ],
+      },
+      {
+        title: "What you get back",
+        steps: [
+          "You get a notification when a client approves or rejects a creative, accepts or declines a proposal, says a payment was made, or sends a message.",
+          "A payment note does not change any balance. Check your bank, then record the payment in Finance.",
+          "Only creatives in Client review, and proposals marked as Sent, appear for the client to act on.",
         ],
       },
     ],
@@ -430,15 +452,31 @@ export const PAGE_GUIDES: PageGuide[] = [
   {
     path: "/notifications",
     title: "Notifications",
-    summary: "Everything AdPilot has flagged across campaigns, operations, creatives and finance.",
+    summary: "Real alerts about payments, overdue invoices, proposals, credit limits, campaigns and new leads.",
     topics: [
       {
         title: "Use notifications",
         steps: [
-          "Filter by type: Campaign, Creative, Finance, Inventory, Operations or System.",
-          "Click a notification to open it. It is marked as read.",
-          "Use Mark All Read to clear everything at once, or switch between All and Unread.",
-          "The red badge on the bell in the top bar shows how many are unread.",
+          "The bell in the top bar shows how many are unread. Click it for the latest eight.",
+          "Click a notification to open the related page. It is marked as read.",
+          "Filter by category, or tick Unread only. Use Mark all read, Clear read, or Dismiss on a single item.",
+        ],
+      },
+      {
+        title: "What creates a notification",
+        steps: [
+          "Finance: a payment was received, an invoice is overdue, or a client says they paid.",
+          "Proposals: expiring in 3 days, no reply for 5 days, accepted or declined by the client.",
+          "Credit: a client reaches 80% or exceeds their credit limit.",
+          "Campaigns: starting or ending within 3 days, or a client approved or rejected a creative.",
+          "CRM: a new lead was added or a client sent a message.",
+        ],
+      },
+      {
+        title: "Choose what you see",
+        steps: [
+          "Click Preferences and untick the categories you do not want. This applies only to you.",
+          "You only see categories you have permission for, for example Finance needs finance access.",
         ],
       },
     ],
@@ -453,6 +491,7 @@ export const PAGE_GUIDES: PageGuide[] = [
         steps: [
           "Fill in the Company Profile: name, address, phone, NTN, bank details and invoice settings.",
           "Click Save company profile. These details print on invoices and reports.",
+          "The Company name you save here is used everywhere: the sidebar, top bar, Admin page, emails, proposals, the client portal and documents.",
         ],
       },
       {

@@ -78,3 +78,10 @@ export function useCompanyProfile() {
 
   return { profile, loading, reload, save };
 }
+
+/** One company name for the whole app: the saved legal name, else the signup name. */
+export function useCompanyName(fallback = "Workspace"): string {
+  const { company } = useSession();
+  const { profile } = useCompanyProfile();
+  return (profile?.legalName && profile.legalName.trim()) || company?.name || fallback;
+}

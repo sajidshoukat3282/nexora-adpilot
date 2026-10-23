@@ -1,3 +1,4 @@
+import { ACCEPT, MAX_UPLOAD_MB, prettySize, uploadFile } from "@/lib/api/files";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { PermissionGate } from "@/components/ui/PermissionGate";
 import { campaignsApi, type CampaignBundle, type Creative, type CreativeReview, type Proof } from "@/lib/api/campaigns";
@@ -52,6 +53,40 @@ function useCreatives(id: string) {
 
 /* ---------------- Creatives ---------------- */
 
+const FilePicker: React.FC<{ campaignId: string; value: string; onChange: (url: string) => void }> = ({ campaignId, value, onChange }) => {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [label, setLabel] = useState("");
+  const pick = async (e: any) => {
+    const file: File | undefined = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setBusy(true);
+    setErr("");
+    try {
+      const up = await uploadFile(file, campaignId);
+      onChange(up.url);
+      setLabel(`${up.name} (${prettySize(up.size)})`);
+    } catch (ex) {
+      setErr(ex instanceof Error ? ex.message : "Upload failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const mine = value.startsWith("/api/files/");
+  return (
+    <div className="mt-2">
+      <label className={`${FIN.btnGhost} cursor-pointer ${busy ? "opacity-60" : ""}`}>
+        {busy ? "Uploading..." : "Upload from computer"}
+        <input type="file" accept={ACCEPT} className="hidden" disabled={busy} onChange={pick} />
+      </label>
+      <span className="ml-2 text-[10px] text-zinc-500">PNG, JPG, GIF, WEBP, PDF, MP4 or WEBM, up to {MAX_UPLOAD_MB} MB</span>
+      {mine && <p className="mt-1 text-[11px] text-emerald-300">File attached{label ? `: ${label}` : ""}. <button type="button" className="text-zinc-400 underline" onClick={() => { onChange(""); setLabel(""); }}>Remove</button></p>}
+      {err && <p className="mt-1 text-[11px] text-rose-300">{err}</p>}
+    </div>
+  );
+};
+
 const CreativeForm: React.FC<{ campaignId: string; creative?: Creative; onClose: () => void; onSaved: () => void }> = ({ campaignId, creative, onClose, onSaved }) => {
   const [f, setF] = useState({ name: creative?.name ?? "", url: creative?.url ?? "", notes: creative?.notes ?? "" });
   const [err, setErr] = useState("");
@@ -75,9 +110,10 @@ const CreativeForm: React.FC<{ campaignId: string; creative?: Creative; onClose:
         <div className="space-y-3">
           <div><label className={FIN.label}>Name</label><input required className={FIN.input} value={f.name} onChange={(e: any) => setF({ ...f, name: e.target.value })} placeholder="e.g. Eid billboard design" /></div>
           <div>
-            <label className={FIN.label}>File link</label>
-            <input className={FIN.input} value={f.url} onChange={(e: any) => setF({ ...f, url: e.target.value })} placeholder="https://drive.google.com/..." />
-            <p className="mt-1 text-[10px] text-zinc-500">Paste a Google Drive, Dropbox or image link. Changing the link creates a new version.</p>
+            <label className={FIN.label}>File</label>
+            <input className={FIN.input} value={f.url.startsWith("/api/files/") ? "" : f.url} onChange={(e: any) => setF({ ...f, url: e.target.value })} placeholder="Paste a link (Google Drive, Dropbox...) or upload below" />
+            <FilePicker campaignId={campaignId} value={f.url} onChange={(url) => setF({ ...f, url })} />
+            <p className="mt-1 text-[10px] text-zinc-500">Changing the file or link creates a new version.</p>
           </div>
           <div><label className={FIN.label}>Notes</label><input className={FIN.input} value={f.notes} onChange={(e: any) => setF({ ...f, notes: e.target.value })} /></div>
         </div>
@@ -135,7 +171,7 @@ export const CreativesPanel: React.FC<{ campaignId: string }> = ({ campaignId })
                 {c.url ? (
                   <a href={c.url} target="_blank" rel="noreferrer" className={FIN.btnGhost}>Open file</a>
                 ) : (
-                  <span className="text-[10px] text-zinc-600">No file link</span>
+                  <span className="text-[10px] text-zinc-600">No file</span>
                 )}
                 <PermissionGate permission="campaigns.manage" fallback={null}>
                   <button className={FIN.btnGhost} onClick={() => setForm(c)}>Edit</button>
@@ -340,7 +376,7 @@ export const ProofPanel: React.FC<{ data: CampaignBundle }> = ({ data }) => {
           <button className={FIN.btnGold} onClick={() => setAdding(true)}>+ Add proof</button>
         </PermissionGate>
       </div>
-      <p className="mb-3 text-[11px] text-zinc-500">Add a site photo link or a note for each screen and date, to show the client the ad was running.</p>
+      <p className="mb-3 text-[11px] text-zinc-500">Add a site photo (upload or link) or a note for each screen and date, to show the client the ad was running.</p>
       {err && !adding && <p className="mb-2 text-[12px] text-rose-300">{err}</p>}
       {loading ? (
         <p className="text-[12px] text-zinc-500">Loading...</p>
@@ -379,7 +415,7 @@ export const ProofPanel: React.FC<{ data: CampaignBundle }> = ({ data }) => {
                   </select>
                 </div>
               </div>
-              <div><label className={FIN.label}>Photo link</label><input className={FIN.input} value={f.photo_url} onChange={(e: any) => setF({ ...f, photo_url: e.target.value })} placeholder="https://..." /></div>
+              <div><label className={FIN.label}>Photo</label><input className={FIN.input} value={f.photo_url.startsWith("/api/files/") ? "" : f.photo_url} onChange={(e: any) => setF({ ...f, photo_url: e.target.value })} placeholder="Paste a link or upload below" /><FilePicker campaignId={c.id} value={f.photo_url} onChange={(url) => setF({ ...f, photo_url: url })} /></div>
               <div><label className={FIN.label}>Note</label><input className={FIN.input} value={f.notes} onChange={(e: any) => setF({ ...f, notes: e.target.value })} /></div>
             </div>
             {err && <p className="mt-3 text-[11px] text-rose-300">{err}</p>}

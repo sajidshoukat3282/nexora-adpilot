@@ -139,10 +139,29 @@ function text(body: Record<string, unknown>, key: string, max: number): string {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
+/** Keeps the company name used across the app (companies.name) the same as the name saved in the profile. */
+async function syncCompanyName(db: D1Database, companyId: string): Promise<void> {
+  try {
+    await db
+      .prepare(
+        `UPDATE companies
+            SET name = (SELECT TRIM(legal_name) FROM company_profiles WHERE company_id = companies.id),
+                updated_at = ?
+          WHERE id = ?
+            AND EXISTS (SELECT 1 FROM company_profiles p WHERE p.company_id = companies.id AND TRIM(p.legal_name) != '' AND TRIM(p.legal_name) != companies.name)`,
+      )
+      .bind(new Date().toISOString(), companyId)
+      .run();
+  } catch {
+    /* never block the profile because of the name sync */
+  }
+}
+
 async function getProfile(request: Request, env: Env): Promise<Response> {
   const session = await resolveSession(request, env.DB);
   if (!session) return fail(401, 'UNAUTHENTICATED', 'Please sign in.');
 
+  await syncCompanyName(env.DB, session.companyId);
   const row = await loadProfile(env.DB, session.companyId);
   return json({ ok: true, profile: toProfile(row) });
 }
@@ -240,6 +259,7 @@ async function saveProfile(request: Request, env: Env): Promise<Response> {
     )
     .run();
 
+  await syncCompanyName(env.DB, session.companyId);
   const row = await loadProfile(env.DB, session.companyId);
   return json({ ok: true, message: 'Company profile saved.', profile: toProfile(row) });
 }

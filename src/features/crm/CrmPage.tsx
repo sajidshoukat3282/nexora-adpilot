@@ -7,6 +7,7 @@ import { CrmFocus } from "./CrmFocus";
 import { CrmInsights } from "./CrmInsights";
 import { HEALTH_STYLE } from "./crmStyles";
 import { useSession } from "@/hooks/useSession";
+import { useCompanyName } from "@/hooks/useCompanyProfile";
 import type { Client } from "@/domain";
 import AddClientForm from "./AddClientForm";
 import AddLeadForm from "./AddLeadForm";
@@ -33,6 +34,7 @@ type SortKey = "name" | "industry" | "credit_limit" | "outstanding";
 
 export const CrmPage: React.FC = () => {
   const { company } = useSession();
+  const companyName = useCompanyName();
   const [tab, setTab] = useState<"leads" | "clients" | "insights">("leads");
   const [search, setSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -251,7 +253,7 @@ export const CrmPage: React.FC = () => {
       <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-[18px] font-normal tracking-tight text-zinc-100">CRM &amp; Leads</h1>
-          <p className="mt-0.5 text-[11px] text-zinc-500">{`Sales pipeline and client roster for ${company?.name ?? "your company"}.`}</p>
+          <p className="mt-0.5 text-[11px] text-zinc-500">{`Sales pipeline and client roster for ${companyName}.`}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {tab !== "insights" && (

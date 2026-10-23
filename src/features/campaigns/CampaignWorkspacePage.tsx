@@ -7,6 +7,7 @@ import { useCompanyProfile } from "@/hooks/useCompanyProfile";
 import { downloadCsv, money, toCsv } from "../crm/crmTools";
 import { FIN, GOLD_CARD, SILVER_CARD, FDrawer, ModalTitle, SectionTitle, fit, statusPill } from "../finance/financeUi";
 import AddInvoiceForm from "../finance/AddInvoiceForm";
+import AddExpenseForm from "../finance/AddExpenseForm";
 import { RenewModal } from "./RenewModal";
 import { AnalyticsPanel, ApprovalsPanel, CreativesPanel, DeliveryPanel, ProofPanel } from "./WorkspaceTabs";
 import {
@@ -62,6 +63,7 @@ export const CampaignWorkspacePage: React.FC = () => {
   const [editing, setEditing] = useState(false);
   const [renewing, setRenewing] = useState(false);
   const [invoicing, setInvoicing] = useState(false);
+  const [expensing, setExpensing] = useState(false);
   const [summary, setSummary] = useState(false);
   const [picker, setPicker] = useState(false);
 
@@ -475,7 +477,10 @@ export const CampaignWorkspacePage: React.FC = () => {
 
       {tab === "expenses" && (
         <div className={`${FIN.panel} p-4`}>
-          <SectionTitle>Campaign expenses</SectionTitle>
+          <div className="flex items-center justify-between gap-3">
+            <SectionTitle>Campaign expenses</SectionTitle>
+            <button className={FIN.btnGold} onClick={() => setExpensing(true)}>+ Add Expense</button>
+          </div>
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[480px] text-left text-[12px]">
               <thead className="border-b border-[#2a2f37] text-[10px] uppercase tracking-[0.12em] text-zinc-400">
@@ -545,6 +550,18 @@ export const CampaignWorkspacePage: React.FC = () => {
             navigate(`/campaigns/${nid}`);
           }}
         />
+      )}
+      {expensing && (
+        <div className={FIN.overlay}>
+          <AddExpenseForm
+            campaignId={c.id}
+            campaignName={c.name}
+            onClose={() => {
+              setExpensing(false);
+              load();
+            }}
+          />
+        </div>
       )}
       {invoicing && (
         <div className={FIN.overlay}>

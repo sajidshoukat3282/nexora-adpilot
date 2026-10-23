@@ -1,3 +1,4 @@
+import { useSession } from "@/hooks/useSession";
 import React, { useEffect, useState } from "react";
 import { useCompanyProfile } from "@/hooks/useCompanyProfile";
 import type { CompanyProfileInput } from "@/lib/api/companyProfile";
@@ -44,6 +45,7 @@ const Field: React.FC<{
 
 export const CompanyProfilePanel: React.FC = () => {
   const { profile, loading, save } = useCompanyProfile();
+  const { refresh } = useSession();
   const [form, setForm] = useState<CompanyProfileInput>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
@@ -73,6 +75,7 @@ export const CompanyProfilePanel: React.FC = () => {
     setMessage(null);
     try {
       await save(form);
+      await refresh(); // the company name is shown in many places, so reload it everywhere
       setMessage({ ok: true, text: "Company profile saved." });
     } catch (err) {
       setMessage({

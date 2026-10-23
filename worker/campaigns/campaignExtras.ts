@@ -44,7 +44,7 @@ const text = (v: unknown, max: number): string | null => {
 const link = (v: unknown): string | null => {
   const s = text(v, 500);
   if (!s) return null;
-  return /^https?:\/\//i.test(s) ? s : null;
+  return /^https?:\/\//i.test(s) || /^\/api\/files\/[0-9a-fA-F-]{36}(\/[^\s]*)?$/.test(s) ? s : null;
 };
 const now = () => new Date().toISOString();
 

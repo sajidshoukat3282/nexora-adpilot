@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { FIN, ModalTitle } from './financeUi';
 
-export default function AddExpenseForm({ onClose }: { onClose: () => void }) {
+export default function AddExpenseForm({ onClose, campaignId, campaignName }: { onClose: () => void; campaignId?: string; campaignName?: string }) {
   const [formData, setFormData] = useState<any>({
-    category: 'Rent / Media Owner Payment',
+    category: campaignId ? 'Printing & Production' : 'Rent / Media Owner Payment',
     description: '',
     amount: 0,
     expense_date: new Date().toISOString().split('T')[0],
     payment_method: 'Bank Transfer',
-    reference_no: ''
+    reference_no: '',
+    campaign_id: campaignId || null
   });
 
   const handleSubmit = async (e: any) => {
@@ -34,13 +35,18 @@ export default function AddExpenseForm({ onClose }: { onClose: () => void }) {
 
   return (
     <div className={`${FIN.modal} max-w-lg`}>
-      <ModalTitle>Add New Expense</ModalTitle>
+      <ModalTitle>{campaignId ? 'Add Campaign Expense' : 'Add New Expense'}</ModalTitle>
+      {campaignId && (
+        <p className="-mt-2 mb-3 rounded-lg border border-[#c99b3b]/25 bg-[#c99b3b]/5 px-3 py-2 text-[11px] text-[#d9b45a]">
+          This expense will be linked to the campaign{campaignName ? `: ${campaignName}` : ''}.
+        </p>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-3.5">
 
         <div>
           <label className={FIN.label}>Category *</label>
-          <select required className={FIN.input}
+          <select required className={FIN.input} value={formData.category}
             onChange={(e: any) => setFormData({...formData, category: e.target.value})}>
             <option value="Rent / Media Owner Payment">Rent / Media Owner Payment</option>
             <option value="Government Tax & Municipal Fees">Government Tax & Municipal Fees</option>

@@ -4,6 +4,7 @@ import { CompanyProfilePanel } from "./CompanyProfilePanel";
 import { AuditLogCard, DefaultCurrencyCard, RoleCards, SecurityCard, TeamOverviewCards } from "./AdminExtras";
 import { PermissionGate } from "@/components/ui/PermissionGate";
 import { useSession } from "@/hooks/useSession";
+import { useCompanyName } from "@/hooks/useCompanyProfile";
 import { ROLE_LABELS, roleHasPermission } from "@/domain";
 import type { Role } from "@/domain";
 import type { TeamResponse } from "@/lib/api/team";
@@ -16,6 +17,7 @@ const ALL_ROLES = Object.keys(ROLE_LABELS) as Role[];
 
 export const AdminPage: React.FC = () => {
   const { company } = useSession();
+  const companyName = useCompanyName();
   const [team, setTeam] = useState<TeamResponse | null>(null);
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [setup, setSetup] = useState<SetupStatus | null>(null);
@@ -46,7 +48,7 @@ export const AdminPage: React.FC = () => {
       <div className={FIN.page}>
         <div className="mb-4">
           <h1 className="text-lg font-semibold tracking-tight text-zinc-50">Admin &amp; Roles</h1>
-          <p className="text-[11px] text-zinc-500">{`Users, permissions and company settings for ${company?.name ?? "your company"}.`}</p>
+          <p className="text-[11px] text-zinc-500">{`Users, permissions and company settings for ${companyName}.`}</p>
         </div>
 
         <div className="mb-4 rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-[11px] text-amber-300">
@@ -115,7 +117,7 @@ export const AdminPage: React.FC = () => {
             <SectionTitle>Company Settings</SectionTitle>
             <dl className="mt-3 grid grid-cols-2 gap-y-2 text-[12px]">
               <dt className="text-zinc-500">Company</dt>
-              <dd className="text-zinc-100">{company?.name}</dd>
+              <dd className="text-zinc-100">{companyName}</dd>
               <dt className="text-zinc-500">Plan</dt>
               <dd className="capitalize text-zinc-100">{company?.plan}</dd>
               <dt className="text-zinc-500">Seats</dt>

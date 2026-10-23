@@ -1,0 +1,135 @@
+import type { Env } from '../index';
+import { resolveSession } from '../auth/session';
+import { clientIdOf } from '../notifications/notificationRoutes';
+
+/**
+ * File upload from the user's computer (creative artwork, proof-of-play photos).
+ * Files are stored inside the database in small chunks, so no extra storage service is needed.
+ * Limits: 5 MB per file, images / PDF / short video only. Files are private to the company,
+ * and a client account can only open files of its own campaigns.
+ */
+
+const MAX_BYTES = 5 * 1024 * 1024;
+const CHUNK = 256 * 1024;
+
+const TYPES: Record<string, string> = {
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
+  pdf: 'application/pdf', mp4: 'video/mp4', webm: 'video/webm',
+};
+
+const json = (data: unknown, status = 200) =>
+  new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
+const fail = (status: number, message: string, error = 'INVALID_INPUT') => json({ ok: false, error, message }, status);
+
+let ready = false;
+async function ensure(db: D1Database): Promise<void> {
+  if (ready) return;
+  await db.prepare(`CREATE TABLE IF NOT EXISTS uploaded_files (
+    id TEXT PRIMARY KEY, company_id TEXT NOT NULL, campaign_id TEXT, name TEXT NOT NULL, ext TEXT NOT NULL,
+    size INTEGER NOT NULL, chunks INTEGER NOT NULL, uploaded_by TEXT, created_at TEXT NOT NULL)`).run();
+  await db.prepare(`CREATE TABLE IF NOT EXISTS uploaded_file_chunks (
+    file_id TEXT NOT NULL, idx INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY (file_id, idx))`).run();
+  ready = true;
+}
+
+const extOf = (name: string): string => (name.split('.').pop() || '').toLowerCase();
+const safeName = (n: string): string => n.replace(/[^A-Za-z0-9._ -]/g, '_').replace(/\s+/g, ' ').trim().slice(0, 100) || 'file';
+
+/** Checks the first bytes so a renamed file (for example an .exe called .png) is refused. */
+function looksRight(ext: string, b: Uint8Array): boolean {
+  const at = (i: number, s: string) => s.split('').every((c, k) => b[i + k] === c.charCodeAt(0));
+  if (ext === 'png') return b[0] === 0x89 && at(1, 'PNG');
+  if (ext === 'jpg' || ext === 'jpeg') return b[0] === 0xff && b[1] === 0xd8;
+  if (ext === 'gif') return at(0, 'GIF8');
+  if (ext === 'webp') return at(0, 'RIFF') && at(8, 'WEBP');
+  if (ext === 'pdf') return at(0, '%PDF');
+  if (ext === 'mp4') return at(4, 'ftyp');
+  if (ext === 'webm') return b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3;
+  return false;
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+export async function handleFileRoutes(request: Request, env: Env, url: URL): Promise<Response | null> {
+  const path = url.pathname;
+  if (path !== '/api/files' && !path.startsWith('/api/files/')) return null;
+  try {
+    const s = await resolveSession(request, env.DB);
+    if (!s) return json({ ok: false, error: 'UNAUTHENTICATED' }, 401);
+    await ensure(env.DB);
+
+    if (path === '/api/files' && request.method === 'POST') {
+      if (s.accountType === 'client' || !s.permissions.includes('campaigns.manage')) return fail(403, 'You do not have permission to upload files.', 'FORBIDDEN');
+      const name = safeName(url.searchParams.get('name') || 'file');
+      const ext = extOf(name);
+      if (!TYPES[ext]) return fail(400, 'This file type is not allowed. Use PNG, JPG, GIF, WEBP, PDF, MP4 or WEBM.');
+      const declared = Number(request.headers.get('content-length') || 0);
+      if (declared > MAX_BYTES + 4096) return fail(413, 'The file is too large. The limit is 5 MB. For bigger files, paste a link instead.', 'TOO_LARGE');
+      const campaignId = url.searchParams.get('campaign_id') || '';
+      if (campaignId) {
+        const c = await env.DB.prepare('SELECT id FROM campaigns WHERE id = ? AND company_id = ?').bind(campaignId, s.companyId).first();
+        if (!c) return fail(404, 'Campaign not found.', 'NOT_FOUND');
+      }
+      const buf = new Uint8Array(await request.arrayBuffer());
+      if (buf.length === 0) return fail(400, 'The file is empty.');
+      if (buf.length > MAX_BYTES) return fail(413, 'The file is too large. The limit is 5 MB. For bigger files, paste a link instead.', 'TOO_LARGE');
+      if (!looksRight(ext, buf)) return fail(400, 'The file content does not match its type. Please choose a real image, PDF or video.');
+      const id = crypto.randomUUID();
+      const n = Math.ceil(buf.length / CHUNK);
+      const stmts = [
+        env.DB.prepare('INSERT INTO uploaded_files (id, company_id, campaign_id, name, ext, size, chunks, uploaded_by, created_at) VALUES (?,?,?,?,?,?,?,?,?)')
+          .bind(id, s.companyId, campaignId || null, name, ext, buf.length, n, s.accountId, new Date().toISOString()),
+      ];
+      for (let i = 0; i < n; i++) {
+        stmts.push(env.DB.prepare('INSERT INTO uploaded_file_chunks (file_id, idx, data) VALUES (?,?,?)').bind(id, i, toBase64(buf.subarray(i * CHUNK, (i + 1) * CHUNK))));
+      }
+      await env.DB.batch(stmts);
+      return json({ ok: true, id, name, size: buf.length, url: `/api/files/${id}/${encodeURIComponent(name)}` });
+    }
+
+    const m = path.match(/^\/api\/files\/([0-9a-fA-F-]{36})(?:\/[^/]*)?$/);
+    if (m && (request.method === 'GET' || request.method === 'DELETE')) {
+      const f = await env.DB.prepare('SELECT id, company_id, campaign_id, name, ext, size, chunks FROM uploaded_files WHERE id = ? AND company_id = ?').bind(m[1], s.companyId).first<any>();
+      if (!f) return fail(404, 'File not found.', 'NOT_FOUND');
+      if (request.method === 'DELETE') {
+        if (s.accountType === 'client' || !s.permissions.includes('campaigns.manage')) return fail(403, 'You do not have permission to delete files.', 'FORBIDDEN');
+        await env.DB.batch([
+          env.DB.prepare('DELETE FROM uploaded_file_chunks WHERE file_id = ?').bind(f.id),
+          env.DB.prepare('DELETE FROM uploaded_files WHERE id = ? AND company_id = ?').bind(f.id, s.companyId),
+        ]);
+        return json({ ok: true });
+      }
+      if (s.accountType === 'client') {
+        const cid = await clientIdOf(env, s);
+        const own = f.campaign_id && cid
+          ? await env.DB.prepare('SELECT id FROM campaigns WHERE id = ? AND company_id = ? AND client_id = ?').bind(f.campaign_id, s.companyId, cid).first()
+          : null;
+        if (!own) return fail(404, 'File not found.', 'NOT_FOUND');
+      }
+      const rs = await env.DB.prepare('SELECT data FROM uploaded_file_chunks WHERE file_id = ? ORDER BY idx ASC').bind(f.id).all<{ data: string }>();
+      const out = new Uint8Array(f.size);
+      let off = 0;
+      for (const r of rs.results ?? []) {
+        const bin = atob(r.data);
+        for (let i = 0; i < bin.length && off < out.length; i++) out[off++] = bin.charCodeAt(i);
+      }
+      return new Response(out, {
+        status: 200,
+        headers: {
+          'content-type': TYPES[f.ext] || 'application/octet-stream',
+          'content-disposition': `inline; filename="${String(f.name).replace(/"/g, '')}"`,
+          'x-content-type-options': 'nosniff',
+          'content-security-policy': "default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; sandbox",
+          'cache-control': 'private, max-age=3600',
+        },
+      });
+    }
+    return fail(404, 'Not found.', 'NOT_FOUND');
+  } catch {
+    return fail(500, 'Unable to complete the request. Please try again.', 'FILE_REQUEST_FAILED');
+  }
+}

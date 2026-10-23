@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react"; 
 import {
   FiSearch,
-  FiBell,
   FiChevronDown,
   FiMenu,
   FiLogOut,
@@ -12,8 +11,7 @@ import {
 import { useSession } from "@/hooks/useSession";
 import { useCurrentPath, useNavigate } from "@/lib/router";
 import { ROLE_LABELS } from "@/domain";
-import { repo } from "@/repositories/demo";
-import { useAsync } from "@/hooks/useAsync";
+import { NotificationBell } from "./NotificationBell";
 import { useCompanyProfile } from "@/hooks/useCompanyProfile";
 
 const PAGE_TITLES: Record<string, string> = {
@@ -52,13 +50,6 @@ export const TopBar: React.FC<{ onMobileMenu: () => void }> = ({
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [search, setSearch] = useState("");
   const accountMenuRef = useRef<HTMLDivElement>(null);
-
-  const { data: notifications } = useAsync(
-    () => repo.notifications.list(),
-    [],
-  );
-
-  const unread = notifications?.filter((notification) => !notification.read).length ?? 0;
 
   const displayName =
     (session?.accountType === "owner" && profile?.ownerName) ||
@@ -200,19 +191,10 @@ export const TopBar: React.FC<{ onMobileMenu: () => void }> = ({
       </button>
 
       {/* Notifications */}
-      <button
-        type="button"
-        className="relative flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-white/5 hover:text-[#f1d68a]"
-        onClick={() => navigate("/notifications")}
-        aria-label={unread > 0 ? `${unread} unread notifications` : "Notifications"}
-      >
-        <FiBell size={16} />
-        {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-gradient-to-b from-[#f1d68a] to-[#a97b22] px-1 text-[9px] font-bold leading-none text-[#1a1204] ring-2 ring-[#0b0d10]">
-            {unread > 9 ? "9+" : unread}
-          </span>
-        )}
-      </button>
+      <NotificationBell
+        onViewAll={() => navigate("/notifications")}
+        onOpen={(n) => navigate(n.link_path || "/notifications")}
+      />
 
       {/* Account */}
       <div className="relative ml-1 border-l border-[#2a2f37] pl-3" ref={accountMenuRef}>
@@ -277,7 +259,7 @@ export const TopBar: React.FC<{ onMobileMenu: () => void }> = ({
                   </span>
                 </div>
                 <div className="truncate text-sm font-medium text-zinc-100">
-                  {company?.name ?? "Nexora AdPilot"}
+                  {profile?.legalName || company?.name || "Nexora AdPilot"}
                 </div>
                 <div className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-500">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
