@@ -1,4 +1,5 @@
 import type { Env } from '../index';
+import { creditCheck, logCreditEvent } from '../credit/creditRoutes';
 import { resolveSession, type SessionContext } from '../auth/session';
 import { availability, cleanSlots, ensureSlotsColumn } from '../campaigns/campaignSlots';
 import { log as logCampaign } from '../campaigns/campaignRoutes';
@@ -280,6 +281,14 @@ async function convert(request: Request, env: Env, id: string): Promise<Response
   if (p.campaign_id) return fail(409, 'This proposal was already converted to a campaign.', 'INVALID_STATE');
   const b = (await request.json().catch(() => ({}))) as Record<string, any>;
   const items = await rows<any>(env, 'SELECT inventory_id, slots, rate FROM proposal_items WHERE proposal_id=?', id);
+  // The accepted proposal is already counted in the client's exposure, so nothing extra is added here.
+  const cv = await creditCheck(env, s.companyId, p.client_id, 0);
+  if (cv.blocked) {
+    if (!(b.credit_override && s.permissions.includes('finance.manage'))) {
+      return json({ ok: false, error: 'CREDIT_LIMIT', message: cv.message, can_override: s.permissions.includes('finance.manage') }, 409);
+    }
+    await logCreditEvent(env, s, p.client_id, 'exception', cv.limit, cv.limit, `Converted ${p.code} over limit`);
+  }
   if (!b.force) {
     const bad: string[] = [];
     for (const i of items) {

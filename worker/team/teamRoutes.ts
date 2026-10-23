@@ -15,9 +15,6 @@ import { handleCampaignSlots } from '../campaigns/campaignSlots';
 import { handleReportRoutes } from '../reports/reportRoutes';
 import { handleProposalRoutes } from '../proposals/proposalRoutes';
 import { handleCreditRoutes } from '../credit/creditRoutes';
-import { handleNotificationRoutes } from '../notifications/notificationRoutes';
-import { handlePortalRoutes } from '../portal/portalRoutes';
-import { handleFileRoutes } from '../files/fileRoutes';
 import {
   ROLE_PERMISSIONS,
   type Permission,
@@ -921,12 +918,6 @@ export async function handleTeamRoutes(
   const inventoryResponse = await handleInventoryRoutes(request, env, url);
   if (inventoryResponse) return inventoryResponse;
 
-  const filesResponse = await handleFileRoutes(request, env, url);
-  if (filesResponse) return filesResponse;
-  const notificationResponse = await handleNotificationRoutes(request, env, url);
-  if (notificationResponse) return notificationResponse;
-  const portalResponse = await handlePortalRoutes(request, env, url);
-  if (portalResponse) return portalResponse;
   const creditResponse = await handleCreditRoutes(request, env, url);
   if (creditResponse) return creditResponse;
   const proposalsResponse = await handleProposalRoutes(request, env, url);

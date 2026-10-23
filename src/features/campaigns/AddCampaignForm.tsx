@@ -23,6 +23,7 @@ export default function AddCampaignForm({ onClose }: { onClose: () => void }) {
   const [conflicts, setConflicts] = useState<any[]>([]);
   const [checking, setChecking] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [creditBlock, setCreditBlock] = useState<{ message: string; canOverride: boolean } | null>(null);
 
   // 1. Fetch Clients and Inventory on load
   useEffect(() => {
@@ -103,8 +104,9 @@ export default function AddCampaignForm({ onClose }: { onClose: () => void }) {
     );
   };
 
-  const handleSubmit = async (e: any) => {
-    e.preventDefault();
+  const handleSubmit = async (e: any, creditOverride = false) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setCreditBlock(null);
     if (conflicts.length > 0) {
       setError("Some screens are already booked for these dates.");
       return;
@@ -125,7 +127,8 @@ export default function AddCampaignForm({ onClose }: { onClose: () => void }) {
         body: JSON.stringify({
           ...formData,
           total_budget: totalBudget,
-          screens: screensData
+          screens: screensData,
+          credit_override: creditOverride
         })
       });
 
@@ -133,7 +136,8 @@ export default function AddCampaignForm({ onClose }: { onClose: () => void }) {
         onClose();
       } else {
         const d = await res.json().catch(() => null);
-        setError(d?.message || d?.error || 'Could not create the campaign.');
+        if (d?.error === 'CREDIT_LIMIT') setCreditBlock({ message: d.message || 'This client is over the credit limit.', canOverride: !!d.can_override });
+        else setError(d?.message || d?.error || 'Could not create the campaign.');
       }
     } catch (err) {
       console.error(err);
@@ -248,6 +252,17 @@ export default function AddCampaignForm({ onClose }: { onClose: () => void }) {
         </div>
 
         {error && <p className="text-[12px] text-rose-300">{error}</p>}
+        {creditBlock && (
+          <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-[12px] text-amber-200">
+            <p className="font-semibold">Credit limit</p>
+            <p className="mt-0.5">{creditBlock.message}</p>
+            {creditBlock.canOverride ? (
+              <button type="button" disabled={saving} className={`${FIN.btnGold} mt-2`} onClick={() => handleSubmit(null, true)}>Approve exception and create</button>
+            ) : (
+              <p className="mt-1 text-amber-300/80">Ask an admin with finance access to approve an exception.</p>
+            )}
+          </div>
+        )}
 
         <div className="mt-2 flex justify-end gap-2 border-t border-[#2a2f37] pt-4">
           <button type="button" onClick={onClose} className={FIN.btnText}>Cancel</button>

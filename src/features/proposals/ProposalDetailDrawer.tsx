@@ -17,12 +17,13 @@ export const ProposalDetailDrawer: React.FC<{
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [conflict, setConflict] = useState("");
+  const [credit, setCredit] = useState<{ message: string; canOverride: boolean } | null>(null);
 
   const load = async (pid: string) => {
     try { setD(await proposalsApi.get(pid)); } catch (e: any) { setMsg({ ok: false, text: e?.message || "Could not load the proposal." }); }
   };
   useEffect(() => {
-    setD(null); setMsg(null); setConflict("");
+    setD(null); setMsg(null); setConflict(""); setCredit(null);
     if (id) load(id);
   }, [id]);
 
@@ -40,15 +41,16 @@ export const ProposalDetailDrawer: React.FC<{
     finally { setBusy(false); }
   };
 
-  const convert = async (force: boolean) => {
+  const convert = async (force: boolean, creditOverride = false) => {
     if (!d) return;
-    setBusy(true); setMsg(null);
+    setBusy(true); setMsg(null); setCredit(null);
     try {
-      const r = await proposalsApi.convert(d.proposal.id, force);
+      const r = await proposalsApi.convert(d.proposal.id, force, creditOverride);
       onChanged();
       navigate(`/campaigns/${r.campaign_id}`);
     } catch (e: any) {
-      if (e?.code === "CONFLICT") setConflict(e.message || "Some screens do not have enough free slots.");
+      if (e?.code === "CREDIT_LIMIT") setCredit({ message: e.message || "This client is over the credit limit.", canOverride: !!e?.details?.can_override });
+      else if (e?.code === "CONFLICT") setConflict(e.message || "Some screens do not have enough free slots.");
       else setMsg({ ok: false, text: e?.message || "Could not create the campaign." });
     } finally { setBusy(false); }
   };
@@ -81,6 +83,18 @@ export const ProposalDetailDrawer: React.FC<{
             <button disabled={busy} className={FIN.btnGhost} onClick={() => run(async () => { const r = await proposalsApi.revise(p.id); onChanged(); if (r.id) await load(r.id); }, "A revised copy was created as a new draft.")}>Revise</button>
             {p.status === "draft" && <button disabled={busy} className={FIN.btnGhost} onClick={() => { if (window.confirm("Delete this draft proposal?")) { setBusy(true); proposalsApi.remove(p.id).then(() => { onChanged(); onClose(); }).catch((e: any) => setMsg({ ok: false, text: e?.message || "Could not delete." })).finally(() => setBusy(false)); } }}>Delete</button>}
           </div>
+
+          {credit && (
+            <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-[12px] text-amber-200">
+              <p className="font-semibold">Credit limit</p>
+              <p className="mt-0.5">{credit.message}</p>
+              <div className="mt-2 flex gap-2">
+                <button className={FIN.btnGold} disabled={busy} onClick={() => convert(false, true)}>Approve exception and convert</button>
+                <button className={FIN.btnText} onClick={() => setCredit(null)}>Cancel</button>
+              </div>
+              <p className="mt-1 text-amber-300/80">Only users with finance access can approve an exception.</p>
+            </div>
+          )}
 
           {conflict && (
             <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-[12px] text-amber-200">

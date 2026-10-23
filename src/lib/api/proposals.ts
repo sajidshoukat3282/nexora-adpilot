@@ -73,5 +73,5 @@ export const proposalsApi = {
   setStatus: (id: string, status: string) => apiRequest<{ ok: boolean; message?: string }>(`/api/proposals/${id}/status`, { method: "PUT", ...body({ status }) }),
   remove: (id: string) => apiRequest<{ ok: boolean }>(`/api/proposals/${id}`, { method: "DELETE" }),
   revise: (id: string) => apiRequest<{ ok: boolean; id: string; code: string }>(`/api/proposals/${id}/revise`, { method: "POST" }),
-  convert: (id: string, force = false) => apiRequest<{ ok: boolean; campaign_id: string; message?: string }>(`/api/proposals/${id}/convert`, { method: "POST", ...body({ force }) }),
+  convert: (id: string, force = false, credit_override = false) => apiRequest<{ ok: boolean; campaign_id: string; message?: string }>(`/api/proposals/${id}/convert`, { method: "POST", ...body({ force, credit_override }) }),
 };

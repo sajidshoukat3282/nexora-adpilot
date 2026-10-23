@@ -1,4 +1,5 @@
 import type { Env } from '../index';
+import { creditCheck, logCreditEvent } from '../credit/creditRoutes';
 import { resolveSession } from '../auth/session';
 
 /**
@@ -156,7 +157,16 @@ export async function handleCampaignSlots(request: Request, env: Env, url: URL):
         return jsonRes({ ok: false, error: 'CONFLICT', message: `${a.name}: only ${a.free} of ${a.capacity} slot${a.capacity === 1 ? '' : 's'} free in these dates.` }, 409);
       }
     }
-    const status = ['draft', 'booked', 'live'].includes(b.status) ? b.status : 'draft';
+    // Credit limit: a draft counts for nothing yet, a booked or live campaign adds to the client's exposure.
+    const wantStatus = ['draft', 'booked', 'live'].includes(b.status) ? b.status : 'draft';
+    const cv = await creditCheck(env, s.companyId, String(b.client_id), wantStatus === 'draft' ? 0 : Math.max(0, Number(b.total_budget) || 0));
+    if (cv.blocked) {
+      if (!(b.credit_override && s.permissions.includes('finance.manage'))) {
+        return jsonRes({ ok: false, error: 'CREDIT_LIMIT', message: cv.message, can_override: s.permissions.includes('finance.manage') }, 409);
+      }
+      await logCreditEvent(env, s, String(b.client_id), 'exception', cv.limit, cv.limit, `Created campaign "${name}" over limit`);
+    }
+    const status = wantStatus;
     const id = crypto.randomUUID();
     await env.DB.batch([
       env.DB

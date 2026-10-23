@@ -1,4 +1,5 @@
 import type { Env } from '../index';
+import { riskDigestHtml } from '../credit/creditRoutes';
 import { resolveSession, type SessionContext } from '../auth/session';
 
 /**
@@ -284,6 +285,7 @@ export async function buildDigest(env: Env, companyId: string, companyName: stri
   const live = await one<{ n: number }>(env, `SELECT COUNT(*) n FROM campaigns WHERE company_id=? AND status='live'`, companyId);
   const endSoon = await rows<any>(env, `SELECT name, end_date FROM campaigns WHERE company_id=? AND status='live' AND end_date BETWEEN ? AND ? ORDER BY end_date LIMIT 5`, companyId, to, isoOf(dayNum(to) + 7));
   const topClient = await one<any>(env, `SELECT c.name, SUM(i.total_amount) t FROM invoices i INNER JOIN clients c ON c.id=i.client_id WHERE i.company_id=? AND i.status!='cancelled' AND substr(i.issue_date,1,10) BETWEEN ? AND ? GROUP BY c.id, c.name ORDER BY t DESC LIMIT 1`, companyId, from, to);
+  const riskBlock = await riskDigestHtml(env, companyId, esc);
   const delta = (a: number, b: number) => (b > 0 ? `${a >= b ? '+' : ''}${Math.round(((a - b) / b) * 100)}% vs previous ${days} days` : 'no previous data');
   const card = (label: string, value: string, sub: string, gold = false) =>
     `<td style="width:50%;padding:6px"><div style="border-radius:10px;padding:14px;${gold ? 'background:#f1d68a;background:linear-gradient(135deg,#f1d68a,#c99b3b);' : 'background:#eceff2;background:linear-gradient(135deg,#eceff2,#a8aeb6);'}"><div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#4a4130;font-weight:bold">${esc(label)}</div><div style="font-size:20px;font-weight:bold;color:#1a1204;margin-top:4px">${esc(value)}</div><div style="font-size:10px;color:#4a4130;margin-top:2px">${esc(sub)}</div></div></td>`;
@@ -294,6 +296,7 @@ export async function buildDigest(env: Env, companyId: string, companyName: stri
 <div style="font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:#a8914f;font-weight:bold;margin:18px 0 6px">Operations and sales</div>
 <table style="width:100%;border-collapse:collapse">${li(`Live campaigns: <b>${live?.n ?? 0}</b>`)}${li(`Invoiced this period: <b>${esc(fmt(k.invoiced, cur))}</b> (${k.invoiceCount} invoices)`)}${li(`New leads: <b>${k.newLeads}</b> &middot; New clients: <b>${k.newClients}</b>`)}${topClient ? li(`Top client: <b>${esc(topClient.name)}</b> (${esc(fmt(topClient.t, cur))})`) : ''}</table>
 ${endSoon.length ? `<div style="font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:#a8914f;font-weight:bold;margin:18px 0 6px">Ending within 7 days</div><table style="width:100%;border-collapse:collapse">${endSoon.map((c) => li(`${esc(c.name)} <span style="color:#8a7a52">ends ${esc(c.end_date)}</span>`)).join('')}</table>` : ''}
+${riskBlock}
 <p style="font-size:10px;color:#9a9078;text-align:center;margin:22px 0 0">Automated report from Nexora AdPilot. Open Analytics &amp; Reports for full detail.</p></div></div>`;
   return { subject: `Weekly Digest: ${companyName}`, html };
 }
