@@ -94,6 +94,7 @@ export async function snapshot(env: Env, companyId: string, onlyClient?: string)
   const tNum = dayNum(today);
   const cFilter = onlyClient ? ' AND c.id = ?' : '';
   const cBinds: unknown[] = onlyClient ? [companyId, onlyClient] : [companyId];
+  const defCur = (await rows<any>(env, 'SELECT default_currency FROM companies WHERE id = ? LIMIT 1', companyId))[0]?.default_currency || 'PKR';
   const clients = await rows<any>(env, `SELECT c.id, c.name, c.credit_limit, c.currency, c.phone, c.email FROM clients c WHERE c.company_id = ?${cFilter}`, ...cBinds);
   if (!clients.length) return [];
   const flags = await safeRows<any>(env, 'SELECT client_id, on_hold, hold_reason FROM client_credit_flags WHERE company_id = ?', companyId);
@@ -176,7 +177,7 @@ export async function snapshot(env: Env, companyId: string, onlyClient?: string)
     }
 
     out.push({
-      id: c.id, name: c.name, currency: c.currency || 'PKR',
+      id: c.id, name: c.name, currency: defCur,
       credit_limit: limit, outstanding: r2(outstanding), outstanding_balance: r2(outstanding),
       overdue: r2(overdue), overdue_count: overdueCount, oldest_overdue_days: oldest,
       ageing: { current: r2(ageing.current), d1_30: r2(ageing.d1_30), d31_60: r2(ageing.d31_60), d61_90: r2(ageing.d61_90), d90: r2(ageing.d90) },
