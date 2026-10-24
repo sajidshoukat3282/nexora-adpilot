@@ -577,6 +577,24 @@ export const PAGE_GUIDES: PageGuide[] = [
         ],
       },
       {
+        title: "Set or change your password",
+        steps: [
+          "Open Admin, and find the Set a password box under Security.",
+          "Type a new password (at least 8 characters) twice and click Save password. If you already have one, enter the current password too.",
+          "After saving, other devices are signed out. You can sign in with your email and password on the sign-in page.",
+          "Forgot your password? Click Forgot your password? on the sign-in page and follow the link in your email.",
+        ],
+      },
+      {
+        title: "Export all my data",
+        steps: [
+          "Only the owner can do this. Open Admin and click Export all my data (ZIP).",
+          "Tick Include uploaded files if you also want your artwork and proof photos. Keep the page open until the download finishes.",
+          "The ZIP has one CSV (opens in Excel) and one JSON file for each kind of data, plus your files. Passwords and secret keys are never included.",
+          "Do this before you cancel your subscription, and keep the ZIP safe.",
+        ],
+      },
+      {
         title: "Sign in with Google",
         steps: [
           "On the login page, click Continue with Google (shown only when Google sign-in is switched on).",

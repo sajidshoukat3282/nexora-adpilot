@@ -30,7 +30,7 @@ export const ForgotPasswordPage: React.FC = () => {
         {sent ? (
           <>
             <p className="mt-4 text-sm leading-6 text-ink-300">
-              If an eligible client account exists for that email, password reset instructions will be sent.
+              If an account exists for that email, password reset instructions will be sent.
               Check your inbox and spam folder.
             </p>
             <p className="mt-3 text-xs text-ink-500">The reset link expires in 10 minutes.</p>
@@ -38,7 +38,7 @@ export const ForgotPasswordPage: React.FC = () => {
         ) : (
           <>
             <p className="mt-2 mb-6 text-sm text-ink-400">
-              Enter your client account email to request a password reset.
+              Enter your account email to request a password reset.
             </p>
             <form onSubmit={submit} className="space-y-5">
               <div>

@@ -40,8 +40,8 @@ export const SignupPage: React.FC = () => {
       return;
     }
 
-    if (password.length < 12) {
-      setLocalError("Password must contain at least 12 characters.");
+    if (password.length < 8) {
+      setLocalError("Password must contain at least 8 characters.");
       return;
     }
 
@@ -253,7 +253,7 @@ export const SignupPage: React.FC = () => {
                 className="input w-full"
                 type="password"
                 autoComplete="new-password"
-                minLength={12}
+                minLength={8}
                 maxLength={256}
                 required
                 value={password}
@@ -263,7 +263,7 @@ export const SignupPage: React.FC = () => {
                 disabled={signingIn}
               />
               <p className="mt-1 text-xs text-ink-500">
-                Use at least 12 characters.
+                Use at least 8 characters.
               </p>
             </div>
 

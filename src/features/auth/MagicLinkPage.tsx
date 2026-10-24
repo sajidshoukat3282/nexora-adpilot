@@ -82,7 +82,7 @@ export const MagicLinkPage: React.FC = () => {
         <button
           type="button"
           className="btn-primary mt-6 w-full"
-          onClick={() => navigate("/login")}
+          onClick={() => navigate("/owner-login")}
         >
           Return to sign in
         </button>

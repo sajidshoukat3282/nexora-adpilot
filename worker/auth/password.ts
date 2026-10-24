@@ -51,12 +51,15 @@ async function derivePasswordKey(
   );
 }
 
+/** Shortest password accepted anywhere (sign up, reset, invitation, set password). */
+export const MIN_PASSWORD_LENGTH = 8;
+
 export async function hashPassword(
   password: string,
 ): Promise<string> {
-  if (password.length < 12) {
+  if (password.length < MIN_PASSWORD_LENGTH) {
     throw new Error(
-      "Password must contain at least 12 characters.",
+      `Password must contain at least ${MIN_PASSWORD_LENGTH} characters.`,
     );
   }
 

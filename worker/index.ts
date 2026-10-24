@@ -9,7 +9,7 @@ import {
   loadMembershipPermissions,
 } from './auth/session';
 import { handleTeamRoutes } from './team/teamRoutes';
-import { hashPassword, verifyPassword } from './auth/password';
+import { MIN_PASSWORD_LENGTH, hashPassword, verifyPassword } from './auth/password';
 import {
   createPasswordResetToken,
   consumePasswordResetToken,
@@ -327,21 +327,21 @@ async function sendPasswordResetEmail(env: Env, email: string, token: string): P
       sender: { name: env.MAIL_FROM_NAME || 'Nexora AdPilot', email: env.MAIL_FROM_EMAIL || 'hello@nexoratechnologies.pk' },
       to: [{ email }],
       subject: 'Reset your Nexora AdPilot password',
-      htmlContent: `<p>Hello,</p><p>We received a request to reset your Nexora AdPilot client password.</p><p><a href="${resetUrl}">Reset my password</a></p><p>This link expires in 10 minutes and can only be used once.</p>`,
+      htmlContent: `<p>Hello,</p><p>We received a request to reset your Nexora AdPilot password.</p><p><a href="${resetUrl}">Reset my password</a></p><p>This link expires in 10 minutes and can only be used once.</p>`,
     }),
   });
   if (!response.ok) throw new Error('EMAIL_SEND_FAILED');
 }
 
 async function requestPasswordReset(request: Request, env: Env): Promise<Response> {
-  const genericMessage = 'If an eligible client account exists for this email, password reset instructions will be sent.';
+  const genericMessage = 'If an account exists for this email, password reset instructions will be sent.';
   try {
     const body = await request.json() as { email?: unknown };
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ ok: true, message: genericMessage });
     const account = await env.DB.prepare(`SELECT id, email FROM accounts WHERE LOWER(email) = ? AND status = 'active' LIMIT 1`).bind(email).first<{ id: string; email: string }>();
     if (account) {
-      const membership = await env.DB.prepare(`SELECT id FROM company_memberships WHERE account_id = ? AND account_type = 'client' AND status = 'active' LIMIT 1`).bind(account.id).first<{ id: string }>();
+      const membership = await env.DB.prepare(`SELECT id FROM company_memberships WHERE account_id = ? AND status = 'active' LIMIT 1`).bind(account.id).first<{ id: string }>();
       if (membership) {
         try {
           const reset = await createPasswordResetToken(env.DB, account.id);
@@ -358,10 +358,10 @@ async function confirmPasswordReset(request: Request, env: Env): Promise<Respons
     const body = await request.json() as { token?: unknown; password?: unknown; };
     const token = typeof body.token === 'string' ? body.token.trim() : '';
     const password = typeof body.password === 'string' ? body.password : '';
-    if (!token || password.length < 12) return json({ ok: false, error: 'INVALID_INPUT', message: 'A valid reset token and a password of at least 12 characters are required.' }, 400);
+    if (!token || password.length < MIN_PASSWORD_LENGTH) return json({ ok: false, error: 'INVALID_INPUT', message: `A valid reset token and a password of at least ${MIN_PASSWORD_LENGTH} characters are required.` }, 400);
     const accountId = await consumePasswordResetToken(env.DB, token);
     if (!accountId) return json({ ok: false, error: 'INVALID_OR_EXPIRED_TOKEN', message: 'This password reset link is invalid, expired, or already used.' }, 400);
-    const eligible = await env.DB.prepare(`SELECT a.id FROM accounts a WHERE a.id = ? AND a.status = 'active' AND EXISTS (SELECT 1 FROM company_memberships m WHERE m.account_id = a.id AND m.account_type = 'client' AND m.status = 'active') AND NOT EXISTS (SELECT 1 FROM company_memberships owner_membership WHERE owner_membership.account_id = a.id AND owner_membership.account_type = 'owner' AND owner_membership.status = 'active') LIMIT 1`).bind(accountId).first<{ id: string }>();
+    const eligible = await env.DB.prepare(`SELECT a.id FROM accounts a WHERE a.id = ? AND a.status = 'active' AND EXISTS (SELECT 1 FROM company_memberships m WHERE m.account_id = a.id AND m.status = 'active') LIMIT 1`).bind(accountId).first<{ id: string }>();
     if (!eligible) return json({ ok: false, error: 'RESET_NOT_ALLOWED', message: 'Password reset is not available for this account.' }, 400);
     const passwordHash = await hashPassword(password);
     const now = new Date().toISOString();
@@ -428,7 +428,7 @@ export default {
         const companyName = typeof body.companyName === 'string' ? body.companyName.trim() : '';
         const requestedCurrency = typeof body.defaultCurrency === 'string' ? body.defaultCurrency.trim().toUpperCase() : '';
         const defaultCurrency = ['PKR', 'USD', 'GBP', 'EUR', 'AED', 'CAD', 'AUD', 'SAR', 'QAR', 'INR', 'CNY', 'JPY', 'CHF', 'ZAR', 'TRY'].includes(requestedCurrency) ? requestedCurrency : 'PKR';
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || companyName.length < 2 || companyName.length > 100 || password.length < 12 || password.length > 256) return json({ ok: false, error: 'INVALID_INPUT', message: 'Enter a valid email, a company name (2\u{2013}100 characters), and a password of 12\u{2013}256 characters.' }, 400);
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || companyName.length < 2 || companyName.length > 100 || password.length < MIN_PASSWORD_LENGTH || password.length > 256) return json({ ok: false, error: 'INVALID_INPUT', message: 'Enter a valid email, a company name (2\u{2013}100 characters), and a password of 8\u{2013}256 characters.' }, 400);
         const existing = await env.DB.prepare('SELECT id FROM accounts WHERE LOWER(email) = ? LIMIT 1').bind(email).first<{ id: string }>();
         if (existing) return json({ ok: false, error: 'EMAIL_UNAVAILABLE', message: 'This email cannot be used to create a new account. Try signing in or resetting your password.' }, 409);
         const now = new Date().toISOString();

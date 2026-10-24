@@ -57,8 +57,8 @@ export const AcceptInvitePage: React.FC = () => {
     event.preventDefault();
     setError("");
 
-    if (password.length < 12) {
-      setError("Password must contain at least 12 characters.");
+    if (password.length < 8) {
+      setError("Password must contain at least 8 characters.");
       return;
     }
     if (password !== confirmPassword) {
@@ -128,14 +128,14 @@ export const AcceptInvitePage: React.FC = () => {
                     className="input w-full"
                     type="password"
                     autoComplete="new-password"
-                    minLength={12}
+                    minLength={8}
                     maxLength={256}
                     required
                     value={password}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                     disabled={submitting}
                   />
-                  <p className="mt-1 text-xs text-ink-500">Use at least 12 characters.</p>
+                  <p className="mt-1 text-xs text-ink-500">Use at least 8 characters.</p>
                 </div>
 
                 <div>

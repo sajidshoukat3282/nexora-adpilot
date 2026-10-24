@@ -4,7 +4,7 @@ import {
   createSession,
   type SessionContext,
 } from '../auth/session';
-import { hashPassword } from '../auth/password';
+import { MIN_PASSWORD_LENGTH, hashPassword } from '../auth/password';
 import { handleCompanyRoutes } from '../company/companyRoutes';
 import { handleAdminRoutes, logAudit, memberEmail } from '../admin/adminRoutes';
 import { handleAccountingRoutes } from '../finance/accountingRoutes';
@@ -12,6 +12,8 @@ import { handleInventoryRoutes } from '../inventory/inventoryRoutes';
 import { handleGoogleAuth } from '../auth/googleAuth';
 import { handlePlatformRoutes } from '../platform/platformRoutes';
 import { handleWeatherRoutes } from '../weather/weatherRoutes';
+import { handlePasswordRoutes } from '../auth/passwordRoutes';
+import { handleExportRoutes } from '../export/exportRoutes';
 import { handleMarketplaceRoutes } from '../marketplace/marketplaceRoutes';
 import { handlePlayerRoutes } from '../operations/playerRoutes';
 import { handleOpsRoutes } from '../operations/opsRoutes';
@@ -836,8 +838,8 @@ async function acceptInvitation(request: Request, env: Env): Promise<Response> {
   if (!/^[a-f0-9]{64}$/i.test(token)) {
     return fail(400, 'INVALID_TOKEN', 'This invitation link is invalid or has expired.');
   }
-  if (password.length < 12 || password.length > 256) {
-    return fail(400, 'INVALID_INPUT', 'Password must contain 12\u{2013}256 characters.');
+  if (password.length < MIN_PASSWORD_LENGTH || password.length > 256) {
+    return fail(400, 'INVALID_INPUT', `Password must contain ${MIN_PASSWORD_LENGTH}\u{2013}256 characters.`);
   }
 
   // Hash first so a slow hash can never leave a consumed-but-unused token.
@@ -930,6 +932,10 @@ export async function handleTeamRoutes(
 
   const googleResponse = await handleGoogleAuth(request, env, url);
   if (googleResponse) return googleResponse;
+  const passwordResponse = await handlePasswordRoutes(request, env, url);
+  if (passwordResponse) return passwordResponse;
+  const exportResponse = await handleExportRoutes(request, env, url);
+  if (exportResponse) return exportResponse;
   const platformResponse = await handlePlatformRoutes(request, env, url);
   if (platformResponse) return platformResponse;
   const weatherResponse = await handleWeatherRoutes(request, env, url);

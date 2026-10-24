@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { TeamPanel, PERMISSION_LABELS, ALL_PERMISSIONS } from "./TeamPanel";
 import { CompanyProfilePanel } from "./CompanyProfilePanel";
+import { PasswordCard } from "./PasswordCard";
+import { ExportCard } from "./ExportCard";
 import { AuditLogCard, DefaultCurrencyCard, RoleCards, SecurityCard, TeamOverviewCards } from "./AdminExtras";
 import { AuditPanel, LogoCard } from "./AdminPanels";
 import { PermissionGate } from "@/components/ui/PermissionGate";
@@ -130,7 +132,11 @@ export const AdminPage: React.FC = () => {
 
         <div className={tab === "overview" ? "" : "hidden"}>
         <div className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <SecurityCard security={overview?.security ?? null} team={team} />
+          <div className="space-y-4">
+            <SecurityCard security={overview?.security ?? null} team={team} />
+            <PasswordCard />
+            <ExportCard />
+          </div>
           <div className={`${FIN.panel} p-4`}>
             <SectionTitle>Company Settings</SectionTitle>
             <dl className="mt-3 grid grid-cols-2 gap-y-2 text-[12px]">

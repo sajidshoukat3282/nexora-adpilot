@@ -166,9 +166,10 @@ const RedirectToDashboard: React.FC = () => {
 
 const PublicRoutes: React.FC = () => (
   <Routes
-    notFound={<LoginPage />}
+    notFound={<ClientLoginPage />}
     routes={[
-      { path: "/login", element: <LoginPage /> },
+      { path: "/login", element: <ClientLoginPage /> },
+      { path: "/owner-login", element: <LoginPage /> },
       { path: "/auth/magic-link", element: <MagicLinkPage /> },
       { path: "/client-login", element: <ClientLoginPage /> },
       { path: "/auth/forgot-password", element: <ForgotPasswordPage /> },
@@ -186,6 +187,7 @@ const RootRouter: React.FC = () => {
 
   const publicPaths = [
     "/login",
+    "/owner-login",
     "/client-login",
     "/auth/magic-link",
     "/auth/forgot-password",
@@ -200,11 +202,11 @@ const RootRouter: React.FC = () => {
   }
 
   if (pathname === "/player") {
-    return <Routes notFound={<LoginPage />} routes={[{ path: "/player", element: <PlayerPage /> }]} />;
+    return <Routes notFound={<ClientLoginPage />} routes={[{ path: "/player", element: <PlayerPage /> }]} />;
   }
 
   if (pathname.startsWith("/market/")) {
-    return <Routes notFound={<LoginPage />} routes={[{ path: "/market/:slug", element: <PublicMarketPage /> }]} />;
+    return <Routes notFound={<ClientLoginPage />} routes={[{ path: "/market/:slug", element: <PublicMarketPage /> }]} />;
   }
 
   if (publicPaths.includes(pathname)) {

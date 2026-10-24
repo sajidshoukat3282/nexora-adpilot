@@ -20,8 +20,8 @@ export const ResetPasswordPage: React.FC = () => {
       setError("This reset link is missing its token. Request a new one.");
       return;
     }
-    if (password.length < 12) {
-      setError("Your password must be at least 12 characters long.");
+    if (password.length < 8) {
+      setError("Your password must be at least 8 characters long.");
       return;
     }
     if (password !== confirm) {
@@ -56,16 +56,16 @@ export const ResetPasswordPage: React.FC = () => {
         ) : (
           <>
             <p className="mt-2 mb-6 text-sm text-ink-400">
-              Choose a new password with at least 12 characters.
+              Choose a new password with at least 8 characters.
             </p>
             <form onSubmit={submit} className="space-y-5">
               <div>
                 <label className="label" htmlFor="new-password">New password</label>
-                <input id="new-password" className="input w-full" type="password" autoComplete="new-password" minLength={12} required value={password} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setPassword(event.target.value)} disabled={busy} />
+                <input id="new-password" className="input w-full" type="password" autoComplete="new-password" minLength={8} required value={password} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setPassword(event.target.value)} disabled={busy} />
               </div>
               <div>
                 <label className="label" htmlFor="confirm-password">Confirm new password</label>
-                <input id="confirm-password" className="input w-full" type="password" autoComplete="new-password" minLength={12} required value={confirm} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setConfirm(event.target.value)} disabled={busy} />
+                <input id="confirm-password" className="input w-full" type="password" autoComplete="new-password" minLength={8} required value={confirm} onChange={(event: React.ChangeEvent<HTMLInputElement>) => setConfirm(event.target.value)} disabled={busy} />
               </div>
               {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
               <button className="btn-primary w-full" type="submit" disabled={busy}>

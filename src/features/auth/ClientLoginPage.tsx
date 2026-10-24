@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "@/lib/router";
+import { useNavigate, useSearchParams } from "@/lib/router";
 import { useSession } from "@/hooks/useSession";
 import { resendVerificationEmail } from "@/lib/api/auth";
 
@@ -12,6 +12,23 @@ export const ClientLoginPage: React.FC = () => {
   const [error, setError] = useState("");
   const [resendMessage, setResendMessage] = useState("");
   const [resending, setResending] = useState(false);
+
+  const [googleOn, setGoogleOn] = useState(false);
+  const [params] = useSearchParams();
+  const googleCode = params.get("google") || "";
+  const GOOGLE_MESSAGES: Record<string, string> = {
+    cancelled: "Google sign-in was cancelled.",
+    failed: "Google sign-in could not be completed. Please try again.",
+    noaccount: "No AdPilot account uses this Google email. Sign in with your email and password, or start a free trial.",
+    nomembership: "This account has no active company.",
+    multiple: "This account belongs to more than one company. Please sign in with your email and password.",
+    off: "Google sign-in is not available.",
+  };
+  useEffect(() => {
+    let live = true;
+    fetch("/api/auth/providers").then((r) => r.json()).then((d: any) => { if (live) setGoogleOn(!!d?.google); }).catch(() => undefined);
+    return () => { live = false; };
+  }, []);
 
   const needsVerification = error.toLowerCase().includes("verify your email");
 
@@ -57,7 +74,7 @@ export const ClientLoginPage: React.FC = () => {
         <div className="panel-solid p-6 md:p-8">
           <h2 className="text-xl font-semibold text-ink-50">Sign in</h2>
           <p className="mt-2 mb-6 text-sm text-ink-400">
-            Sign in with your email and password.
+            Sign in to your workspace with your email and password.
           </p>
           <form onSubmit={submit} className="space-y-5">
             <div>
@@ -86,9 +103,9 @@ export const ClientLoginPage: React.FC = () => {
                 disabled={signingIn}
               />
             </div>
-            {error && (
+            {(error || googleCode) && (
               <p role="alert" className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                {error}
+                {error || GOOGLE_MESSAGES[googleCode] || GOOGLE_MESSAGES.failed}
               </p>
             )}
             {needsVerification && (
@@ -110,6 +127,16 @@ export const ClientLoginPage: React.FC = () => {
               {signingIn ? "Signing in..." : "Sign in"}
             </button>
           </form>
+          {googleOn && (
+            <div className="mt-4">
+              <div className="mb-3 flex items-center gap-3 text-xs text-ink-500">
+                <span className="h-px flex-1 bg-ink-700" />or<span className="h-px flex-1 bg-ink-700" />
+              </div>
+              <a href="/api/auth/google/start" className="btn-secondary flex w-full items-center justify-center gap-2">
+                Continue with Google
+              </a>
+            </div>
+          )}
           <p className="mt-5 text-center text-sm">
             <button className="text-primary-400 hover:text-primary-300" onClick={() => navigate("/auth/forgot-password")} type="button">
               Forgot your password?
@@ -118,7 +145,7 @@ export const ClientLoginPage: React.FC = () => {
           <p className="mt-3 text-center text-sm text-ink-400">
             New to Nexora AdPilot?{" "}
             <button className="text-primary-400 hover:text-primary-300" onClick={() => navigate("/signup")} type="button">
-              Create an account
+              Start free trial
             </button>
           </p>
         </div>
