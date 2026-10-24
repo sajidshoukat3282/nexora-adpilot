@@ -33,6 +33,10 @@ import {
 export interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
+  /** optional R2 bucket for uploaded files (binding FILES_BUCKET) */
+  FILES_BUCKET?: R2Bucket;
+  /** optional per-company storage allowance in MB (default 1024) */
+  FILE_QUOTA_MB?: string;
   WEATHER_API_KEY?: string;
   BREVO_API_KEY?: string;
   AUTH_BASE_URL?: string;

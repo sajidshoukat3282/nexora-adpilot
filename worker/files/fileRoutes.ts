@@ -4,12 +4,24 @@ import { clientIdOf } from '../notifications/notificationRoutes';
 
 /**
  * File upload from the user's computer (creative artwork, proof-of-play photos).
- * Files are stored inside the database in small chunks, so no extra storage service is needed.
- * Limits: 5 MB per file, images / PDF / short video only. Files are private to the company,
+ * When the R2 bucket (binding FILES_BUCKET) exists, new files go there (25 MB each, with a per-company quota).
+ * Without it, files are stored inside the database in small chunks (5 MB each). Old database files keep working.
+ * Images / PDF / short video only. Files are private to the company,
  * and a client account can only open files of its own campaigns.
  */
 
-const MAX_BYTES = 5 * 1024 * 1024;
+const MAX_BYTES_D1 = 5 * 1024 * 1024;
+const MAX_BYTES_R2 = 25 * 1024 * 1024;
+const maxBytes = (env: Env) => (env.FILES_BUCKET ? MAX_BYTES_R2 : MAX_BYTES_D1);
+const r2Key = (companyId: string, id: string) => `${companyId}/${id}`;
+
+/** Per-company storage allowance in bytes (default 1 GB, change with the FILE_QUOTA_MB variable). */
+const quotaBytes = (env: Env) => (Number(env.FILE_QUOTA_MB) > 0 ? Number(env.FILE_QUOTA_MB) : 1024) * 1024 * 1024;
+
+export async function companyStorageBytes(env: Env, companyId: string): Promise<number> {
+  const r = await env.DB.prepare('SELECT COALESCE(SUM(size),0) AS b FROM uploaded_files WHERE company_id = ?').bind(companyId).first<{ b: number }>();
+  return Number(r?.b) || 0;
+}
 const CHUNK = 256 * 1024;
 
 export const TYPES: Record<string, string> = {
@@ -27,6 +39,7 @@ export async function ensureFileTables(db: D1Database): Promise<void> {
   await db.prepare(`CREATE TABLE IF NOT EXISTS uploaded_files (
     id TEXT PRIMARY KEY, company_id TEXT NOT NULL, campaign_id TEXT, name TEXT NOT NULL, ext TEXT NOT NULL,
     size INTEGER NOT NULL, chunks INTEGER NOT NULL, uploaded_by TEXT, created_at TEXT NOT NULL)`).run();
+  try { await db.prepare(`ALTER TABLE uploaded_files ADD COLUMN storage TEXT NOT NULL DEFAULT 'd1'`).run(); } catch { /* column exists */ }
   await db.prepare(`CREATE TABLE IF NOT EXISTS uploaded_file_chunks (
     file_id TEXT NOT NULL, idx INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY (file_id, idx))`).run();
   ready = true;
@@ -54,10 +67,21 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(s);
 }
 
-/** Stores a checked file in small chunks and returns its id. Callers must validate type and size first. */
+/** Stores a checked file (R2 when available, otherwise database chunks) and returns its id. Callers must validate type and size first. */
 export async function saveUploadedFile(env: Env, companyId: string, accountId: string, name: string, ext: string, buf: Uint8Array, campaignId: string | null): Promise<string> {
   await ensureFileTables(env.DB);
   const id = crypto.randomUUID();
+  if (env.FILES_BUCKET) {
+    await env.FILES_BUCKET.put(r2Key(companyId, id), buf, { httpMetadata: { contentType: TYPES[ext] || 'application/octet-stream' } });
+    try {
+      await env.DB.prepare('INSERT INTO uploaded_files (id, company_id, campaign_id, name, ext, size, chunks, uploaded_by, created_at, storage) VALUES (?,?,?,?,?,?,?,?,?,?)')
+        .bind(id, companyId, campaignId, name, ext, buf.length, 0, accountId, new Date().toISOString(), 'r2').run();
+    } catch (e) {
+      await env.FILES_BUCKET.delete(r2Key(companyId, id)).catch(() => undefined);
+      throw e;
+    }
+    return id;
+  }
   const n = Math.ceil(buf.length / CHUNK);
   const stmts = [
     env.DB.prepare('INSERT INTO uploaded_files (id, company_id, campaign_id, name, ext, size, chunks, uploaded_by, created_at) VALUES (?,?,?,?,?,?,?,?,?)')
@@ -70,7 +94,26 @@ export async function saveUploadedFile(env: Env, companyId: string, accountId: s
   return id;
 }
 
+/** Reads the stored bytes of a file row from R2 or from database chunks. Returns null if the bytes are missing. */
+async function readBytes(env: Env, f: { id: string; company_id?: string; size: number; storage?: string }, companyId: string): Promise<Uint8Array | null> {
+  if (f.storage === 'r2') {
+    if (!env.FILES_BUCKET) return null;
+    const o = await env.FILES_BUCKET.get(r2Key(companyId, f.id));
+    return o ? new Uint8Array(await o.arrayBuffer()) : null;
+  }
+  const rs = await env.DB.prepare('SELECT data FROM uploaded_file_chunks WHERE file_id = ? ORDER BY idx ASC').bind(f.id).all<{ data: string }>();
+  const out = new Uint8Array(f.size);
+  let off = 0;
+  for (const r of rs.results ?? []) {
+    const bin = atob(r.data);
+    for (let i = 0; i < bin.length && off < out.length; i++) out[off++] = bin.charCodeAt(i);
+  }
+  return out;
+}
+
 export async function deleteUploadedFile(env: Env, companyId: string, id: string): Promise<void> {
+  const f = await env.DB.prepare('SELECT storage FROM uploaded_files WHERE id = ? AND company_id = ?').bind(id, companyId).first<{ storage: string }>();
+  if (f?.storage === 'r2' && env.FILES_BUCKET) await env.FILES_BUCKET.delete(r2Key(companyId, id)).catch(() => undefined);
   await env.DB.batch([
     env.DB.prepare('DELETE FROM uploaded_file_chunks WHERE file_id = ? AND file_id IN (SELECT id FROM uploaded_files WHERE company_id = ?)').bind(id, companyId),
     env.DB.prepare('DELETE FROM uploaded_files WHERE id = ? AND company_id = ?').bind(id, companyId),
@@ -80,30 +123,19 @@ export async function deleteUploadedFile(env: Env, companyId: string, id: string
 /** Loads the bytes of one stored file of a company (images, pdf, video). */
 export async function loadUploadedFile(env: Env, companyId: string, id: string): Promise<{ bytes: Uint8Array; ext: string; name: string } | null> {
   await ensureFileTables(env.DB);
-  const f = await env.DB.prepare('SELECT id, name, ext, size FROM uploaded_files WHERE id = ? AND company_id = ?').bind(id, companyId).first<any>();
+  const f = await env.DB.prepare('SELECT id, name, ext, size, storage FROM uploaded_files WHERE id = ? AND company_id = ?').bind(id, companyId).first<any>();
   if (!f) return null;
-  const rs = await env.DB.prepare('SELECT data FROM uploaded_file_chunks WHERE file_id = ? ORDER BY idx ASC').bind(f.id).all<{ data: string }>();
-  const out = new Uint8Array(f.size);
-  let off = 0;
-  for (const r of rs.results ?? []) {
-    const bin = atob(r.data);
-    for (let i = 0; i < bin.length && off < out.length; i++) out[off++] = bin.charCodeAt(i);
-  }
-  return { bytes: out, ext: f.ext, name: f.name };
+  const bytes = await readBytes(env, f, companyId);
+  return bytes ? { bytes, ext: f.ext, name: f.name } : null;
 }
 
 /** Reads one stored file (used by the public marketplace page for listing photos and the logo). */
 export async function readUploadedFile(env: Env, companyId: string, id: string): Promise<Response | null> {
   await ensureFileTables(env.DB);
-  const f = await env.DB.prepare('SELECT id, name, ext, size FROM uploaded_files WHERE id = ? AND company_id = ?').bind(id, companyId).first<any>();
+  const f = await env.DB.prepare('SELECT id, name, ext, size, storage FROM uploaded_files WHERE id = ? AND company_id = ?').bind(id, companyId).first<any>();
   if (!f || !['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(f.ext)) return null;
-  const rs = await env.DB.prepare('SELECT data FROM uploaded_file_chunks WHERE file_id = ? ORDER BY idx ASC').bind(f.id).all<{ data: string }>();
-  const out = new Uint8Array(f.size);
-  let off = 0;
-  for (const r of rs.results ?? []) {
-    const bin = atob(r.data);
-    for (let i = 0; i < bin.length && off < out.length; i++) out[off++] = bin.charCodeAt(i);
-  }
+  const out = await readBytes(env, f, companyId);
+  if (!out) return null;
   return new Response(out, { status: 200, headers: { 'content-type': TYPES[f.ext] || 'application/octet-stream', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; sandbox", 'cache-control': 'public, max-age=600' } });
 }
 
@@ -121,7 +153,9 @@ export async function handleFileRoutes(request: Request, env: Env, url: URL): Pr
       const ext = extOf(name);
       if (!TYPES[ext]) return fail(400, 'This file type is not allowed. Use PNG, JPG, GIF, WEBP, PDF, MP4 or WEBM.');
       const declared = Number(request.headers.get('content-length') || 0);
-      if (declared > MAX_BYTES + 4096) return fail(413, 'The file is too large. The limit is 5 MB. For bigger files, paste a link instead.', 'TOO_LARGE');
+      const limit = maxBytes(env);
+      const limitMb = Math.round(limit / 1048576);
+      if (declared > limit + 4096) return fail(413, `The file is too large. The limit is ${limitMb} MB. For bigger files, paste a link instead.`, 'TOO_LARGE');
       const campaignId = url.searchParams.get('campaign_id') || '';
       if (campaignId) {
         const c = await env.DB.prepare('SELECT id FROM campaigns WHERE id = ? AND company_id = ?').bind(campaignId, s.companyId).first();
@@ -129,7 +163,8 @@ export async function handleFileRoutes(request: Request, env: Env, url: URL): Pr
       }
       const buf = new Uint8Array(await request.arrayBuffer());
       if (buf.length === 0) return fail(400, 'The file is empty.');
-      if (buf.length > MAX_BYTES) return fail(413, 'The file is too large. The limit is 5 MB. For bigger files, paste a link instead.', 'TOO_LARGE');
+      if (buf.length > limit) return fail(413, `The file is too large. The limit is ${limitMb} MB. For bigger files, paste a link instead.`, 'TOO_LARGE');
+      if (env.FILES_BUCKET && (await companyStorageBytes(env, s.companyId)) + buf.length > quotaBytes(env)) return fail(413, 'Your storage allowance is full. Delete old files or contact support to increase it.', 'QUOTA_FULL');
       if (!looksRight(ext, buf)) return fail(400, 'The file content does not match its type. Please choose a real image, PDF or video.');
       const id = await saveUploadedFile(env, s.companyId, s.accountId, name, ext, buf, campaignId || null);
       return json({ ok: true, id, name, size: buf.length, url: `/api/files/${id}/${encodeURIComponent(name)}` });
@@ -137,14 +172,11 @@ export async function handleFileRoutes(request: Request, env: Env, url: URL): Pr
 
     const m = path.match(/^\/api\/files\/([0-9a-fA-F-]{36})(?:\/[^/]*)?$/);
     if (m && (request.method === 'GET' || request.method === 'DELETE')) {
-      const f = await env.DB.prepare('SELECT id, company_id, campaign_id, name, ext, size, chunks FROM uploaded_files WHERE id = ? AND company_id = ?').bind(m[1], s.companyId).first<any>();
+      const f = await env.DB.prepare('SELECT id, company_id, campaign_id, name, ext, size, chunks, storage FROM uploaded_files WHERE id = ? AND company_id = ?').bind(m[1], s.companyId).first<any>();
       if (!f) return fail(404, 'File not found.', 'NOT_FOUND');
       if (request.method === 'DELETE') {
         if (s.accountType === 'client' || !s.permissions.includes('campaigns.manage')) return fail(403, 'You do not have permission to delete files.', 'FORBIDDEN');
-        await env.DB.batch([
-          env.DB.prepare('DELETE FROM uploaded_file_chunks WHERE file_id = ?').bind(f.id),
-          env.DB.prepare('DELETE FROM uploaded_files WHERE id = ? AND company_id = ?').bind(f.id, s.companyId),
-        ]);
+        await deleteUploadedFile(env, s.companyId, f.id);
         return json({ ok: true });
       }
       let isLogo = false;
@@ -156,13 +188,8 @@ export async function handleFileRoutes(request: Request, env: Env, url: URL): Pr
           : null;
         if (!own) return fail(404, 'File not found.', 'NOT_FOUND');
       }
-      const rs = await env.DB.prepare('SELECT data FROM uploaded_file_chunks WHERE file_id = ? ORDER BY idx ASC').bind(f.id).all<{ data: string }>();
-      const out = new Uint8Array(f.size);
-      let off = 0;
-      for (const r of rs.results ?? []) {
-        const bin = atob(r.data);
-        for (let i = 0; i < bin.length && off < out.length; i++) out[off++] = bin.charCodeAt(i);
-      }
+      const out = await readBytes(env, f, s.companyId);
+      if (!out) return fail(404, 'File not found.', 'NOT_FOUND');
       return new Response(out, {
         status: 200,
         headers: {

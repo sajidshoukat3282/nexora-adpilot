@@ -109,7 +109,7 @@ export const PAGE_GUIDES: PageGuide[] = [
           "Schedule: timeline of the campaign period.",
           "Billing: invoices of this campaign. Use Create invoice to prefill the client and screens.",
           "Expenses: click + Add Expense to record a cost for this campaign (printing, installation, media owner payment). It is linked to the campaign and counts in its profit. Activity shows the change history.",
-          "Creatives: add artwork by clicking Upload from computer (PNG, JPG, GIF, WEBP, PDF, MP4 or WEBM, up to 5 MB) or by pasting a Drive/Dropbox link for bigger files. Changing the file or link creates a new version. Proof of play photos can be uploaded the same way.",
+          "Creatives: add artwork by clicking Upload from computer (PNG, JPG, GIF, WEBP, PDF, MP4 or WEBM, up to 25 MB) or by pasting a Drive/Dropbox link for bigger files. Changing the file or link creates a new version. Proof of play photos can be uploaded the same way.",
           "Approvals: send a creative for internal review, then to the client, then Approved or Rejected (with a reason). Every step is logged.",
           "Delivery: screen condition and proof count per screen. Proof of Play: add a site photo link or note per screen and date.",
           "Analytics: revenue per day and per screen-day, collection %, margin and value by screen, from your own bookings and invoices.",

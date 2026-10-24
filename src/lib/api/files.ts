@@ -1,6 +1,6 @@
 import { ApiError } from "@/lib/api/client";
 
-export const MAX_UPLOAD_MB = 5;
+export const MAX_UPLOAD_MB = 25;
 export const ACCEPT = ".png,.jpg,.jpeg,.gif,.webp,.pdf,.mp4,.webm";
 
 export interface UploadedFile { id: string; name: string; size: number; url: string }
