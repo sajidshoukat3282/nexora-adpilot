@@ -103,7 +103,7 @@ export const PlatformPage: React.FC = () => {
             {list.map((c) => (
               <tr key={c.id} className="border-b border-[#1d2128]">
                 <td className="p-3"><p className="font-semibold text-zinc-100">{c.name}</p><p className="text-[10px] text-zinc-500">{c.owner_email ?? "No owner"}</p></td>
-                <td className="p-3 capitalize text-zinc-300">{c.plan}</td>
+                <td className="p-3 capitalize text-zinc-300">{c.plan}{c.trial_ends_at && <span className="block text-[10px] normal-case text-zinc-500">trial ends {day(c.trial_ends_at)}</span>}</td>
                 <td className="p-3 text-zinc-400">{day(c.created_at)}</td>
                 <td className="p-3 text-zinc-400">{ago(c.last_login)}</td>
                 <td className="p-3 text-right text-zinc-300">{c.team}</td><td className="p-3 text-right text-zinc-300">{c.screens}</td>

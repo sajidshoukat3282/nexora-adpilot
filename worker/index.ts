@@ -9,6 +9,7 @@ import {
   loadMembershipPermissions,
 } from './auth/session';
 import { handleTeamRoutes } from './team/teamRoutes';
+import { startTrial, trialGate } from './trial/trial';
 import { MIN_PASSWORD_LENGTH, hashPassword, verifyPassword } from './auth/password';
 import {
   createPasswordResetToken,
@@ -419,6 +420,10 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
+    // Free trial: read-only after it ends, and a few limits while it runs (new sign-ups only)
+    const trialBlock = await trialGate(request, env, url);
+    if (trialBlock) return trialBlock;
+
     // AUTH ROUTES
     if (url.pathname === '/api/auth/register' && request.method === 'POST') {
       try {
@@ -441,6 +446,7 @@ export default {
           env.DB.prepare(`INSERT INTO companies (id, name, plan, logo_initial, seats_used, seats_limit, devices_active, devices_limit, timezone, default_currency, created_at, updated_at) VALUES (?, ?, 'trial', ?, 1, 2, 0, 0, 'Asia/Karachi', ?, ?, ?)`).bind(companyId, companyName, companyName.charAt(0).toUpperCase(), defaultCurrency, now, now),
           env.DB.prepare(`INSERT INTO company_memberships (id, company_id, account_id, role, designation, status, invited_by_user_id, created_at, updated_at, account_type) VALUES (?, ?, ?, 'owner', 'Owner', 'active', NULL, ?, ?, 'owner')`).bind(membershipId, companyId, accountId, now, now),
         ]);
+        try { await startTrial(env.DB, companyId); } catch { /* trial end date could not be saved */ }
         let emailSent = true;
         try {
           const verification = await createEmailVerificationToken(env.DB, accountId);

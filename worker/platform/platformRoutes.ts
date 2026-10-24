@@ -1,4 +1,5 @@
 import type { Env } from '../index';
+import { ensureTrialColumn } from '../trial/trial';
 import { resolveSession, type SessionContext } from '../auth/session';
 
 /**
@@ -25,7 +26,8 @@ async function adminSession(request: Request, env: Env): Promise<{ s: SessionCon
 }
 
 async function overview(env: Env): Promise<Response> {
-  const companies = await rows(env, 'SELECT id, name, plan, seats_used, seats_limit, created_at FROM companies ORDER BY created_at DESC LIMIT 1000');
+  await ensureTrialColumn(env.DB);
+  const companies = await rows(env, 'SELECT id, name, plan, seats_used, seats_limit, created_at, trial_ends_at FROM companies ORDER BY created_at DESC LIMIT 1000');
   const owners = await rows(env, `SELECT cm.company_id, a.email, a.last_login_at FROM company_memberships cm JOIN accounts a ON a.id = cm.account_id WHERE cm.account_type = 'owner' AND cm.status = 'active'`);
   const logins = await rows(env, `SELECT cm.company_id, MAX(a.last_login_at) AS last_login, COUNT(*) AS members FROM company_memberships cm JOIN accounts a ON a.id = cm.account_id WHERE cm.status = 'active' AND cm.account_type != 'client' GROUP BY cm.company_id`);
   const count = async (table: string): Promise<Map<string, number>> => new Map((await rows(env, `SELECT company_id, COUNT(*) AS n FROM ${table} GROUP BY company_id`)).map((r: any) => [r.company_id, Number(r.n)]));
@@ -35,7 +37,7 @@ async function overview(env: Env): Promise<Response> {
   for (const o of owners) if (!ownerBy.has(o.company_id)) ownerBy.set(o.company_id, o.email);
   const loginBy = new Map(logins.map((l: any) => [l.company_id, l]));
   const out = companies.map((c: any) => ({
-    id: c.id, name: c.name, plan: c.plan, owner_email: ownerBy.get(c.id) ?? null, created_at: c.created_at,
+    id: c.id, name: c.name, plan: c.plan, trial_ends_at: c.trial_ends_at ?? null, owner_email: ownerBy.get(c.id) ?? null, created_at: c.created_at,
     last_login: (loginBy.get(c.id) as any)?.last_login ?? null, team: (loginBy.get(c.id) as any)?.members ?? 0,
     screens: screens.get(c.id) ?? 0, campaigns: campaigns.get(c.id) ?? 0, clients: clients.get(c.id) ?? 0, invoices: invoices.get(c.id) ?? 0,
     storage_bytes: storage.get(c.id) ?? 0,

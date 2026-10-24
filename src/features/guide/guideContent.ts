@@ -577,6 +577,15 @@ export const PAGE_GUIDES: PageGuide[] = [
         ],
       },
       {
+        title: "Free trial",
+        steps: [
+          "New accounts start with a 10 day free trial. The bar at the top shows how many days are left.",
+          "During the trial you can add up to 5 screens, 3 campaigns, 10 clients, 5 proposals and 5 invoices, and upload 100 MB of files. The public marketplace page is for paid plans.",
+          "When the trial ends, your data stays safe and you can still view everything, but new work is paused until you subscribe.",
+          "You can always download all your data from Admin, Export all my data.",
+        ],
+      },
+      {
         title: "Set or change your password",
         steps: [
           "Open Admin, and find the Set a password box under Security.",

@@ -1,6 +1,7 @@
 import type { Env } from '../index';
 import { resolveSession } from '../auth/session';
 import { clientIdOf } from '../notifications/notificationRoutes';
+import { TRIAL_LIMITS, trialInfo } from '../trial/trial';
 
 /**
  * File upload from the user's computer (creative artwork, proof-of-play photos).
@@ -164,7 +165,9 @@ export async function handleFileRoutes(request: Request, env: Env, url: URL): Pr
       const buf = new Uint8Array(await request.arrayBuffer());
       if (buf.length === 0) return fail(400, 'The file is empty.');
       if (buf.length > limit) return fail(413, `The file is too large. The limit is ${limitMb} MB. For bigger files, paste a link instead.`, 'TOO_LARGE');
-      if (env.FILES_BUCKET && (await companyStorageBytes(env, s.companyId)) + buf.length > quotaBytes(env)) return fail(413, 'Your storage allowance is full. Delete old files or contact support to increase it.', 'QUOTA_FULL');
+      const onTrial = (await trialInfo(env.DB, s.companyId)) !== null;
+      const allowance = onTrial ? TRIAL_LIMITS.storage_mb * 1024 * 1024 : quotaBytes(env);
+      if ((env.FILES_BUCKET || onTrial) && (await companyStorageBytes(env, s.companyId)) + buf.length > allowance) return fail(413, onTrial ? `The free trial includes ${TRIAL_LIMITS.storage_mb} MB of file storage. Subscribe to add more.` : 'Your storage allowance is full. Delete old files or contact support to increase it.', 'QUOTA_FULL');
       if (!looksRight(ext, buf)) return fail(400, 'The file content does not match its type. Please choose a real image, PDF or video.');
       const id = await saveUploadedFile(env, s.companyId, s.accountId, name, ext, buf, campaignId || null);
       return json({ ok: true, id, name, size: buf.length, url: `/api/files/${id}/${encodeURIComponent(name)}` });

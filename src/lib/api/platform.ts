@@ -1,7 +1,7 @@
 import { apiRequest } from "@/lib/api/client";
 
 export interface PlatformCompany {
-  id: string; name: string; plan: string; owner_email: string | null; created_at: string; last_login: string | null; team: number;
+  id: string; name: string; plan: string; trial_ends_at: string | null; owner_email: string | null; created_at: string; last_login: string | null; team: number;
   screens: number; campaigns: number; clients: number; invoices: number; storage_bytes: number;
 }
 export interface PlatformOverview {

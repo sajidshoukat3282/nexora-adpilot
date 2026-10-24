@@ -1,3 +1,4 @@
+import { TrialBanner } from "./TrialBanner";
 import React, { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
@@ -71,6 +72,7 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(201,155,59,0.05),transparent_42%)]" />
 
             <div className="relative mx-auto w-full max-w-[1440px] px-4 py-4 sm:px-5 md:px-6 md:py-5 lg:px-8">
+              <TrialBanner />
               <ProfileBanner />
               {children}
             </div>
