@@ -10,6 +10,10 @@
       "/api/*"
     ]
   },
+  "keep_vars": true,
+  "vars": {
+    "PLATFORM_ADMINS": "sajid.shoukat3282@gmail.com"
+  },
   "d1_databases": [
     {
       "binding": "DB",
