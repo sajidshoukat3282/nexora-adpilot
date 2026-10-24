@@ -127,7 +127,7 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-const GROUPS = ["Overview", "Operations", "Commercial", "Client", "System"];
+const GROUPS = ["Overview", "Operations", "Commercial", "Client", "System", "Platform"];
 
 export const Sidebar: React.FC = () => {
   const path = useCurrentPath();

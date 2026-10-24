@@ -11,6 +11,7 @@ import { handleAccountingRoutes } from '../finance/accountingRoutes';
 import { handleInventoryRoutes } from '../inventory/inventoryRoutes';
 import { handleGoogleAuth } from '../auth/googleAuth';
 import { handlePlatformRoutes } from '../platform/platformRoutes';
+import { handleWeatherRoutes } from '../weather/weatherRoutes';
 import { handleMarketplaceRoutes } from '../marketplace/marketplaceRoutes';
 import { handlePlayerRoutes } from '../operations/playerRoutes';
 import { handleOpsRoutes } from '../operations/opsRoutes';
@@ -931,6 +932,8 @@ export async function handleTeamRoutes(
   if (googleResponse) return googleResponse;
   const platformResponse = await handlePlatformRoutes(request, env, url);
   if (platformResponse) return platformResponse;
+  const weatherResponse = await handleWeatherRoutes(request, env, url);
+  if (weatherResponse) return weatherResponse;
   const marketResponse = await handleMarketplaceRoutes(request, env, url);
   if (marketResponse) return marketResponse;
   const playerResponse = await handlePlayerRoutes(request, env, url);

@@ -25,6 +25,14 @@ export const PAGE_GUIDES: PageGuide[] = [
     summary: "Your command center: revenue, expenses, live campaigns and business health at a glance.",
     topics: [
       {
+        title: "Weather widget",
+        steps: [
+          "The gold and silver weather card shows the weather for the area where most of your screens are. If you have screens in several cities, click a city tab to switch.",
+          "If a screen has no location, add its latitude and longitude in Inventory. Without any screen, your city in Company Profile is used.",
+          "Warnings (rain, storm, extreme heat, strong wind, fog) appear under the card for screens of campaigns running today. Click the campaign name to see details.",
+        ],
+      },
+      {
         title: "Read your key numbers",
         steps: [
           "The top cards show Total Revenue, Total Expenses, Live Campaigns and Overall ROAS.",
@@ -92,6 +100,15 @@ export const PAGE_GUIDES: PageGuide[] = [
     summary: "Plan, book, run and bill advertising campaigns.",
     topics: [
       {
+        title: "Check the weather of a campaign",
+        steps: [
+          "Open a campaign and click the Weather tab.",
+          "Each screen shows its own weather and 3 day forecast from its own location, so a screen in one area can be sunny while another gets rain.",
+          "Screens without latitude and longitude are listed with a note. Add the location in Inventory.",
+          "The data is a forecast and refreshes about every 30 minutes. Very small local showers may not appear.",
+        ],
+      },
+      {
         title: "Create a campaign",
         steps: [
           "Click New Campaign.",
@@ -140,6 +157,13 @@ export const PAGE_GUIDES: PageGuide[] = [
     title: "Live Operations",
     summary: "See what runs on each screen today, follow up issues and keep proof of play.",
     topics: [
+      {
+        title: "Weather warnings",
+        steps: [
+          "Open the Alerts tab. Weather warnings for screens of campaigns running today appear at the top.",
+          "Click the campaign name on a warning to open its Weather tab.",
+        ],
+      },
       {
         title: "Today Board",
         steps: [

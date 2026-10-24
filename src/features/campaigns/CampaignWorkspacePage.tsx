@@ -9,6 +9,7 @@ import { FIN, GOLD_CARD, SILVER_CARD, FDrawer, ModalTitle, SectionTitle, fit, st
 import AddInvoiceForm from "../finance/AddInvoiceForm";
 import AddExpenseForm from "../finance/AddExpenseForm";
 import { RenewModal } from "./RenewModal";
+import { CampaignWeatherPanel } from "../weather/WeatherUi";
 import { AnalyticsPanel, ApprovalsPanel, CreativesPanel, DeliveryPanel, ProofPanel } from "./WorkspaceTabs";
 import {
   STATUS_ACTION,
@@ -34,6 +35,7 @@ const TABS = [
   { key: "creatives", label: "Creatives" },
   { key: "approvals", label: "Approvals" },
   { key: "delivery", label: "Delivery" },
+  { key: "weather", label: "Weather" },
   { key: "pop", label: "Proof of Play" },
   { key: "analytics", label: "Analytics" },
 ];
@@ -542,6 +544,7 @@ export const CampaignWorkspacePage: React.FC = () => {
       {tab === "creatives" && <CreativesPanel campaignId={c.id} />}
       {tab === "approvals" && <ApprovalsPanel campaignId={c.id} />}
       {tab === "delivery" && <DeliveryPanel data={data} />}
+      {tab === "weather" && <CampaignWeatherPanel campaignId={c.id} />}
       {tab === "pop" && <ProofPanel data={data} />}
       {tab === "analytics" && <AnalyticsPanel data={data} m={m} />}
 

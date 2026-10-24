@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "@/lib/router";
 import { FIN, GOLD_CARD, SILVER_CARD, fit } from "@/features/finance/financeUi";
 import { opsApi, type OpsOverview, type OpsScreen, type ScreenState } from "@/lib/api/operations";
+import { WeatherAlertsList } from "../weather/WeatherUi";
 import { FieldTeamPanel, IncidentModal, IncidentsPanel, MaintenancePanel, ProofPanel, STATE_LABEL, ScreenDrawer, stateDot } from "./OpsPanels";
 
 type TabKey = "board" | "alerts" | "incidents" | "proof" | "field" | "maintenance" | "upcoming";
@@ -136,6 +137,7 @@ export const OperationsPage: React.FC = () => {
 
       {tab === "alerts" && ov && (
         <div className="space-y-2">
+          <WeatherAlertsList />
           {ov.alerts.map((a) => (
             <div key={a.key} className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 text-[12px] ${sevCls(a.severity)}`}>
               <div><p className="font-semibold">{a.title}</p><p className="opacity-80">{a.detail}</p></div>

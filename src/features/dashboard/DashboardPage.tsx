@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "@/lib/router";
+import { DashboardWeatherWidget } from "../weather/WeatherUi";
 import { useSession } from "@/hooks/useSession";
 
 /* ------------------------------------------------------------------ */
@@ -589,6 +590,9 @@ export const DashboardPage: React.FC = () => {
             </p>
           </div>
         </div>
+
+        {/* WEATHER */}
+        <DashboardWeatherWidget />
 
         {/* MIDDLE ROW */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,1fr)]">
