@@ -42,6 +42,11 @@ export interface Env {
   GEOAPIFY_API_KEY?: string; 
   /** set to 'on' to let the daily cron e-mail overdue-invoice reminders (default: off) */
   AUTO_INVOICE_REMINDERS?: string;
+  /** comma separated e-mails that may open the Platform Admin panel */
+  PLATFORM_ADMINS?: string;
+  /** optional Google sign-in */
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
 }
 
 function json(data: unknown, status = 200, setCookie?: string): Response {

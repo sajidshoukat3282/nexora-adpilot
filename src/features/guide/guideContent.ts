@@ -53,7 +53,7 @@ export const PAGE_GUIDES: PageGuide[] = [
         steps: [
           "Click Add Screen.",
           "Choose Digital or Static at the top of the form.",
-          "Fill in the name, city, location, size and daily rate. Use Search Location or enter Latitude and Longitude so it appears on the map.",
+          "Fill in the name, city, location, size and daily rate. Use Search Location or enter Latitude and Longitude so it appears on the map (and so field proof photos can be checked against the screen's location).",
           "Digital: add resolution, orientation, ad length, advertisers per loop, run hours, player and network.",
           "Static: add faces, lighting, facing direction, and permit number and expiry.",
           "Optionally add the owner, rent and contract end date, then click Save.",
@@ -553,6 +553,13 @@ export const PAGE_GUIDES: PageGuide[] = [
         ],
       },
       {
+        title: "Sign in with Google",
+        steps: [
+          "On the login page, click Continue with Google (shown only when Google sign-in is switched on).",
+          "Google sign-in works only for an existing AdPilot account that uses the same verified Google email. It never creates an account by itself.",
+        ],
+      },
+      {
         title: "Invite and manage your team",
         steps: [
           "Click Invite employee, enter their email and pick a Role (it fills the permissions).",
@@ -604,8 +611,11 @@ export const GENERAL_TOPICS: GuideTopic[] = [
     steps: [
       "Complete your company profile, then add your screens in Inventory.",
       "Add clients (or leads) in CRM & Leads.",
-      "Create a campaign and attach screens.",
-      "Create an invoice, receive the payment, and track results in Finance and Dashboard.",
+      "Send a Proposal, and when the client accepts, convert it to a campaign. Check Credit Risk before booking big accounts.",
+      "Approve the creative, then run it with the Screen player and follow it in Live Operations.",
+      "Collect proof of play with the Field Proof phone page. Your client sees it in the Client Portal.",
+      "Create an invoice, receive the payment, and track results in Finance, Analytics & Reports and Dashboard.",
+      "Optional: list screens on the Marketplace public page to receive booking requests (rates stay private).",
     ],
   },
 ];

@@ -23,6 +23,7 @@ import { ReportsPage } from "@/features/reports/ReportsPage";
 import { ClientPortalPage } from "@/features/client-portal/ClientPortalPage";
 import { NotificationsPage } from "@/features/notifications/NotificationsPage";
 import { AdminPage } from "@/features/admin/AdminPage";
+import { PlatformPage } from "@/features/platform/PlatformPage";
 import { FieldPage } from "@/features/field/FieldPage";
 import { PlayerPage } from "@/features/player/PlayerPage";
 import { PublicMarketPage } from "@/features/marketplace/PublicMarketPage";
@@ -118,6 +119,7 @@ const AppRoutes: React.FC = () => {
         { path: "/campaigns/:id", element: <AppShell><CampaignWorkspacePage /></AppShell> },
         { path: "/operations", element: <AppShell><OperationsPage /></AppShell> },
         { path: "/field", element: <FieldPage /> },
+        { path: "/platform", element: <AppShell><PlatformPage /></AppShell> },
         { path: "/crm", element: <AppShell><CrmPage /></AppShell> },
         { path: "/proposals", element: <AppShell><ProposalsPage /></AppShell> },
         { path: "/finance", element: <AppShell><FinancePage /></AppShell> },

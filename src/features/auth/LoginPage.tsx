@@ -4,7 +4,7 @@ import {
   FiMail,
   FiShield,
 } from "react-icons/fi";
-import { useNavigate } from "@/lib/router";
+import { useNavigate, useSearchParams } from "@/lib/router";
 import { useSession } from "@/hooks/useSession";
 
 export const LoginPage: React.FC = () => {
@@ -19,6 +19,23 @@ export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState("");
   const [localError, setLocalError] = useState("");
   const [sent, setSent] = useState(false);
+  const [googleOn, setGoogleOn] = useState(false);
+  const [params] = useSearchParams();
+  const googleCode = params.get("google") || "";
+  const GOOGLE_MESSAGES: Record<string, string> = {
+    cancelled: "Google sign-in was cancelled.",
+    failed: "Google sign-in could not be completed. Please try again.",
+    noaccount: "No AdPilot account uses this Google email. Sign in with your usual method or sign up first.",
+    nomembership: "This account has no active company.",
+    multiple: "This account belongs to more than one company. Please sign in with your email and password.",
+    off: "Google sign-in is not available.",
+  };
+
+  useEffect(() => {
+    let live = true;
+    fetch("/api/auth/providers").then((r) => r.json()).then((d: any) => { if (live) setGoogleOn(!!d?.google); }).catch(() => undefined);
+    return () => { live = false; };
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -43,7 +60,7 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const displayError = localError || error;
+  const displayError = localError || error || (googleCode ? GOOGLE_MESSAGES[googleCode] || GOOGLE_MESSAGES.failed : "");
 
   return (
     <div className="min-h-screen bg-ink-950 flex items-center justify-center px-4 py-8">
@@ -125,6 +142,17 @@ export const LoginPage: React.FC = () => {
                   )}
                 </button>
               </form>
+
+              {googleOn && (
+                <div className="mt-4">
+                  <div className="mb-3 flex items-center gap-3 text-xs text-ink-500">
+                    <span className="h-px flex-1 bg-ink-700" />or<span className="h-px flex-1 bg-ink-700" />
+                  </div>
+                  <a href="/api/auth/google/start" className="btn-secondary flex w-full items-center justify-center gap-2">
+                    Continue with Google
+                  </a>
+                </div>
+              )}
             </>
           ) : (
             <div className="text-center py-4">

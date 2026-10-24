@@ -18,6 +18,7 @@ import { Link, useCurrentPath } from "@/lib/router";
 import { useSession } from "@/hooks/useSession";
 import { CompanyMark } from "./CompanyMark";
 import { useCompanyName } from "@/hooks/useCompanyProfile";
+import { usePlatformAdmin } from "@/hooks/usePlatformAdmin";
 import type { Permission } from "@/domain";
 
 interface NavItem {
@@ -153,9 +154,11 @@ export const Sidebar: React.FC = () => {
     });
   };
 
-  const visibleItems = NAV_ITEMS.filter(
-    (item) => !item.permission || can(item.permission),
-  );
+  const isPlatformAdmin = usePlatformAdmin();
+  const visibleItems = [
+    ...NAV_ITEMS,
+    ...(isPlatformAdmin ? [{ path: "/platform", label: "Platform", icon: <FiShield size={16} />, group: "Platform" } as NavItem] : []),
+  ].filter((item) => !item.permission || can(item.permission));
 
   return (
     // Luxury dark sidebar (matches the Commander's Dashboard)

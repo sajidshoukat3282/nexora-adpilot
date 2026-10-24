@@ -9,6 +9,8 @@ import { handleCompanyRoutes } from '../company/companyRoutes';
 import { handleAdminRoutes, logAudit, memberEmail } from '../admin/adminRoutes';
 import { handleAccountingRoutes } from '../finance/accountingRoutes';
 import { handleInventoryRoutes } from '../inventory/inventoryRoutes';
+import { handleGoogleAuth } from '../auth/googleAuth';
+import { handlePlatformRoutes } from '../platform/platformRoutes';
 import { handleMarketplaceRoutes } from '../marketplace/marketplaceRoutes';
 import { handlePlayerRoutes } from '../operations/playerRoutes';
 import { handleOpsRoutes } from '../operations/opsRoutes';
@@ -925,6 +927,10 @@ export async function handleTeamRoutes(
   const inventoryResponse = await handleInventoryRoutes(request, env, url);
   if (inventoryResponse) return inventoryResponse;
 
+  const googleResponse = await handleGoogleAuth(request, env, url);
+  if (googleResponse) return googleResponse;
+  const platformResponse = await handlePlatformRoutes(request, env, url);
+  if (platformResponse) return platformResponse;
   const marketResponse = await handleMarketplaceRoutes(request, env, url);
   if (marketResponse) return marketResponse;
   const playerResponse = await handlePlayerRoutes(request, env, url);
