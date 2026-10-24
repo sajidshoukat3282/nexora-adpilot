@@ -53,7 +53,7 @@ function useCreatives(id: string) {
 
 /* ---------------- Creatives ---------------- */
 
-const FilePicker: React.FC<{ campaignId: string; value: string; onChange: (url: string) => void }> = ({ campaignId, value, onChange }) => {
+export const FilePicker: React.FC<{ campaignId: string; value: string; onChange: (url: string) => void }> = ({ campaignId, value, onChange }) => {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [label, setLabel] = useState("");

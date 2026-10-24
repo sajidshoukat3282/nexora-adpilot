@@ -9,6 +9,9 @@ import { handleCompanyRoutes } from '../company/companyRoutes';
 import { handleAdminRoutes, logAudit, memberEmail } from '../admin/adminRoutes';
 import { handleAccountingRoutes } from '../finance/accountingRoutes';
 import { handleInventoryRoutes } from '../inventory/inventoryRoutes';
+import { handleMarketplaceRoutes } from '../marketplace/marketplaceRoutes';
+import { handlePlayerRoutes } from '../operations/playerRoutes';
+import { handleOpsRoutes } from '../operations/opsRoutes';
 import { handleCampaignRoutes } from '../campaigns/campaignRoutes';
 import { handleCampaignExtras } from '../campaigns/campaignExtras';
 import { handleCampaignSlots } from '../campaigns/campaignSlots';
@@ -922,6 +925,12 @@ export async function handleTeamRoutes(
   const inventoryResponse = await handleInventoryRoutes(request, env, url);
   if (inventoryResponse) return inventoryResponse;
 
+  const marketResponse = await handleMarketplaceRoutes(request, env, url);
+  if (marketResponse) return marketResponse;
+  const playerResponse = await handlePlayerRoutes(request, env, url);
+  if (playerResponse) return playerResponse;
+  const opsResponse = await handleOpsRoutes(request, env, url);
+  if (opsResponse) return opsResponse;
   const adminExtrasResponse = await handleAdminExtras(request, env, url);
   if (adminExtrasResponse) return adminExtrasResponse;
   const filesResponse = await handleFileRoutes(request, env, url);

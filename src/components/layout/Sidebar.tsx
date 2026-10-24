@@ -57,6 +57,13 @@ const NAV_ITEMS: NavItem[] = [
     permission: "operations.manage",
   },
   {
+    path: "/field",
+    label: "Field Proof",
+    icon: <FiRadio size={16} />,
+    group: "Operations",
+    permission: "proof.submit",
+  },
+  {
     path: "/reports",
     label: "Analytics & Reports",
     icon: <FiBarChart2 size={16} />,

@@ -24,7 +24,7 @@ export interface PortalCampaignDetail {
   campaign: { id: string; name: string; status: string; start_date: string; end_date: string; total_budget: number; currency: string };
   screens: { slots: number; rate_applied: number; name: string | null; city: string | null; screen_type: string | null }[];
   creatives: { id: string; name: string; url: string | null; status: string; version: number; updated_at: string }[];
-  proofs: { id: string; proof_date: string; photo_url: string | null; notes: string | null; screen_name: string | null; city: string | null }[];
+  proofs: { id: string; proof_date: string; photo_url: string | null; notes: string | null; screen_name: string | null; city: string | null; geo_ok?: number | null; taken_at?: string | null }[];
 }
 export interface PortalProposal {
   id: string; code: string; campaign_name: string; status: string; start_date: string; end_date: string;

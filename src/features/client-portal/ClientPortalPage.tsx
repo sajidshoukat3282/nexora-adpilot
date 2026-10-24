@@ -301,7 +301,7 @@ const CampaignDrawer: React.FC<{ id: string | null; onClose: () => void; onChang
             <div className="grid grid-cols-2 gap-3">{d.proofs.map((p) => (
               <div key={p.id} className="overflow-hidden rounded-lg border border-[#2b3038] bg-[#0f1216]">
                 {p.photo_url && (isImage(p.photo_url) ? <a href={p.photo_url} target="_blank" rel="noreferrer"><img src={p.photo_url} alt="Proof" className="h-32 w-full object-cover" /></a> : <a href={p.photo_url} target="_blank" rel="noreferrer" className="block p-3 text-[12px] text-[#d9b45a] underline">Open photo</a>)}
-                <div className="p-2"><p className="text-[11px] font-medium text-zinc-200">{p.screen_name ?? "Screen"}{p.city ? `, ${p.city}` : ""}</p><p className="text-[10px] text-zinc-500">{day(p.proof_date)}</p>{p.notes && <p className="mt-0.5 text-[10px] text-zinc-500">{p.notes}</p>}</div>
+                <div className="p-2"><p className="text-[11px] font-medium text-zinc-200">{p.screen_name ?? "Screen"}{p.city ? `, ${p.city}` : ""}</p><p className="text-[10px] text-zinc-500">{day(p.proof_date)}</p>{p.geo_ok === 1 && <p className="mt-0.5 text-[10px] text-emerald-300">Location verified</p>}{p.notes && <p className="mt-0.5 text-[10px] text-zinc-500">{p.notes}</p>}</div>
               </div>))}</div>
           </div>
         </div>

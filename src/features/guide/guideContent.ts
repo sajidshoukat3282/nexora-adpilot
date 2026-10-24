@@ -138,31 +138,73 @@ export const PAGE_GUIDES: PageGuide[] = [
   {
     path: "/operations",
     title: "Live Operations",
-    summary: "Monitor screens in real time and respond to problems.",
+    summary: "See what runs on each screen today, follow up issues and keep proof of play.",
     topics: [
       {
-        title: "Monitor screens",
+        title: "Today Board",
         steps: [
-          "Each tile is a screen with its current status (Online, Warning, Maintenance or Offline).",
-          "Use the status filter to focus on problem screens.",
-          "Click a screen to see Device Health, Last Heartbeat, Temperature, Storage Used, Network, Current Assignment and Recent Playback.",
+          "Each card is one of your screens with its status (Online, Maintenance or Offline) and the campaigns booked on it today.",
+          "Use the search, status and city filters to find a screen quickly.",
+          "Click a screen to change its status, create a player link, see its bookings, issues, maintenance and proof photos.",
+        ],
+        tip: "Status is manual unless you create a player link for the screen. Maintenance always stays manual.",
+      },
+      {
+        title: "Screen player (play ads on a screen)",
+        steps: [
+          "Open a screen and click Create player link. Copy the link, it is shown only once.",
+          "Open that link in the browser of the screen's TV box, Android box or PC, and press Fullscreen. The page plays the approved creatives of campaigns running on that screen today, in a loop.",
+          "For a quick trial, open the link on any phone or computer and press Open player.",
+          "The page saves the files on the device, so it keeps playing if the internet drops, and it checks for changes every 5 minutes.",
+          "The screen shows Online while the player is open. It shows Offline after 10 minutes of silence. Use Remove link to go back to manual status.",
+        ],
+        tip: "A creative plays only if it is Approved and is an uploaded image or video file (or a direct image or video link). Google Drive and YouTube links cannot be played. More slots on a screen means the creative repeats more often.",
+      },
+      {
+        title: "Alerts",
+        steps: [
+          "Alerts are worked out from your real data: a booked screen that is offline or in maintenance, a running campaign without an approved creative, campaigns ending soon, and no recent proof.",
+          "Use the buttons on each alert to open the screen or the campaign.",
         ],
       },
       {
-        title: "Handle alerts",
+        title: "Incidents",
         steps: [
-          "The Alerts panel lists issues that need attention, such as offline screens.",
-          "Open the affected screen and check its device health.",
+          "Click Report an issue, add a title, priority, screen or campaign and an owner.",
+          "Use Start work and Resolve (write how it was fixed). High priority issues also send a notification.",
         ],
       },
       {
-        title: "Emergency Override",
+        title: "Field proof from a phone",
         steps: [
-          "Tick the checkbox on one or more screens.",
-          "Click Emergency Override at the top of the page.",
-          "Select the Approved Creative to play and enter the Reason, then confirm. Only users with the override permission can do this.",
+          "In Admin & Roles invite your field person with the Field Operator role (or give only the Submit Proof permission). After login they land straight on the Field Proof page.",
+          "The page lists the screens with a campaign running today. They tap Take photo, the phone camera opens, and the photo is sent with the phone location.",
+          "If the photo is taken within 500 m of the screen the proof is marked Location verified. The client sees it in the portal and gets a notification.",
         ],
-        tip: "Overrides are for urgent situations, such as a wrong ad running.",
+        tip: "Ask the field person to allow location when the phone asks. Add the screen's latitude and longitude in Inventory so the distance can be checked.",
+      },
+      {
+        title: "Field team: assignments and coverage",
+        steps: [
+          "Open the Field Team tab. Click Assign screens next to a person and choose cities or single screens. Their Field page then lists only those screens. If nothing is chosen they see all screens.",
+          "Each person shows how many proofs they sent today and when the last one came. The Proof of Play tab shows who took each photo.",
+          "The No proof yet today list shows screens still waiting for a photo and who is assigned.",
+          "Set a Daily reminder time. After that time you get a notification if screens still have no proof. It appears when someone opens Live Operations or the Field page.",
+        ],
+      },
+      {
+        title: "Proof of Play",
+        steps: [
+          "Click Add proof, choose the campaign and screen, then upload a photo or paste a video link.",
+          "Photos are made smaller automatically before upload. Proof also appears on the campaign page.",
+        ],
+      },
+      {
+        title: "Maintenance and Upcoming",
+        steps: [
+          "Schedule maintenance with a screen, date and work to do. Mark it done when finished. Overdue items are flagged.",
+          "The Upcoming tab shows campaigns starting or ending in the next 7 days and whether their creative is approved.",
+        ],
       },
     ],
   },
@@ -438,13 +480,29 @@ export const PAGE_GUIDES: PageGuide[] = [
   {
     path: "/marketplace",
     title: "Marketplace",
-    summary: "A network connecting media owners, agencies and advertisers (coming soon).",
+    summary: "List your screens on a public page and receive booking requests. Rates are never shown to the public.",
     topics: [
       {
-        title: "Status",
+        title: "Set up your public page",
         steps: [
-          "The Marketplace is marked Coming Soon. Nothing is needed from you yet.",
-          "Keep your Inventory up to date so you are ready when it opens.",
+          "Open the Page & Sharing tab, tick Turn the public page on, add a headline, about text and contact details, then click Save.",
+          "Copy the link or share it on WhatsApp. Anyone with the link can see the page, no login needed.",
+        ],
+        tip: "Rates stay private. Visitors only send a request and your team replies with a quote.",
+      },
+      {
+        title: "List your screens",
+        steps: [
+          "In Listings click Edit listing on a screen. Add a public title, description, minimum booking days and a photo (upload or link).",
+          "Tick Show this screen on the public page, or use List now / Unlist on the card.",
+        ],
+      },
+      {
+        title: "Handle requests",
+        steps: [
+          "New requests appear in the Requests tab and send you a notification. Screens that are already booked for the asked dates are marked busy.",
+          "Change the status (New, Contacted, Quoted, Won, Lost) or click Convert to Lead to create a CRM lead.",
+          "From the lead, continue with a Proposal and a Campaign as usual.",
         ],
       },
     ],

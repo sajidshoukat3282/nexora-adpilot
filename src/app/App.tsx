@@ -23,6 +23,9 @@ import { ReportsPage } from "@/features/reports/ReportsPage";
 import { ClientPortalPage } from "@/features/client-portal/ClientPortalPage";
 import { NotificationsPage } from "@/features/notifications/NotificationsPage";
 import { AdminPage } from "@/features/admin/AdminPage";
+import { FieldPage } from "@/features/field/FieldPage";
+import { PlayerPage } from "@/features/player/PlayerPage";
+import { PublicMarketPage } from "@/features/marketplace/PublicMarketPage";
 import { MarketplacePage } from "@/features/marketplace/MarketplacePage";
 import { CreditRiskDashboard } from "@/features/credit/CreditRiskDashboard";
 
@@ -109,11 +112,12 @@ const AppRoutes: React.FC = () => {
       }
       routes={[
         { path: "/", element: <RedirectToDashboard /> },
-        { path: "/dashboard", element: <AppShell><DashboardPage /></AppShell> },
+        { path: "/dashboard", element: isFieldOnly(session?.permissions ?? []) ? <GoField /> : <AppShell><DashboardPage /></AppShell> },
         { path: "/inventory", element: <AppShell><InventoryPage /></AppShell> },
         { path: "/campaigns", element: <AppShell><CampaignsListPage /></AppShell> },
         { path: "/campaigns/:id", element: <AppShell><CampaignWorkspacePage /></AppShell> },
         { path: "/operations", element: <AppShell><OperationsPage /></AppShell> },
+        { path: "/field", element: <FieldPage /> },
         { path: "/crm", element: <AppShell><CrmPage /></AppShell> },
         { path: "/proposals", element: <AppShell><ProposalsPage /></AppShell> },
         { path: "/finance", element: <AppShell><FinancePage /></AppShell> },
@@ -128,6 +132,15 @@ const AppRoutes: React.FC = () => {
   );
 };
 
+const MANAGER_PERMISSIONS = ["campaigns.manage", "inventory.manage", "crm.manage", "proposals.manage", "finance.view", "company.manage", "creatives.manage"];
+const isFieldOnly = (perms: string[]): boolean => perms.includes("proof.submit") && !perms.some((p) => MANAGER_PERMISSIONS.includes(p));
+
+const GoField: React.FC = () => {
+  const navigate = useNavigate();
+  React.useEffect(() => { navigate("/field"); }, [navigate]);
+  return null;
+};
+
 const RedirectToDashboard: React.FC = () => {
   const { user, session, loading } = useSession();
   const navigate = useNavigate();
@@ -138,6 +151,8 @@ const RedirectToDashboard: React.FC = () => {
         navigate("/login");
       } else if (session?.accountType === 'client') {
         navigate("/client-portal"); // Client ko portal par bhejo
+      } else if (isFieldOnly(session?.permissions ?? [])) {
+        navigate("/field"); // Field staff goes straight to the proof page
       } else {
         navigate("/dashboard"); // Owner ko dashboard par bhejo
       }
@@ -180,6 +195,14 @@ const RootRouter: React.FC = () => {
 
   if (loading) {
     return <LoadingScreen />;
+  }
+
+  if (pathname === "/player") {
+    return <Routes notFound={<LoginPage />} routes={[{ path: "/player", element: <PlayerPage /> }]} />;
+  }
+
+  if (pathname.startsWith("/market/")) {
+    return <Routes notFound={<LoginPage />} routes={[{ path: "/market/:slug", element: <PublicMarketPage /> }]} />;
   }
 
   if (publicPaths.includes(pathname)) {

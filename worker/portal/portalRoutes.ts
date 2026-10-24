@@ -116,7 +116,8 @@ export async function handlePortalRoutes(request: Request, env: Env, url: URL): 
       if (!camp[2] && m === 'GET') {
         const screens = await safeRows<any>(env, `SELECT cs.slots, cs.rate_applied, i.name, i.city, i.screen_type FROM campaign_screens cs LEFT JOIN inventory i ON i.id = cs.inventory_id WHERE cs.campaign_id = ?`, k.id);
         const creatives = await safeRows<any>(env, `SELECT id, name, url, status, version, updated_at FROM campaign_creatives WHERE company_id = ? AND campaign_id = ? ORDER BY created_at DESC`, cid, k.id);
-        const proofs = await safeRows<any>(env, `SELECT p.id, p.proof_date, p.photo_url, p.notes, i.name screen_name, i.city FROM campaign_proofs p LEFT JOIN inventory i ON i.id = p.inventory_id WHERE p.company_id = ? AND p.campaign_id = ? ORDER BY p.proof_date DESC LIMIT 60`, cid, k.id);
+        let proofs = await safeRows<any>(env, `SELECT p.id, p.proof_date, p.photo_url, p.notes, p.geo_ok, p.taken_at, i.name screen_name, i.city FROM campaign_proofs p LEFT JOIN inventory i ON i.id = p.inventory_id WHERE p.company_id = ? AND p.campaign_id = ? ORDER BY p.proof_date DESC LIMIT 60`, cid, k.id);
+        if (proofs.length === 0) proofs = await safeRows<any>(env, `SELECT p.id, p.proof_date, p.photo_url, p.notes, i.name screen_name, i.city FROM campaign_proofs p LEFT JOIN inventory i ON i.id = p.inventory_id WHERE p.company_id = ? AND p.campaign_id = ? ORDER BY p.proof_date DESC LIMIT 60`, cid, k.id);
         return json({ ok: true, campaign: k, screens, creatives, proofs });
       }
       if (camp[2] && m === 'POST') {

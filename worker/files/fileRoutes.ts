@@ -12,7 +12,7 @@ import { clientIdOf } from '../notifications/notificationRoutes';
 const MAX_BYTES = 5 * 1024 * 1024;
 const CHUNK = 256 * 1024;
 
-const TYPES: Record<string, string> = {
+export const TYPES: Record<string, string> = {
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
   pdf: 'application/pdf', mp4: 'video/mp4', webm: 'video/webm',
 };
@@ -75,6 +75,36 @@ export async function deleteUploadedFile(env: Env, companyId: string, id: string
     env.DB.prepare('DELETE FROM uploaded_file_chunks WHERE file_id = ? AND file_id IN (SELECT id FROM uploaded_files WHERE company_id = ?)').bind(id, companyId),
     env.DB.prepare('DELETE FROM uploaded_files WHERE id = ? AND company_id = ?').bind(id, companyId),
   ]);
+}
+
+/** Loads the bytes of one stored file of a company (images, pdf, video). */
+export async function loadUploadedFile(env: Env, companyId: string, id: string): Promise<{ bytes: Uint8Array; ext: string; name: string } | null> {
+  await ensureFileTables(env.DB);
+  const f = await env.DB.prepare('SELECT id, name, ext, size FROM uploaded_files WHERE id = ? AND company_id = ?').bind(id, companyId).first<any>();
+  if (!f) return null;
+  const rs = await env.DB.prepare('SELECT data FROM uploaded_file_chunks WHERE file_id = ? ORDER BY idx ASC').bind(f.id).all<{ data: string }>();
+  const out = new Uint8Array(f.size);
+  let off = 0;
+  for (const r of rs.results ?? []) {
+    const bin = atob(r.data);
+    for (let i = 0; i < bin.length && off < out.length; i++) out[off++] = bin.charCodeAt(i);
+  }
+  return { bytes: out, ext: f.ext, name: f.name };
+}
+
+/** Reads one stored file (used by the public marketplace page for listing photos and the logo). */
+export async function readUploadedFile(env: Env, companyId: string, id: string): Promise<Response | null> {
+  await ensureFileTables(env.DB);
+  const f = await env.DB.prepare('SELECT id, name, ext, size FROM uploaded_files WHERE id = ? AND company_id = ?').bind(id, companyId).first<any>();
+  if (!f || !['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(f.ext)) return null;
+  const rs = await env.DB.prepare('SELECT data FROM uploaded_file_chunks WHERE file_id = ? ORDER BY idx ASC').bind(f.id).all<{ data: string }>();
+  const out = new Uint8Array(f.size);
+  let off = 0;
+  for (const r of rs.results ?? []) {
+    const bin = atob(r.data);
+    for (let i = 0; i < bin.length && off < out.length; i++) out[off++] = bin.charCodeAt(i);
+  }
+  return new Response(out, { status: 200, headers: { 'content-type': TYPES[f.ext] || 'application/octet-stream', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; sandbox", 'cache-control': 'public, max-age=600' } });
 }
 
 export async function handleFileRoutes(request: Request, env: Env, url: URL): Promise<Response | null> {
