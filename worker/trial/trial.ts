@@ -56,7 +56,7 @@ async function countOf(db: D1Database, table: string, companyId: string): Promis
   } catch { return 0; }
 }
 
-const SKIP_PREFIX = ['/api/auth/', '/api/export/', '/api/session', '/api/player/', '/api/public/', '/api/trial/'];
+const SKIP_PREFIX = ['/api/auth/', '/api/export/', '/api/session', '/api/player/', '/api/public/', '/api/trial/', '/api/v1/', '/api/admin/api-keys'];
 
 /** Runs before every API call that changes data. Returns a ready answer when the trial blocks it, otherwise null. */
 export async function trialGate(request: Request, env: Env, url: URL): Promise<Response | null> {

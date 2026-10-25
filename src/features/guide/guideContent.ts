@@ -595,6 +595,15 @@ export const PAGE_GUIDES: PageGuide[] = [
         ],
       },
       {
+        title: "API access (read your data in other tools)",
+        steps: [
+          "Only the owner can do this. Open Admin, find API access, type a name for the key (for example Power BI) and click Create key.",
+          "Copy the key straight away. It is shown only once. Anyone with the key can read your screens, campaigns, clients and invoices, so keep it private.",
+          "In your tool, send the key in the Authorization header as Bearer YOUR_KEY and open /api/v1/screens, /api/v1/campaigns, /api/v1/clients or /api/v1/invoices.",
+          "Keys are read-only. To stop a tool from reading your data, click Revoke next to its key.",
+        ],
+      },
+      {
         title: "Export all my data",
         steps: [
           "Only the owner can do this. Open Admin and click Export all my data (ZIP).",

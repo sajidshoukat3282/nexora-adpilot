@@ -1,5 +1,6 @@
 import type { Env } from '../index';
 import { resolveSession } from './session';
+import { logAudit } from '../admin/adminRoutes';
 import { MIN_PASSWORD_LENGTH, hashPassword, verifyPassword } from './password';
 
 /**
@@ -40,6 +41,7 @@ export async function handlePasswordRoutes(request: Request, env: Env, url: URL)
         env.DB.prepare('UPDATE accounts SET password_hash = ?, email_verified_at = COALESCE(email_verified_at, ?), updated_at = ? WHERE id = ?').bind(hash, now, now, acc.id),
         env.DB.prepare('UPDATE sessions SET revoked_at = ? WHERE account_id = ? AND revoked_at IS NULL AND id != ?').bind(now, acc.id, s.sessionId),
       ]);
+      await logAudit(env, s.companyId, s.accountId, acc.password_hash ? 'Password changed' : 'Password set');
       return json({ ok: true, message: 'Password saved. Other devices were signed out.' });
     }
     return fail(405, 'Method not allowed.', 'METHOD_NOT_ALLOWED');

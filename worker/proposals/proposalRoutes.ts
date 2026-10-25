@@ -1,6 +1,7 @@
 import type { Env } from '../index';
 import { creditCheck, logCreditEvent } from '../credit/creditRoutes';
 import { resolveSession, type SessionContext } from '../auth/session';
+import { logAudit } from '../admin/adminRoutes';
 import { availability, cleanSlots, ensureSlotsColumn } from '../campaigns/campaignSlots';
 import { log as logCampaign } from '../campaigns/campaignRoutes';
 
@@ -310,6 +311,17 @@ async function convert(request: Request, env: Env, id: string): Promise<Response
   return json({ ok: true, campaign_id: cid, message: 'Campaign created as a draft.' });
 }
 
+/** Writes an audit entry after a proposal change succeeded. Never changes the response. */
+async function audited(request: Request, env: Env, action: string, res: Response): Promise<Response> {
+  try {
+    if (res.status < 300) {
+      const s = await resolveSession(request, env.DB);
+      if (s) await logAudit(env, s.companyId, s.accountId, action);
+    }
+  } catch { /* never blocks */ }
+  return res;
+}
+
 export async function handleProposalRoutes(request: Request, env: Env, url: URL): Promise<Response | null> {
   const path = url.pathname;
   if (path !== '/api/proposals' && !path.startsWith('/api/proposals/')) return null;
@@ -317,15 +329,15 @@ export async function handleProposalRoutes(request: Request, env: Env, url: URL)
   try {
     if (path === '/api/proposals') {
       if (m === 'GET') return await list(request, env);
-      if (m === 'POST') return await create(request, env);
+      if (m === 'POST') return await audited(request, env, 'Proposal created', await create(request, env));
     }
     const g = path.match(/^\/api\/proposals\/([0-9a-fA-F-]{36})(?:\/(status|revise|convert))?$/);
     if (g) {
       const [, id, sub] = g;
       if (!sub && m === 'GET') return await getOne(request, env, id);
       if (!sub && m === 'PUT') return await edit(request, env, id);
-      if (!sub && m === 'DELETE') return await remove(request, env, id);
-      if (sub === 'status' && m === 'PUT') return await setStatus(request, env, id);
+      if (!sub && m === 'DELETE') return await audited(request, env, 'Proposal deleted', await remove(request, env, id));
+      if (sub === 'status' && m === 'PUT') return await audited(request, env, 'Proposal status changed', await setStatus(request, env, id));
       if (sub === 'revise' && m === 'POST') return await revise(request, env, id);
       if (sub === 'convert' && m === 'POST') return await convert(request, env, id);
     }

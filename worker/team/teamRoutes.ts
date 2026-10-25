@@ -14,6 +14,7 @@ import { handlePlatformRoutes } from '../platform/platformRoutes';
 import { handleWeatherRoutes } from '../weather/weatherRoutes';
 import { handlePasswordRoutes } from '../auth/passwordRoutes';
 import { handleExportRoutes } from '../export/exportRoutes';
+import { handleApiRoutes } from '../api/apiRoutes';
 import { handleTrialRoutes } from '../trial/trial';
 import { handleMarketplaceRoutes } from '../marketplace/marketplaceRoutes';
 import { handlePlayerRoutes } from '../operations/playerRoutes';
@@ -937,6 +938,8 @@ export async function handleTeamRoutes(
   if (passwordResponse) return passwordResponse;
   const exportResponse = await handleExportRoutes(request, env, url);
   if (exportResponse) return exportResponse;
+  const apiResponse = await handleApiRoutes(request, env, url);
+  if (apiResponse) return apiResponse;
   const trialResponse = await handleTrialRoutes(request, env, url);
   if (trialResponse) return trialResponse;
   const platformResponse = await handlePlatformRoutes(request, env, url);

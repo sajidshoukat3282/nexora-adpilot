@@ -1,5 +1,6 @@
 import type { Env } from '../index';
 import { resolveSession } from '../auth/session';
+import { logAudit } from '../admin/adminRoutes';
 
 /**
  * "Export all my data": lets the company owner download everything that belongs to the company.
@@ -56,6 +57,7 @@ export async function handleExportRoutes(request: Request, env: Env, url: URL): 
       return fail(403, 'Only the company owner can export the company data.', 'FORBIDDEN');
     }
     if (path === '/api/export/tables') {
+      await logAudit(env, s.companyId, s.accountId, 'Data export started');
       const tables = await discover(env, s.companyId);
       const out: { name: string; rows: number }[] = [];
       for (const t of tables) {

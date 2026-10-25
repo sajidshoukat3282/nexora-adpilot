@@ -1,4 +1,5 @@
 import type { Env } from '../index';
+import { logAudit } from '../admin/adminRoutes';
 import { resolveSession } from '../auth/session';
 import { clientIdOf } from '../notifications/notificationRoutes';
 import { TRIAL_LIMITS, trialInfo } from '../trial/trial';
@@ -170,6 +171,7 @@ export async function handleFileRoutes(request: Request, env: Env, url: URL): Pr
       if ((env.FILES_BUCKET || onTrial) && (await companyStorageBytes(env, s.companyId)) + buf.length > allowance) return fail(413, onTrial ? `The free trial includes ${TRIAL_LIMITS.storage_mb} MB of file storage. Subscribe to add more.` : 'Your storage allowance is full. Delete old files or contact support to increase it.', 'QUOTA_FULL');
       if (!looksRight(ext, buf)) return fail(400, 'The file content does not match its type. Please choose a real image, PDF or video.');
       const id = await saveUploadedFile(env, s.companyId, s.accountId, name, ext, buf, campaignId || null);
+      await logAudit(env, s.companyId, s.accountId, 'File uploaded', name);
       return json({ ok: true, id, name, size: buf.length, url: `/api/files/${id}/${encodeURIComponent(name)}` });
     }
 
@@ -180,6 +182,7 @@ export async function handleFileRoutes(request: Request, env: Env, url: URL): Pr
       if (request.method === 'DELETE') {
         if (s.accountType === 'client' || !s.permissions.includes('campaigns.manage')) return fail(403, 'You do not have permission to delete files.', 'FORBIDDEN');
         await deleteUploadedFile(env, s.companyId, f.id);
+        await logAudit(env, s.companyId, s.accountId, 'File deleted', String(f.name));
         return json({ ok: true });
       }
       let isLogo = false;

@@ -3,6 +3,7 @@ import { TeamPanel, PERMISSION_LABELS, ALL_PERMISSIONS } from "./TeamPanel";
 import { CompanyProfilePanel } from "./CompanyProfilePanel";
 import { PasswordCard } from "./PasswordCard";
 import { ExportCard } from "./ExportCard";
+import { ApiKeysCard } from "./ApiKeysCard";
 import { AuditLogCard, DefaultCurrencyCard, RoleCards, SecurityCard, TeamOverviewCards } from "./AdminExtras";
 import { AuditPanel, LogoCard } from "./AdminPanels";
 import { PermissionGate } from "@/components/ui/PermissionGate";
@@ -136,6 +137,7 @@ export const AdminPage: React.FC = () => {
             <SecurityCard security={overview?.security ?? null} team={team} />
             <PasswordCard />
             <ExportCard />
+            <ApiKeysCard />
           </div>
           <div className={`${FIN.panel} p-4`}>
             <SectionTitle>Company Settings</SectionTitle>

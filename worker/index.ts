@@ -10,6 +10,7 @@ import {
 } from './auth/session';
 import { handleTeamRoutes } from './team/teamRoutes';
 import { startTrial, trialGate } from './trial/trial';
+import { logAudit } from './admin/adminRoutes';
 import { MIN_PASSWORD_LENGTH, hashPassword, verifyPassword } from './auth/password';
 import {
   createPasswordResetToken,
@@ -516,6 +517,7 @@ export default {
         const session = await createSession(env.DB, account.id, membership.id);
         const now = new Date().toISOString();
         await env.DB.prepare(`UPDATE accounts SET last_login_at = ? WHERE id = ?`).bind(now, account.id).run();
+        await logAudit(env, membership.company_id, account.id, 'Signed in', membership.account_type);
         const company = await env.DB.prepare(`SELECT id, name, plan, logo_initial, seats_used, seats_limit, devices_active, devices_limit, timezone, default_currency FROM companies WHERE id = ? LIMIT 1`).bind(membership.company_id).first<{ id: string; name: string; plan: 'trial' | 'growth' | 'enterprise'; logo_initial: string; seats_used: number; seats_limit: number; devices_active: number; devices_limit: number; timezone: string; default_currency: string; }>();
         const permissions = await loadMembershipPermissions(env.DB, membership.id, membership.account_type);
         const companyPayload = company ? { id: company.id, name: company.name, plan: company.plan, logoInitial: company.logo_initial, seatsUsed: company.seats_used, seatsLimit: company.seats_limit, devicesActive: company.devices_active, devicesLimit: company.devices_limit, timezone: company.timezone, defaultCurrency: company.default_currency, } : { id: membership.company_id, };
@@ -678,6 +680,7 @@ if (url.pathname === '/api/crm/clients' && request.method === 'POST') {
     const body = (await request.json()) as any;
     const id = crypto.randomUUID();
     await env.DB.prepare(`INSERT INTO clients (id, company_id, name, client_type, industry, city, phone, email, credit_limit, currency, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(id, session.companyId, body.name, body.client_type || 'direct', body.industry || null, body.city || null, body.phone || null, body.email || null, body.credit_limit || 0, body.currency || 'PKR', body.notes || null).run();
+    await logAudit(env, session.companyId, session.accountId, 'Client added', String(body.name || ''));
     return json({ ok: true, id });
   } catch (err: any) { return json({ ok: false, error: err.message }, 500); }
 }
@@ -976,6 +979,7 @@ if (url.pathname.startsWith('/api/crm/clients/') && url.pathname.endsWith('/invi
           id, session.companyId, body.client_id, body.name, body.status || 'draft', 
           body.start_date, body.end_date, body.total_budget || 0, body.currency || 'PKR', body.creative_url || null
         ).run();
+        await logAudit(env, session.companyId, session.accountId, 'Campaign created', String(body.name || ''));
 
         if (body.screens && Array.isArray(body.screens)) {
           for (const screen of body.screens) {
@@ -1104,6 +1108,7 @@ if (url.pathname.startsWith('/api/crm/clients/') && url.pathname.endsWith('/invi
           body.issue_date, body.due_date, body.status || 'draft', 
           subtotal, discount_amount, tax_rate, tax_amount, total_amount, body.currency || 'PKR', body.notes || null
         ).run();
+        await logAudit(env, session.companyId, session.accountId, 'Invoice created', invoice_number);
 
         if (body.items && Array.isArray(body.items)) {
           for (const item of body.items) {
