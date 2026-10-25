@@ -9,12 +9,12 @@ export interface WeatherView {
   fetched_at: string;
 }
 export interface CampaignWeather {
-  ok: boolean; configured: boolean;
+  ok: boolean; configured: boolean; weather_error?: string;
   summary: { total: number; affected: number; unavailable: number; missing: number };
   screens: { id: string; name: string; city: string; location: string; has_location: boolean; weather: WeatherView | null }[];
 }
 export interface CompanyWeather {
-  ok: boolean; configured: boolean; source: string; live_screens: number;
+  ok: boolean; configured: boolean; weather_error?: string; source: string; live_screens: number;
   areas: { name: string; screens: number; weather: WeatherView | null }[];
   alerts: { campaign_id: string; campaign: string; screen: string; city: string; kind: string; level: "warn" | "bad"; text: string }[];
 }

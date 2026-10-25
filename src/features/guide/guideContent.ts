@@ -25,11 +25,19 @@ export const PAGE_GUIDES: PageGuide[] = [
     summary: "Your command center: revenue, expenses, live campaigns and business health at a glance.",
     topics: [
       {
-        title: "Weather widget",
+        title: "Weather dial",
         steps: [
-          "The gold and silver weather card shows the weather for the area where most of your screens are. If you have screens in several cities, click a city tab to switch.",
+          "The round gold and silver dial at the top right of the dashboard shows the weather for the area where most of your screens are. The hand points to the temperature (0 at the top, 15 on the right, 30 at the bottom, 45 on the left). Next to it you see the city, the temperature, the condition and the next 3 days.",
+          "If you have screens in several cities, click the dial to switch to the next city.",
           "If a screen has no location, add its latitude and longitude in Inventory. Without any screen, your city in Company Profile is used.",
-          "Warnings (rain, storm, extreme heat, strong wind, fog) appear under the card for screens of campaigns running today. Click the campaign name to see details.",
+          "A red or orange number on the dial means weather warnings (rain, storm, extreme heat, strong wind, fog) for screens of campaigns running today. The details appear below the numbers.",
+        ],
+      },
+      {
+        title: "Open the calendar",
+        steps: [
+          "Click today's date at the top of any page to open a calendar of the current month. Today is marked in gold.",
+          "Use the arrows to see other months. Click Back to this month to return. Click anywhere else, or press Esc, to close it.",
         ],
       },
       {

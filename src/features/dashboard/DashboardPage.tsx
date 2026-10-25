@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "@/lib/router";
-import { DashboardWeatherWidget } from "../weather/WeatherUi";
+import { DashboardWeatherDial, WeatherAlertsList } from "../weather/WeatherUi";
 import { useSession } from "@/hooks/useSession";
 
 /* ------------------------------------------------------------------ */
@@ -530,9 +530,7 @@ export const DashboardPage: React.FC = () => {
           <h1 className="text-[18px] font-normal tracking-tight text-zinc-100">
             Ad Pilot <span className="text-zinc-400">::</span> Commander&apos;s Dashboard
           </h1>
-          <div className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-500/70 bg-[#14171b] text-[11px] text-zinc-200">
-            {initials}
-          </div>
+          <DashboardWeatherDial />
         </div>
 
         {/* KPI CARDS */}
@@ -591,8 +589,8 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* WEATHER */}
-        <DashboardWeatherWidget />
+        {/* WEATHER WARNINGS (only when a running campaign is affected) */}
+        <WeatherAlertsList compact />
 
         {/* MIDDLE ROW */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,1fr)]">

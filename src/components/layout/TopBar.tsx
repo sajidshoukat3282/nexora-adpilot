@@ -6,13 +6,13 @@ import {
   FiLogOut,
   FiUser,
   FiShield,
-  FiCalendar,
 } from "react-icons/fi";
 import { useSession } from "@/hooks/useSession";
 import { useCurrentPath, useNavigate } from "@/lib/router";
 import { ROLE_LABELS } from "@/domain";
 import { NotificationBell } from "./NotificationBell";
 import { CompanyMark } from "./CompanyMark";
+import { DateCalendar } from "./DateCalendar";
 import { useCompanyProfile } from "@/hooks/useCompanyProfile";
 
 const PAGE_TITLES: Record<string, string> = {
@@ -173,10 +173,7 @@ export const TopBar: React.FC<{ onMobileMenu: () => void }> = ({
           <span className="font-medium text-[#f1d68a]">{pageTitle}</span>
         </div>
       )}
-      <div className="hidden items-center gap-1.5 rounded-md border border-[#2a2f37] bg-[#0f1216] px-2.5 py-1 text-[10.5px] text-zinc-400 lg:flex">
-        <FiCalendar size={12} className="text-[#d9b45a]" />
-        {new Date().toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })}
-      </div>
+      <DateCalendar />
 
       {/* Guide */}
       <button

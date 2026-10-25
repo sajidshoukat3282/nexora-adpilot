@@ -86,6 +86,9 @@ function toView(snap: any): WeatherView {
 const validCoord = (lat: any, lng: any) =>
   typeof lat === 'number' && typeof lng === 'number' && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && !(lat === 0 && lng === 0);
 
+/** Why the weather service could not be reached last time (shown to the team to find setup problems). Never holds the key. */
+let lastError = '';
+
 const spotKey = (lat: number, lng: number) => `${lat.toFixed(2)},${lng.toFixed(2)}`;
 
 /** Weather for one spot (about 1 km). Uses the 30 minute copy, or the old copy if the service is down. */
@@ -103,7 +106,8 @@ async function weatherAt(env: Env, lat: number, lng: number): Promise<WeatherVie
     const view = toView(snap);
     try { await env.DB.prepare('INSERT OR REPLACE INTO weather_cache (spot, payload, fetched_at) VALUES (?,?,?)').bind(spot, JSON.stringify(view), Date.now()).run(); } catch { /* ignore */ }
     return view;
-  } catch {
+  } catch (e: any) {
+    lastError = String(e?.message || 'Unknown error').slice(0, 120);
     if (old) { try { return JSON.parse(old.payload) as WeatherView; } catch { /* fall through */ } }
     return null;
   }
@@ -159,7 +163,7 @@ export async function handleWeatherRoutes(request: Request, env: Env, url: URL):
         if (!hasLoc) missing++; else if (!w) unavailable++; else if (w.warnings.length) affected++;
         return { id: r.id, name: r.name, city: r.city || '', location: r.location || '', has_location: hasLoc, weather: w };
       });
-      return json({ ok: true, configured, summary: { total: out.length, affected, unavailable, missing }, screens: out });
+      return json({ ok: true, configured, weather_error: unavailable > 0 ? lastError : '', summary: { total: out.length, affected, unavailable, missing }, screens: out });
     }
 
     if (path === '/api/weather/company') {
@@ -201,7 +205,7 @@ export async function handleWeatherRoutes(request: Request, env: Env, url: URL):
         for (const x of w.warnings) alerts.push({ campaign_id: r.campaign_id, campaign: r.campaign, screen: r.screen, city: r.city || '', kind: x.kind, level: x.level, text: x.text });
       }
       alerts.sort((a, b) => (a.level === b.level ? 0 : a.level === 'bad' ? -1 : 1));
-      return json({ ok: true, configured, source, areas: outAreas, alerts: alerts.slice(0, 30), live_screens: live.length });
+      return json({ ok: true, configured, weather_error: outAreas.some((a) => !a.weather) ? lastError : '', source, areas: outAreas, alerts: alerts.slice(0, 30), live_screens: live.length });
     }
     return fail(404, 'Not found.', 'NOT_FOUND');
   } catch {

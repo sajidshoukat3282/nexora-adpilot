@@ -117,7 +117,9 @@ export class WeatherApiProvider implements WeatherProvider {
     }
 
     this.apiKey = options.apiKey;
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    // Cloudflare Workers throw "Illegal invocation" when the global fetch is called as a method of another object,
+    // so the default is wrapped in an arrow function instead of being stored directly.
+    this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init));
   }
 
   async getWeather(

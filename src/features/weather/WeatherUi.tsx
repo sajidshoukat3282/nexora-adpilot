@@ -64,7 +64,7 @@ export const CampaignWeatherPanel: React.FC<{ campaignId: string }> = ({ campaig
             {!sc.has_location ? (
               <p className="mt-3 text-[11px] text-amber-300">Location missing. Add latitude and longitude for this screen.</p>
             ) : !sc.weather ? (
-              <p className="mt-3 text-[11px] text-zinc-500">Weather not available right now.</p>
+              <p className="mt-3 text-[11px] text-zinc-500">Weather not available right now.{data.weather_error ? ` (${data.weather_error})` : ""}</p>
             ) : (
               <>
                 <div className="mt-2 flex items-end gap-3">
@@ -96,73 +96,80 @@ export const CampaignWeatherPanel: React.FC<{ campaignId: string }> = ({ campaig
   );
 };
 
-/** Dashboard widget: gold card = now, silver card = next days, with area tabs and warnings of running campaigns. */
-export const DashboardWeatherWidget: React.FC = () => {
+/** Round weather dial for the dashboard header: silver rim, gold face, the hand shows the temperature (0 to 60 C round the face like a clock). */
+export const DashboardWeatherDial: React.FC = () => {
   const [data, setData] = useState<CompanyWeather | null>(null);
   const [idx, setIdx] = useState(0);
-  const [failed, setFailed] = useState(false);
   useEffect(() => {
     let live = true;
-    weatherApi.company().then((d) => { if (live) setData(d); }).catch(() => { if (live) setFailed(true); });
+    weatherApi.company().then((d) => { if (live) setData(d); }).catch(() => undefined);
     return () => { live = false; };
   }, []);
 
-  if (failed) return null;
-  const shell = "rounded-xl border border-[#2a2f37] bg-gradient-to-b from-[#171a20] to-[#0f1216] p-3 shadow-[0_8px_24px_rgba(0,0,0,0.5)]";
-  if (!data) return <div className={shell}><p className="text-[11px] text-zinc-500">Loading weather...</p></div>;
-  if (!data.configured) return null;
-  if (data.areas.length === 0) {
-    return <div className={shell}><p className="text-[11px] text-zinc-400">Add a screen with its location (or your city in Company Profile) to see weather here.</p></div>;
-  }
-  const area = data.areas[Math.min(idx, data.areas.length - 1)];
-  const w: WeatherView | null = area.weather;
+  if (!data || !data.configured) return null;
+  const many = data.areas.length > 1;
+  const area = data.areas.length ? data.areas[Math.min(idx, data.areas.length - 1)] : null;
+  const w: WeatherView | null = area ? area.weather : null;
+  const angle = w ? (Math.max(0, Math.min(59.9, w.temp)) / 60) * 360 : 0;
+  const alerts = data.alerts.length;
+  const worst = data.alerts.some((x) => x.level === "bad") ? "bad" : "warn";
+  const next = () => { if (many) setIdx((i) => (i + 1) % data.areas.length); };
+  const tip = w ? `${area?.name}: ${w.temp}${deg}C, ${w.label}${many ? ". Click to change area." : ""}` : "Weather is not available right now";
+
   return (
-    <div className="space-y-2">
-      <div className="grid grid-cols-1 gap-2.5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-        <div style={GOLD_CARD} className="rounded-xl border border-[#f6e2a1]/50 p-3 text-[#1a1204]">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#6b4a0c]">Weather now</p>
-            {data.areas.length > 1 && (
-              <div className="flex flex-wrap justify-end gap-1">
-                {data.areas.map((a, i) => (
-                  <button key={a.name} type="button" onClick={() => setIdx(i)} className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${i === idx ? "bg-[#1a1204] text-[#f1d68a]" : "bg-white/30 text-[#4a3408] hover:bg-white/50"}`}>{a.name}</button>
-                ))}
-              </div>
-            )}
-          </div>
-          <p className="mt-1 truncate text-[13px] font-semibold">{area.name}</p>
-          {w ? (
-            <div className="mt-1 flex items-center gap-3">
-              <WeatherGlyph condition={w.condition} size={44} color="#1a1204" />
-              <div>
-                <p className="text-[32px] font-semibold leading-none">{w.temp}{deg}C</p>
-                <p className="text-[11px] text-[#4a3408]">{w.label}{w.feels !== null ? `, feels ${w.feels}${deg}` : ""}</p>
-              </div>
-            </div>
-          ) : (
-            <p className="mt-3 text-[11px] text-[#4a3408]">Weather is not available right now.</p>
-          )}
-          {w && <p className="mt-1 text-[10px] text-[#4a3408]">{w.wind !== null ? `Wind ${w.wind} km/h` : ""}{w.humidity !== null ? `  |  Humidity ${w.humidity}%` : ""}</p>}
-        </div>
-        <div style={SILVER_CARD} className="rounded-xl border border-white/40 p-3 text-[#22262b]">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#3a3f46]">Next 3 days</p>
-          {w ? (
-            <div className="mt-2 grid grid-cols-3 gap-2">
-              {w.days.map((d, i) => (
-                <div key={d.date} className="rounded-lg bg-white/35 p-2 text-center">
-                  <p className="text-[10px] font-semibold text-[#3a3f46]">{dayName(d.date, i)}</p>
-                  <div className="my-1 flex justify-center"><WeatherGlyph condition={condOf(d.label)} size={26} color="#22262b" /></div>
-                  <p className="text-[12px] font-semibold">{d.max ?? "--"}{deg} / {d.min ?? "--"}{deg}</p>
-                  <p className="text-[9px] text-[#3a3f46]">{d.rain !== null ? `${d.rain}% rain` : d.label}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-3 text-[11px] text-[#3a3f46]">No forecast available right now.</p>
-          )}
-        </div>
+    <div className="flex items-center gap-3">
+      <div className="hidden min-w-0 text-right sm:block">
+        {!area ? (
+          <p className="max-w-[170px] text-[11px] leading-snug text-zinc-400">Add a screen with its location (or your city in Company Profile) to see weather here.</p>
+        ) : w ? (
+          <>
+            <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">{area.name}</p>
+            <p className="text-[24px] font-semibold leading-tight text-[#f1d68a]">{w.temp}{deg}C</p>
+            <p className="text-[11px] text-zinc-300">{w.label}{w.feels !== null ? `, feels ${w.feels}${deg}` : ""}</p>
+            <p className="mt-0.5 text-[10px] text-zinc-500">
+              {w.days.slice(0, 3).map((d, i) => `${dayName(d.date, i)} ${d.max ?? "--"}/${d.min ?? "--"}`).join("  \u00b7  ")}
+            </p>
+          </>
+        ) : (
+          <p className="max-w-[170px] text-[11px] leading-snug text-zinc-400">Weather is not available right now.{data.weather_error ? ` (${data.weather_error})` : ""}</p>
+        )}
       </div>
-      <WeatherAlertsList data={data} compact />
+      <button type="button" onClick={next} title={tip} aria-label={tip} className={`relative shrink-0 rounded-full ${many ? "cursor-pointer" : "cursor-default"}`}>
+        <svg width="112" height="112" viewBox="0 0 120 120" role="img" aria-hidden="true">
+          <defs>
+            <linearGradient id="wd-gold" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="#f1d68a" /><stop offset="0.3" stopColor="#c99b3b" /><stop offset="0.55" stopColor="#ecd07c" /><stop offset="0.8" stopColor="#a97b22" /><stop offset="1" stopColor="#d8b257" />
+            </linearGradient>
+            <linearGradient id="wd-silver" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="#eceff2" /><stop offset="0.4" stopColor="#a8aeb6" /><stop offset="0.6" stopColor="#d9dde2" /><stop offset="1" stopColor="#8b929b" />
+            </linearGradient>
+          </defs>
+          <circle cx="60" cy="60" r="58" fill="url(#wd-silver)" />
+          <circle cx="60" cy="60" r="52" fill="#1a1204" opacity="0.35" />
+          <circle cx="60" cy="60" r="50" fill="url(#wd-gold)" />
+          {Array.from({ length: 60 }, (_, i) => (
+            <line key={i} x1="60" y1="13" x2="60" y2={i % 5 === 0 ? 20 : 16} stroke="#3a2a07" strokeWidth={i % 5 === 0 ? 2 : 1} strokeLinecap="round" opacity={i % 5 === 0 ? 1 : 0.6} transform={`rotate(${i * 6} 60 60)`} />
+          ))}
+          <g fontSize="9" fontWeight="700" fill="#3a2a07" textAnchor="middle" fontFamily="system-ui, sans-serif">
+            <text x="60" y="32">0</text>
+            <text x="91" y="63">15</text>
+            <text x="60" y="94">30</text>
+            <text x="29" y="63">45</text>
+          </g>
+          {w && <g transform="translate(49 36)"><WeatherGlyph condition={w.condition} size={22} color="#1a1204" /></g>}
+          {w && (
+            <g transform={`rotate(${angle} 60 60)`}>
+              <line x1="60" y1="68" x2="60" y2="24" stroke="#1a1204" strokeWidth="3" strokeLinecap="round" />
+              <polygon points="60,18 56,28 64,28" fill="#1a1204" />
+            </g>
+          )}
+          <circle cx="60" cy="60" r="6" fill="url(#wd-silver)" stroke="#1a1204" strokeWidth="1.5" />
+          <circle cx="60" cy="60" r="1.8" fill="#1a1204" />
+        </svg>
+        {alerts > 0 && (
+          <span className={`absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[10px] font-bold text-white ${worst === "bad" ? "bg-rose-600" : "bg-amber-600"}`} title={`${alerts} weather warning${alerts === 1 ? "" : "s"} for running campaigns`}>{alerts}</span>
+        )}
+      </button>
     </div>
   );
 };
