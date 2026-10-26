@@ -27,6 +27,45 @@ const dayName = (iso: string, i: number) => {
 };
 const deg = "\u00b0";
 
+/** Live Operations: one chip per area where campaigns run today, or a clear reason when weather cannot be shown. */
+export const WeatherStrip: React.FC = () => {
+  const [data, setData] = useState<CompanyWeather | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let live = true;
+    weatherApi.company().then((d) => { if (live) setData(d); }).catch(() => { if (live) setFailed(true); });
+    return () => { live = false; };
+  }, []);
+  const note = (text: string) => <p className="mb-3 rounded-lg border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">{text}</p>;
+  if (failed) return note("Weather could not be loaded right now.");
+  if (!data) return null;
+  if (!data.configured) return note("Weather is not set up yet. The weather key is missing or not accepted.");
+  const withWeather = data.areas.filter((a) => a.weather);
+  if (withWeather.length === 0) {
+    if (data.weather_error) return note(`Weather is not available right now: ${data.weather_error}`);
+    return note(data.live_screens === 0
+      ? "No campaign is running on a screen today, so there is no weather to show."
+      : "Weather needs a city or map location on the screens. Add it in Inventory.");
+  }
+  return (
+    <div className="mb-3 flex flex-wrap gap-2">
+      {withWeather.map((a) => {
+        const w = a.weather as WeatherView;
+        const bad = w.warnings.some((x) => x.level === "bad");
+        return (
+          <div key={a.name} className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 ${bad ? "border-rose-400/40 bg-rose-500/10" : w.warnings.length ? "border-amber-400/40 bg-amber-500/10" : "border-[#2a2f37] bg-[#0f1216]"}`}>
+            <span className="text-[#f1d68a]"><WeatherGlyph condition={w.condition} size={26} /></span>
+            <div className="leading-tight">
+              <p className="text-[12px] font-semibold text-zinc-100">{a.name} <span className="font-normal text-zinc-500">{"\u00b7"} {a.screens} screen{a.screens === 1 ? "" : "s"}</span></p>
+              <p className="text-[11px] text-zinc-400">{Math.round(w.temp)}{deg}C, {w.label}{w.warnings.length ? `, ${w.warnings.length} warning${w.warnings.length === 1 ? "" : "s"}` : ""}</p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 /** Weather tab of one campaign: every screen with its own weather. */
 export const CampaignWeatherPanel: React.FC<{ campaignId: string }> = ({ campaignId }) => {
   const [data, setData] = useState<CampaignWeather | null>(null);
@@ -197,7 +236,8 @@ export const WeatherAlertsList: React.FC<{ data?: CompanyWeather | null; compact
     return () => { live = false; };
   }, [given]);
   const data = given !== undefined ? given : own;
-  if (!data || !data.configured) return null;
+  if (!data) return null;
+  if (!data.configured) return compact ? null : <p className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-200">Weather is not set up yet, so warnings cannot be shown.</p>;
   if (data.alerts.length === 0) {
     return compact ? null : <p className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-[12px] text-emerald-200">Weather is fine at all screens of running campaigns.</p>;
   }

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "@/lib/router";
 import { FIN, GOLD_CARD, SILVER_CARD, fit } from "@/features/finance/financeUi";
 import { opsApi, type OpsOverview, type OpsScreen, type ScreenState } from "@/lib/api/operations";
-import { WeatherAlertsList } from "../weather/WeatherUi";
+import { WeatherAlertsList, WeatherStrip } from "../weather/WeatherUi";
 import { FieldTeamPanel, IncidentModal, IncidentsPanel, MaintenancePanel, ProofPanel, STATE_LABEL, ScreenDrawer, stateDot } from "./OpsPanels";
 
 type TabKey = "board" | "alerts" | "incidents" | "proof" | "field" | "maintenance" | "upcoming";
@@ -98,6 +98,7 @@ export const OperationsPage: React.FC = () => {
 
       {tab === "board" && ov && (
         <>
+          <WeatherStrip />
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <input className={`${FIN.input} max-w-[220px]`} placeholder="Search screens" value={search} onChange={(e: any) => setSearch(e.target.value)} />
             {(["", "online", "maintenance", "offline"] as const).map((k) => (
