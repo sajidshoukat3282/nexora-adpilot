@@ -7,6 +7,7 @@ import { AssetDetailDrawer } from "./AssetDetailDrawer";
 import { useSearchParams } from "@/lib/router";
 import type { MediaAsset, AssetOperationalStatus } from "@/domain";
 import AddInventoryForm from "./AddInventoryForm";
+import { SuggestScreensDrawer } from "./SuggestScreensDrawer";
 import { DIGITAL_KINDS, STATIC_KINDS, daysUntil, mapInventory, rateSuffix } from "./inventoryTools";
 
 const DEFAULT_CITIES = ["Lahore", "Karachi", "Islamabad"];
@@ -24,6 +25,7 @@ export const InventoryPage: React.FC = () => {
   const [assetsData, setAssetsData] = useState<MediaAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showSuggest, setShowSuggest] = useState(false);
   const [editing, setEditing] = useState<any>(null);
 
   const fetchInventory = async () => {
@@ -159,6 +161,7 @@ export const InventoryPage: React.FC = () => {
           <p className="text-[11px] text-zinc-500">Your digital screens and static billboards, with slot-based availability by date.</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button className={FIN.btnGhost} onClick={() => setShowSuggest(true)}>Suggest screens</button>
           <button className={FIN.btnGhost} onClick={exportCsv}>Export CSV</button>
           <PermissionGate permission="inventory.manage" fallback={null}>
             <button onClick={() => setShowAddForm(true)} className={FIN.btnGold}>+ Add Screen</button>
@@ -272,6 +275,8 @@ export const InventoryPage: React.FC = () => {
           setEditing(a);
         }}
       />
+
+      <SuggestScreensDrawer open={showSuggest} onClose={() => setShowSuggest(false)} cities={citiesList} />
 
       {(showAddForm || editing) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">

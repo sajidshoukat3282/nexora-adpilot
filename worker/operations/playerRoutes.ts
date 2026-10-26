@@ -4,6 +4,7 @@ import { loadUploadedFile, TYPES } from '../files/fileRoutes';
 /**
  * Screen player (web page) API. Works with the screen's secret player key, no login.
  * - GET /api/player/manifest?key=  : what to play now on this screen (approved creatives of campaigns running today). Also counts as a heartbeat.
+ * - POST /api/player/plays?key= : the player reports how many times each creative played per day (kept as small daily totals in play_stats).
  * - GET /api/player/media/:fileId?key= : the file, only if an approved creative of a running campaign on this screen uses it. Cached for a long time.
  */
 
@@ -93,12 +94,47 @@ async function media(request: Request, env: Env, key: string, fileId: string): P
   return new Response(f.bytes, { status: 200, headers: { ...base, 'content-length': String(total) } });
 }
 
+let playTable = false;
+async function playPlays(request: Request, env: Env, key: string): Promise<Response> {
+  const sc = await screenOf(env, key);
+  if (!sc) return json({ ok: false, error: 'INVALID_KEY' }, 401);
+  if (!playTable) {
+    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS play_stats (
+      inventory_id TEXT NOT NULL, campaign_id TEXT NOT NULL, creative_id TEXT NOT NULL, day TEXT NOT NULL,
+      company_id TEXT NOT NULL, plays INTEGER NOT NULL DEFAULT 0, seconds INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (inventory_id, campaign_id, creative_id, day))`).run();
+    playTable = true;
+  }
+  const b: any = await request.json().catch(() => ({}));
+  const list: any[] = Array.isArray(b.plays) ? b.plays.slice(0, 200) : [];
+  const now = Date.now();
+  const okDay = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && Math.abs(new Date(d + 'T00:00:00Z').getTime() - now) <= 3 * 86400000;
+  let saved = 0;
+  for (const e of list) {
+    const id = String(e?.id ?? '');
+    const day = String(e?.day ?? '');
+    const n = Math.max(0, Math.min(5000, Math.floor(Number(e?.plays) || 0)));
+    const sec = Math.max(0, Math.min(86400, Math.floor(Number(e?.seconds) || 0)));
+    if (!/^[0-9a-fA-F-]{36}$/.test(id) || !okDay(day) || n < 1) continue;
+    const cr = await env.DB.prepare(`SELECT cr.campaign_id FROM campaign_creatives cr
+        JOIN campaign_screens cs ON cs.campaign_id = cr.campaign_id AND cs.inventory_id = ?
+       WHERE cr.id = ? AND cr.company_id = ? LIMIT 1`).bind(sc.inventory_id, id, sc.company_id).first<{ campaign_id: string }>().catch(() => null);
+    if (!cr) continue;
+    await env.DB.prepare(`INSERT INTO play_stats (inventory_id, campaign_id, creative_id, day, company_id, plays, seconds) VALUES (?,?,?,?,?,?,?)
+        ON CONFLICT(inventory_id, campaign_id, creative_id, day) DO UPDATE SET plays = plays + excluded.plays, seconds = seconds + excluded.seconds`)
+      .bind(sc.inventory_id, cr.campaign_id, id, day, sc.company_id, n, sec).run();
+    saved += 1;
+  }
+  return json({ ok: true, saved });
+}
+
 export async function handlePlayerRoutes(request: Request, env: Env, url: URL): Promise<Response | null> {
   const path = url.pathname;
   if (!path.startsWith('/api/player/') || path === '/api/player/ping') return null;
-  if (request.method !== 'GET') return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
+  if (request.method !== 'GET' && !(request.method === 'POST' && path === '/api/player/plays')) return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
   try {
     const key = (url.searchParams.get('key') || '').trim();
+    if (path === '/api/player/plays') return await playPlays(request, env, key);
     if (path === '/api/player/manifest') return await manifest(env, key);
     const m = path.match(/^\/api\/player\/media\/([0-9a-fA-F-]{36})$/);
     if (m) return await media(request, env, key, m[1]);

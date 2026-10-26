@@ -46,6 +46,34 @@ export interface ReportSummary {
   };
 }
 
+export interface LeakageReport {
+  ok: boolean;
+  currency: string;
+  period: { from: string; to: string; days: number };
+  unsold: {
+    value: number; slot_days: number; not_sellable_screens: number; missing_rate: number;
+    rows: { id: string; name: string; city: string; rate: number; free_slot_days: number; occupancy: number; unsold_value: number; no_rate: boolean }[];
+  };
+  discount: { value: number; rows: { id: string; name: string; client_name: string; screens: number; card_value: number; lost: number; pct: number }[] };
+  not_invoiced: { value: number; rows: { id: string; name: string; client_name: string; status: string; start_date: string; contract: number; invoiced: number; gap: number }[] };
+  uncollected: { outstanding: number; overdue: number; rows: { id: string; invoice_number: string; client_name: string; due_date: string; balance: number; days_late: number }[] };
+  delivery: { tracked_screens: number; booked_days: number; missed_days: number; missed_value: number; rows: { id: string; name: string; client_name: string; screens: number; booked_days: number; missed_days: number; value: number }[] };
+  lost: {
+    cancelled: { count: number; value: number; rows: { id: string; name: string; client_name: string; start_date: string; end_date: string; value: number }[] };
+    delayed: { count: number; value: number; rows: { id: string; name: string; client_name: string; status: string; start_date: string; days_late: number; value: number }[] };
+    incidents: { count: number; open: number; at_risk_value: number; rows: { id: string; title: string; severity: string; status: string; created: string; campaign_name: string; screen_name: string; value: number }[] };
+  };
+}
+
+export interface ForecastReport {
+  ok: boolean;
+  currency: string;
+  months: { key: string; booked: number; collections: number }[];
+  later_collections: number;
+  pipeline: { open_leads: number; value: number; weighted: number };
+  campaigns: { id: string; name: string; client_name: string; status: string; end_date: string; m1: number; m2: number; m3: number; total: number }[];
+}
+
 export interface Statement {
   ok: boolean;
   currency: string;
@@ -78,6 +106,8 @@ const body = (b: unknown): RequestInit => ({ body: JSON.stringify(b) });
 
 export const reportsApi = {
   summary: (from: string, to: string) => apiRequest<ReportSummary>(`/api/reports/summary?from=${from}&to=${to}`),
+  forecast: () => apiRequest<ForecastReport>(`/api/reports/forecast`),
+  leakage: (from: string, to: string) => apiRequest<LeakageReport>(`/api/reports/leakage?from=${from}&to=${to}`),
   clients: () => apiRequest<{ ok: boolean; clients: { id: string; name: string }[] }>("/api/reports/clients"),
   statement: (id: string, from: string, to: string) => apiRequest<Statement>(`/api/reports/statement/${id}?from=${from}&to=${to}`),
   emailPreview: () => apiRequest<{ ok: boolean; subject: string; html: string }>("/api/reports/email/preview"),

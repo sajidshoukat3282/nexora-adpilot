@@ -93,6 +93,16 @@ export const PAGE_GUIDES: PageGuide[] = [
         ],
       },
       {
+        title: "Suggest screens for a campaign",
+        steps: [
+          "On the Inventory page click Suggest screens.",
+          "Enter the campaign dates, and optionally the city, screen type, total budget, how many screens you want and slots per screen. Click Find screens.",
+          "You get the best screens that are free for the whole period and inside your budget, with the reasons and the estimated cost. Other options are listed below them.",
+          "Then create the campaign and add those screens as usual.",
+        ],
+        tip: "The score looks at free dates, city, how busy the screen was in the last 90 days and budget fit. Set a rate on every screen so costs are right.",
+      },
+      {
         title: "Check availability and book",
         steps: [
           "Open an asset and use Check Availability with your From and To dates.",
@@ -189,6 +199,7 @@ export const PAGE_GUIDES: PageGuide[] = [
           "For a quick trial, open the link on any phone or computer and press Open player.",
           "The page saves the files on the device, so it keeps playing if the internet drops, and it checks for changes every 5 minutes.",
           "The screen shows Online while the player is open. It shows Offline after 10 minutes of silence. Use Remove link to go back to manual status.",
+          "The player also counts how many times each creative plays each day and sends the totals when it syncs. Reports, Leakage uses this to show booked days with no play.",
         ],
         tip: "A creative plays only if it is Approved and is an uploaded image or video file (or a direct image or video link). Google Drive and YouTube links cannot be played. More slots on a screen means the creative repeats more often.",
       },
@@ -260,8 +271,29 @@ export const PAGE_GUIDES: PageGuide[] = [
           "Receivables: what clients owe, grouped by how late it is, with the list of open invoices.",
           "Client Statement: choose a client to see billed, received and the running balance.",
           "Campaigns: contract, received, expenses and profit for each campaign.",
-          "Inventory: how much of each screen's slots were sold. Sales & CRM: lead stages and campaign mix.",
+          "Inventory: how much of each screen's slots were sold. Leakage: where revenue is slipping away. Sales & CRM: lead stages and campaign mix.",
         ],
+      },
+      {
+        title: "See the forecast for the next 3 months",
+        steps: [
+          "Open Reports and click the Forecast tab. It always looks ahead from today.",
+          "Booked revenue spreads the value of Booked and Live campaigns over the days they run. Collections due shows open invoices by their due month, with overdue ones counted this month.",
+          "Weighted pipeline is the estimated value of open leads times their stage weight. It has no date, so it is shown separately.",
+        ],
+        tip: "The forecast is only as good as your data. Keep campaign budgets and lead values filled in.",
+      },
+      {
+        title: "Find revenue leakage, lost and delayed campaigns",
+        steps: [
+          "Open Reports and click the Leakage tab. Pick the period you want to look at.",
+          "Unsold capacity shows free slot-days on online screens, priced at each screen's rate. Discount given shows campaigns booked below the rate card.",
+          "Not invoiced lists started campaigns whose contract value has no invoice yet. Overdue shows invoices past their due date.",
+          "Lost and delayed lists cancelled campaigns, campaigns still Draft or Booked after their start date, and incidents with the value of the campaigns they touch.",
+          "Delivery shows booked days (up to yesterday) with no play logged, only on screens running the AdPilot player and only from the first day they send plays.",
+          "Use Preview, Print / PDF or Export Excel to share it. Set a rate on every screen so unsold capacity is complete.",
+        ],
+        tip: "Unsold capacity is potential, not a sure loss. Some free slots are simply low-demand or seasonal.",
       },
       {
         title: "Print, PDF and Excel",

@@ -4,6 +4,8 @@ import { useSession } from "@/hooks/useSession";
 import {
   reportsApi,
   type EmailLog,
+  type ForecastReport,
+  type LeakageReport,
   type ReportSummary,
   type SavedReport,
   type Statement,
@@ -25,7 +27,7 @@ import {
   type ReportDoc,
 } from "./reportTools";
 
-type TabKey = "overview" | "pnl" | "receivables" | "statement" | "campaigns" | "inventory" | "sales" | "email";
+type TabKey = "overview" | "pnl" | "receivables" | "statement" | "campaigns" | "inventory" | "leakage" | "forecast" | "sales" | "email";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "overview", label: "Overview" },
@@ -34,9 +36,16 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "statement", label: "Client Statement" },
   { key: "campaigns", label: "Campaigns" },
   { key: "inventory", label: "Inventory" },
+  { key: "leakage", label: "Leakage" },
+  { key: "forecast", label: "Forecast" },
   { key: "sales", label: "Sales & CRM" },
   { key: "email", label: "Email & Schedule" },
 ];
+
+const monthLabel = (key: string): string => {
+  const names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${names[Number(key.slice(5, 7)) - 1] ?? key} ${key.slice(0, 4)}`;
+};
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -112,6 +121,16 @@ export const ReportsPage: React.FC = () => {
   const [statement, setStatement] = useState<Statement | null>(null);
   const [stLoading, setStLoading] = useState(false);
 
+  // leakage
+  const [leak, setLeak] = useState<LeakageReport | null>(null);
+  const [leakLoading, setLeakLoading] = useState(false);
+  const [leakError, setLeakError] = useState("");
+
+  // forecast
+  const [fc, setFc] = useState<ForecastReport | null>(null);
+  const [fcLoading, setFcLoading] = useState(false);
+  const [fcError, setFcError] = useState("");
+
   // saved views
   const [saved, setSaved] = useState<SavedReport[]>([]);
 
@@ -154,6 +173,28 @@ export const ReportsPage: React.FC = () => {
       setExtraEmails((company as any).report_extra_emails || "");
     }
   }, [company]);
+
+  useEffect(() => {
+    if (tab !== "leakage") return;
+    setLeakLoading(true);
+    setLeakError("");
+    reportsApi
+      .leakage(range.from, range.to)
+      .then(setLeak)
+      .catch((e) => setLeakError(e instanceof Error ? e.message : "Could not load the leakage report."))
+      .finally(() => setLeakLoading(false));
+  }, [tab, range.from, range.to]);
+
+  useEffect(() => {
+    if (tab !== "forecast") return;
+    setFcLoading(true);
+    setFcError("");
+    reportsApi
+      .forecast()
+      .then(setFc)
+      .catch((e) => setFcError(e instanceof Error ? e.message : "Could not load the forecast."))
+      .finally(() => setFcLoading(false));
+  }, [tab]);
 
   useEffect(() => {
     if (tab !== "email") return;
@@ -334,6 +375,57 @@ export const ReportsPage: React.FC = () => {
         ],
       };
     }
+    if (tab === "leakage") {
+      if (!leak) return null;
+      const lm = (n: number) => fmtMoney(n, leak.currency);
+      return {
+        ...base,
+        title: "Revenue Leakage, Lost and Delayed",
+        subtitle: "Where revenue is slipping away, from your own bookings and invoices",
+        kpis: [
+          { label: "Unsold capacity", value: lm(leak.unsold.value), sub: `${fmtNum(leak.unsold.slot_days)} free slot-days at rate card` },
+          { label: "Discount given", value: lm(leak.discount.value), sub: "booked below rate card" },
+          { label: "Not invoiced", value: lm(leak.not_invoiced.value), sub: "contract value without an invoice" },
+          { label: "Overdue", value: lm(leak.uncollected.overdue), sub: `${lm(leak.uncollected.outstanding)} outstanding` },
+          { label: "Cancelled", value: lm(leak.lost.cancelled.value), sub: `${leak.lost.cancelled.count} campaigns` },
+          { label: "Delayed", value: lm(leak.lost.delayed.value), sub: `${leak.lost.delayed.count} campaigns` },
+          { label: "Missed delivery", value: lm(leak.delivery.missed_value), sub: `${leak.delivery.missed_days} of ${leak.delivery.booked_days} booked days` },
+        ],
+        sections: [
+          { type: "table", title: "Unsold capacity by screen", cols: [{ key: "name", label: "Screen" }, { key: "city", label: "City" }, mCol("rate", "Rate"), mCol("free", "Free slot-days"), mCol("occ", "Occupancy %"), mCol("val", "Unsold value")], rows: leak.unsold.rows.map((r) => ({ name: r.name, city: r.city, rate: r.no_rate ? "no rate" : lm(r.rate), free: fmtNum(r.free_slot_days), occ: r.occupancy, val: lm(r.unsold_value) })) },
+          { type: "table", title: "Discount given by campaign", cols: [{ key: "name", label: "Campaign" }, { key: "client", label: "Client" }, mCol("card", "At rate card"), mCol("lost", "Discount"), mCol("pct", "Discount %")], rows: leak.discount.rows.map((r) => ({ name: r.name, client: r.client_name, card: lm(r.card_value), lost: lm(r.lost), pct: r.pct })) },
+          { type: "table", title: "Campaigns not fully invoiced", cols: [{ key: "name", label: "Campaign" }, { key: "client", label: "Client" }, { key: "status", label: "Status" }, mCol("contract", "Contract"), mCol("invoiced", "Invoiced"), mCol("gap", "Not invoiced")], rows: leak.not_invoiced.rows.map((r) => ({ name: r.name, client: r.client_name, status: r.status, contract: lm(r.contract), invoiced: lm(r.invoiced), gap: lm(r.gap) })) },
+          { type: "table", title: "Overdue invoices", cols: [{ key: "inv", label: "Invoice" }, { key: "client", label: "Client" }, { key: "due", label: "Due" }, mCol("late", "Days late"), mCol("bal", "Balance")], rows: leak.uncollected.rows.map((r) => ({ inv: r.invoice_number, client: r.client_name, due: r.due_date, late: r.days_late, bal: lm(r.balance) })) },
+          { type: "table", title: "Delivery shortfall (days booked with no play logged)", cols: [{ key: "name", label: "Campaign" }, { key: "client", label: "Client" }, mCol("screens", "Screens"), mCol("booked", "Booked days"), mCol("missed", "Missed days"), mCol("val", "Value")], rows: leak.delivery.rows.map((r) => ({ name: r.name, client: r.client_name, screens: r.screens, booked: r.booked_days, missed: r.missed_days, val: lm(r.value) })) },
+          { type: "table", title: "Cancelled campaigns", cols: [{ key: "name", label: "Campaign" }, { key: "client", label: "Client" }, { key: "start", label: "Start" }, mCol("val", "Value")], rows: leak.lost.cancelled.rows.map((r) => ({ name: r.name, client: r.client_name, start: r.start_date, val: lm(r.value) })) },
+          { type: "table", title: "Delayed campaigns (start date passed, not live)", cols: [{ key: "name", label: "Campaign" }, { key: "client", label: "Client" }, { key: "status", label: "Status" }, { key: "start", label: "Start" }, mCol("late", "Days late"), mCol("val", "Value")], rows: leak.lost.delayed.rows.map((r) => ({ name: r.name, client: r.client_name, status: r.status, start: r.start_date, late: r.days_late, val: lm(r.value) })) },
+          { type: "table", title: "Incidents in this period", cols: [{ key: "title", label: "Incident" }, { key: "sev", label: "Severity" }, { key: "st", label: "Status" }, { key: "camp", label: "Campaign" }, { key: "scr", label: "Screen" }, mCol("val", "Campaign value")], rows: leak.lost.incidents.rows.map((r) => ({ title: r.title, sev: r.severity, st: r.status, camp: r.campaign_name, scr: r.screen_name, val: r.value ? lm(r.value) : "-" })) },
+        ],
+        footnote: "Unsold capacity is free slot-days on online screens priced at the rate card, so it is potential, not a guaranteed loss. Rates are treated as per slot per day.",
+      };
+    }
+    if (tab === "forecast") {
+      if (!fc) return null;
+      const fm = (n: number) => fmtMoney(n, fc.currency);
+      const tb = fc.months.reduce((a, m) => a + m.booked, 0);
+      const tc = fc.months.reduce((a, m) => a + m.collections, 0);
+      return {
+        ...base,
+        title: "Revenue Forecast",
+        subtitle: "Next three months, from today's bookings, invoices and open leads",
+        kpis: [
+          { label: "Booked revenue", value: fm(tb), sub: "next 3 months" },
+          { label: "Collections due", value: fm(tc), sub: "open invoices due in 3 months" },
+          { label: "Weighted pipeline", value: fm(fc.pipeline.weighted), sub: `${fc.pipeline.open_leads} open leads` },
+          { label: "Due later", value: fm(fc.later_collections), sub: "open invoices due after that" },
+        ],
+        sections: [
+          { type: "table", title: "By month", cols: [{ key: "m", label: "Month" }, mCol("booked", "Booked revenue"), mCol("coll", "Collections due")], rows: fc.months.map((m) => ({ m: monthLabel(m.key), booked: fm(m.booked), coll: fm(m.collections) })), totals: { m: "Total", booked: fm(tb), coll: fm(tc) } },
+          { type: "table", title: "Booked campaigns", cols: [{ key: "name", label: "Campaign" }, { key: "client", label: "Client" }, { key: "end", label: "Ends" }, ...fc.months.map((m, i) => mCol(`m${i}`, monthLabel(m.key))), mCol("total", "Total")], rows: fc.campaigns.map((c) => ({ name: c.name, client: c.client_name, end: c.end_date, m0: fm(c.m1), m1: fm(c.m2), m2: fm(c.m3), total: fm(c.total) })) },
+        ],
+        footnote: "Booked revenue spreads each campaign's value over the days it runs. Overdue invoices are counted in the current month. The pipeline is leads' estimated value times stage weight and has no date, so it is not added to the months.",
+      };
+    }
     if (tab === "sales") {
       return {
         ...base,
@@ -352,7 +444,7 @@ export const ReportsPage: React.FC = () => {
       };
     }
     return null;
-  }, [data, tab, statement, insights, money, cur, periodText, company_.name]);
+  }, [data, tab, statement, insights, money, cur, periodText, company_.name, leak, fc]);
 
   const doc = buildDoc();
 
@@ -635,6 +727,128 @@ export const ReportsPage: React.FC = () => {
           <Panel title="Occupancy by screen">
             <HBars items={[...data.inventory.rows].sort((a, b) => b.occupancy - a.occupancy).map((r) => ({ label: r.name, value: r.occupancy, text: `${r.occupancy}%`, sub: `${r.type}, ${r.city}` }))} empty="No screens yet." />
           </Panel>
+        </div>
+      )}
+
+      {tab === "leakage" && (
+        <div className="space-y-4">
+          {leakLoading && !leak && <p className="py-10 text-center text-[12px] text-zinc-500">Loading leakage report...</p>}
+          {leakError && <p className="text-[12px] text-rose-300">{leakError}</p>}
+          {leak && (() => {
+            const lm = (n: number) => fmtMoney(n, leak.currency);
+            const lc = (key: string, label: string): DocCol => ({ key, label, align: "right", num: true });
+            return (
+              <>
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  <Kpi gold label="Unsold capacity" value={lm(leak.unsold.value)} foot={<span className="text-[10px] text-black/55">{fmtNum(leak.unsold.slot_days)} free slot-days at rate card</span>} />
+                  <Kpi label="Discount given" value={lm(leak.discount.value)} foot={<span className="text-[10px] text-black/55">booked below rate card</span>} />
+                  <Kpi label="Not invoiced" value={lm(leak.not_invoiced.value)} foot={<span className="text-[10px] text-black/55">contract value, no invoice yet</span>} />
+                  <Kpi label="Overdue" value={lm(leak.uncollected.overdue)} foot={<span className="text-[10px] text-black/55">{lm(leak.uncollected.outstanding)} outstanding in all</span>} />
+                </div>
+                {(leak.unsold.not_sellable_screens > 0 || leak.unsold.missing_rate > 0) && (
+                  <p className="text-[11px] text-zinc-400">
+                    {leak.unsold.not_sellable_screens > 0 && `${leak.unsold.not_sellable_screens} screen(s) are offline or in maintenance and are left out of unsold capacity. `}
+                    {leak.unsold.missing_rate > 0 && `${leak.unsold.missing_rate} online screen(s) have no rate set, so their unsold value shows as zero.`}
+                  </p>
+                )}
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                  <Panel title="Unsold capacity by screen">
+                    <Table cols={[{ key: "name", label: "Screen" }, { key: "city", label: "City" }, lc("rate", "Rate"), lc("free", "Free slot-days"), lc("occ", "Occupancy %"), lc("val", "Unsold value")]}
+                      rows={leak.unsold.rows.map((r) => ({ name: r.name, city: r.city, rate: r.no_rate ? "no rate" : lm(r.rate), free: fmtNum(r.free_slot_days), occ: r.occupancy, val: lm(r.unsold_value) }))} empty="No online screens in this period." />
+                  </Panel>
+                  <Panel title="Discount given by campaign">
+                    <Table cols={[{ key: "name", label: "Campaign" }, { key: "client", label: "Client" }, lc("card", "At rate card"), lc("lost", "Discount"), lc("pct", "%")]}
+                      rows={leak.discount.rows.map((r) => ({ name: r.name, client: r.client_name, card: lm(r.card_value), lost: lm(r.lost), pct: r.pct }))} empty="No campaign was booked below the rate card." />
+                  </Panel>
+                  <Panel title="Campaigns not fully invoiced">
+                    <Table cols={[{ key: "name", label: "Campaign" }, { key: "client", label: "Client" }, lc("contract", "Contract"), lc("invoiced", "Invoiced"), lc("gap", "Not invoiced")]}
+                      rows={leak.not_invoiced.rows.map((r) => ({ name: r.name, client: r.client_name, contract: lm(r.contract), invoiced: lm(r.invoiced), gap: lm(r.gap) }))} empty="Every started campaign is fully invoiced." />
+                  </Panel>
+                  <Panel title="Overdue invoices">
+                    <Table cols={[{ key: "inv", label: "Invoice" }, { key: "client", label: "Client" }, { key: "due", label: "Due" }, lc("late", "Days late"), lc("bal", "Balance")]}
+                      rows={leak.uncollected.rows.map((r) => ({ inv: r.invoice_number, client: r.client_name, due: r.due_date, late: r.days_late, bal: lm(r.balance) }))} empty="Nothing is overdue." />
+                  </Panel>
+                </div>
+
+                <SectionTitle>Delivery</SectionTitle>
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  <Kpi gold label="Missed delivery" value={lm(leak.delivery.missed_value)} foot={<span className="text-[10px] text-black/55">booked days with no play logged</span>} />
+                  <Kpi label="Missed days" value={`${leak.delivery.missed_days} / ${leak.delivery.booked_days}`} foot={<span className="text-[10px] text-black/55">of booked days checked</span>} />
+                  <Kpi label="Screens tracked" value={String(leak.delivery.tracked_screens)} foot={<span className="text-[10px] text-black/55">with the AdPilot player</span>} />
+                </div>
+                {leak.delivery.tracked_screens === 0 ? (
+                  <p className="text-[11px] text-zinc-400">No screen is sending plays yet. Open the screen player on a screen (Operations, screen detail, player link) and delivery is checked from the day it starts playing.</p>
+                ) : (
+                  <Panel title="Campaigns with missed delivery">
+                    <Table cols={[{ key: "name", label: "Campaign" }, { key: "client", label: "Client" }, lc("screens", "Screens"), lc("booked", "Booked days"), lc("missed", "Missed days"), lc("val", "Value")]}
+                      rows={leak.delivery.rows.map((r) => ({ name: r.name, client: r.client_name, screens: r.screens, booked: r.booked_days, missed: r.missed_days, val: lm(r.value) }))} empty="Every checked booked day has a play logged." />
+                  </Panel>
+                )}
+
+                <SectionTitle>Lost and delayed</SectionTitle>
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  <Kpi gold label="Cancelled" value={lm(leak.lost.cancelled.value)} foot={<span className="text-[10px] text-black/55">{leak.lost.cancelled.count} campaign(s)</span>} />
+                  <Kpi label="Delayed" value={lm(leak.lost.delayed.value)} foot={<span className="text-[10px] text-black/55">{leak.lost.delayed.count} campaign(s) not live</span>} />
+                  <Kpi label="Incidents" value={String(leak.lost.incidents.count)} foot={<span className="text-[10px] text-black/55">{leak.lost.incidents.open} still open</span>} />
+                  <Kpi label="Value at risk" value={lm(leak.lost.incidents.at_risk_value)} foot={<span className="text-[10px] text-black/55">campaigns with open incidents</span>} />
+                </div>
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                  <Panel title="Cancelled campaigns">
+                    <Table cols={[{ key: "name", label: "Campaign" }, { key: "client", label: "Client" }, { key: "start", label: "Start" }, lc("val", "Value")]}
+                      rows={leak.lost.cancelled.rows.map((r) => ({ name: r.name, client: r.client_name, start: r.start_date, val: lm(r.value) }))} empty="No cancelled campaigns in this period." />
+                  </Panel>
+                  <Panel title="Delayed campaigns">
+                    <Table cols={[{ key: "name", label: "Campaign" }, { key: "client", label: "Client" }, { key: "status", label: "Status" }, lc("late", "Days late"), lc("val", "Value")]}
+                      rows={leak.lost.delayed.rows.map((r) => ({ name: r.name, client: r.client_name, status: r.status, late: r.days_late, val: lm(r.value) }))} empty="No campaign is waiting past its start date." />
+                  </Panel>
+                  <Panel title="Incidents in this period" className="xl:col-span-2">
+                    <Table cols={[{ key: "title", label: "Incident" }, { key: "sev", label: "Severity" }, { key: "st", label: "Status" }, { key: "camp", label: "Campaign" }, { key: "scr", label: "Screen" }, lc("val", "Campaign value")]}
+                      rows={leak.lost.incidents.rows.map((r) => ({ title: r.title, sev: r.severity, st: r.status, camp: r.campaign_name, scr: r.screen_name, val: r.value ? lm(r.value) : "-" }))} empty="No incidents in this period." />
+                  </Panel>
+                </div>
+                <p className="text-[10px] text-zinc-500">
+                  Unsold capacity is potential, not a guaranteed loss: it is free slot-days on online screens priced at the rate card, and rates are treated as per slot per day.
+                  A delayed campaign is one still marked Draft or Booked after its start date. Delivery is checked only on screens running the AdPilot player, from the first day they send plays, up to yesterday. Overdue and outstanding are as of today. Amounts in {leak.currency}.
+                </p>
+              </>
+            );
+          })()}
+        </div>
+      )}
+
+      {tab === "forecast" && (
+        <div className="space-y-4">
+          {fcLoading && !fc && <p className="py-10 text-center text-[12px] text-zinc-500">Loading forecast...</p>}
+          {fcError && <p className="text-[12px] text-rose-300">{fcError}</p>}
+          {fc && (() => {
+            const fm = (n: number) => fmtMoney(n, fc.currency);
+            const fcCol = (key: string, label: string): DocCol => ({ key, label, align: "right", num: true });
+            const tb = fc.months.reduce((a, m) => a + m.booked, 0);
+            const tc = fc.months.reduce((a, m) => a + m.collections, 0);
+            return (
+              <>
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  <Kpi gold label="Booked revenue" value={fm(tb)} foot={<span className="text-[10px] text-black/55">next 3 months</span>} />
+                  <Kpi label="Collections due" value={fm(tc)} foot={<span className="text-[10px] text-black/55">open invoices due in 3 months</span>} />
+                  <Kpi label="Weighted pipeline" value={fm(fc.pipeline.weighted)} foot={<span className="text-[10px] text-black/55">{fc.pipeline.open_leads} open leads ({fm(fc.pipeline.value)} unweighted)</span>} />
+                  <Kpi label="Due later" value={fm(fc.later_collections)} foot={<span className="text-[10px] text-black/55">open invoices due after that</span>} />
+                </div>
+                <Panel title="Month by month" right={<Legend items={[{ color: "#c99b3b", label: "Booked revenue" }, { color: "#6b7280", label: "Collections due" }]} />}>
+                  <Table cols={[{ key: "m", label: "Month" }, fcCol("booked", "Booked revenue"), fcCol("coll", "Collections due")]}
+                    rows={fc.months.map((m) => ({ m: monthLabel(m.key), booked: fm(m.booked), coll: fm(m.collections) }))}
+                    totals={{ m: "Total", booked: fm(tb), coll: fm(tc) }} />
+                </Panel>
+                <Panel title="Booked campaigns">
+                  <Table cols={[{ key: "name", label: "Campaign" }, { key: "client", label: "Client" }, { key: "end", label: "Ends" }, ...fc.months.map((m, i) => fcCol(`m${i}`, monthLabel(m.key))), fcCol("total", "Total")]}
+                    rows={fc.campaigns.map((c) => ({ name: c.name, client: c.client_name, end: c.end_date, m0: fm(c.m1), m1: fm(c.m2), m2: fm(c.m3), total: fm(c.total) }))} empty="No booked or live campaign runs in the next 3 months." />
+                </Panel>
+                <p className="text-[10px] text-zinc-500">
+                  Booked revenue spreads each Booked or Live campaign's value over the days it runs (screen rates are used if a campaign has no budget). Overdue invoices count in the current month.
+                  The pipeline is the estimated value of open leads times their stage weight. It has no date, so it is shown separately and not added to the months. This is a guide from your own data, not a promise. Amounts in {fc.currency}.
+                </p>
+              </>
+            );
+          })()}
         </div>
       )}
 

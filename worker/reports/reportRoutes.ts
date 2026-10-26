@@ -32,6 +32,10 @@ async function ensure(db: D1Database): Promise<void> {
     id TEXT PRIMARY KEY, company_id TEXT NOT NULL, kind TEXT NOT NULL, recipients TEXT, status TEXT NOT NULL, error TEXT, created_at TEXT NOT NULL)`).run();
   await db.prepare(`CREATE TABLE IF NOT EXISTS saved_reports (
     id TEXT PRIMARY KEY, company_id TEXT NOT NULL, name TEXT NOT NULL, report TEXT NOT NULL, params TEXT, created_at TEXT NOT NULL)`).run();
+  await db.prepare(`CREATE TABLE IF NOT EXISTS play_stats (
+    inventory_id TEXT NOT NULL, campaign_id TEXT NOT NULL, creative_id TEXT NOT NULL, day TEXT NOT NULL,
+    company_id TEXT NOT NULL, plays INTEGER NOT NULL DEFAULT 0, seconds INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (inventory_id, campaign_id, creative_id, day))`).run();
   try { await db.prepare('ALTER TABLE companies ADD COLUMN report_email_day TEXT').run(); } catch { /* exists */ }
   try { await db.prepare('ALTER TABLE companies ADD COLUMN report_extra_emails TEXT').run(); } catch { /* exists */ }
   ready = true;
@@ -345,6 +349,264 @@ async function recipientsFor(env: Env, s: SessionContext, onlyMe: boolean): Prom
   return out;
 }
 
+/* ---------------- revenue leakage + lost and delayed ---------------- */
+
+/**
+ * Where revenue is slipping away, using only data already in the system:
+ * - unsold capacity: free slot-days on online screens, priced at the screen's rate card
+ * - discount given: booked below the rate card (rate_applied < inventory.rate)
+ * - not invoiced: campaign contract value that has no invoice yet (campaign has started)
+ * - uncollected: open invoices (as of today), with the overdue part split out
+ * Lost and delayed: cancelled campaigns, campaigns still Draft/Booked after their start
+ * date, and incidents raised in the period (with the value of campaigns they touch).
+ * Rates are treated as per slot per day, the same as the Inventory report.
+ */
+async function leakage(request: Request, env: Env, url: URL): Promise<Response> {
+  const s = await guard(request, env);
+  if (s instanceof Response) return s;
+  await ensure(env.DB);
+  const cid = s.companyId;
+  const today = todayIso();
+  let from = url.searchParams.get('from');
+  let to = url.searchParams.get('to');
+  if (!isDate(from) || !isDate(to)) { to = today; from = today.slice(0, 8) + '01'; }
+  if (to < from) return fail(400, 'The end date must be on or after the start date.');
+  if (dayNum(to) - dayNum(from) > 1830) return fail(400, 'Please choose a period of 5 years or less.');
+  const len = dayNum(to) - dayNum(from) + 1;
+  const currency = await companyCurrency(env, cid);
+
+  const inv = await safeRows<any>(env, `SELECT id, name, screen_type, city, specs, status, rate FROM inventory WHERE company_id=?`, cid);
+  const capOf = (t: string, specs: string | null) => {
+    if (t === 'static') return 1;
+    try { const n = Math.floor(Number(JSON.parse(specs || '{}').spots)); return Number.isFinite(n) && n >= 1 ? Math.min(n, 50) : 1; } catch { return 1; }
+  };
+  const bookings = await safeRows<any>(env, `SELECT cs.inventory_id, cs.rate_applied, COALESCE(cs.slots,1) slots, c.id cid, c.name cname, c.status cstatus, c.start_date, c.end_date, cl.name client_name
+      FROM campaign_screens cs INNER JOIN campaigns c ON c.id=cs.campaign_id LEFT JOIN clients cl ON cl.id=c.client_id
+     WHERE c.company_id=? AND c.status NOT IN ('cancelled') AND c.start_date <= ? AND c.end_date >= ?`, cid, to, from);
+
+  // 1) unsold capacity and 2) discount given
+  let unsoldValue = 0;
+  let unsoldSlotDays = 0;
+  let notSellable = 0;
+  const screens: any[] = [];
+  const invById = new Map<string, any>(inv.map((x) => [x.id, x]));
+  for (const x of inv) {
+    const cap = capOf(x.screen_type, x.specs);
+    const total = cap * len;
+    let booked = 0;
+    for (const b of bookings.filter((bk) => bk.inventory_id === x.id)) booked += overlapDays(b.start_date, b.end_date, from, to) * b.slots;
+    booked = Math.min(booked, total);
+    const free = total - booked;
+    const rate = Number(x.rate) || 0;
+    if (x.status !== 'online') { notSellable += 1; continue; }
+    const value = free * rate;
+    unsoldValue += value;
+    unsoldSlotDays += free;
+    screens.push({ id: x.id, name: x.name, city: x.city ?? '-', rate: r2(rate), free_slot_days: free, occupancy: total > 0 ? Math.round((booked / total) * 100) : 0, unsold_value: r2(value), no_rate: rate <= 0 });
+  }
+  screens.sort((a, b) => b.unsold_value - a.unsold_value);
+
+  const discMap = new Map<string, any>();
+  let discountTotal = 0;
+  for (const b of bookings) {
+    if (b.cstatus === 'draft') continue;
+    const x = invById.get(b.inventory_id);
+    const rate = Number(x?.rate) || 0;
+    const applied = Number(b.rate_applied) || 0;
+    if (rate <= 0 || applied >= rate) continue;
+    const days = overlapDays(b.start_date, b.end_date, from, to) * b.slots;
+    const lost = (rate - applied) * days;
+    if (lost <= 0) continue;
+    discountTotal += lost;
+    const e = discMap.get(b.cid) ?? { id: b.cid, name: b.cname, client_name: b.client_name ?? '-', screens: 0, card_value: 0, lost: 0 };
+    e.screens += 1; e.card_value += rate * days; e.lost += lost;
+    discMap.set(b.cid, e);
+  }
+  const discounts = [...discMap.values()].map((e) => ({ ...e, card_value: r2(e.card_value), lost: r2(e.lost), pct: e.card_value > 0 ? Math.round((e.lost / e.card_value) * 100) : 0 })).sort((a, b) => b.lost - a.lost).slice(0, 15);
+
+  // 3) not invoiced
+  const camps = await safeRows<any>(env, `SELECT c.id, c.name, c.status, c.start_date, c.end_date, c.total_budget, cl.name client_name
+      FROM campaigns c LEFT JOIN clients cl ON cl.id=c.client_id
+     WHERE c.company_id=? AND c.status NOT IN ('cancelled','draft') AND c.start_date <= ? AND c.end_date >= ? AND c.start_date <= ?`, cid, to, from, today);
+  const campInv = await safeRows<any>(env, `SELECT campaign_id, SUM(total_amount) inv FROM invoices WHERE company_id=? AND status!='cancelled' AND campaign_id IS NOT NULL GROUP BY campaign_id`, cid);
+  const notInvoicedRows = camps
+    .map((c) => {
+      const contract = r2(c.total_budget);
+      const invoiced = r2(campInv.find((x) => x.campaign_id === c.id)?.inv);
+      return { id: c.id, name: c.name, client_name: c.client_name ?? '-', status: c.status, start_date: c.start_date, contract, invoiced, gap: r2(contract - invoiced) };
+    })
+    .filter((c) => c.contract > 0 && c.gap > 0.009)
+    .sort((a, b) => b.gap - a.gap);
+  const notInvoicedTotal = r2(notInvoicedRows.reduce((a, c) => a + c.gap, 0));
+
+  // 4) uncollected (as of today)
+  const open = await safeRows<any>(env, `SELECT i.id, i.invoice_number, i.due_date, i.total_amount, i.amount_paid, c.name client_name
+      FROM invoices i LEFT JOIN clients c ON c.id=i.client_id
+     WHERE i.company_id=? AND i.status NOT IN ('paid','cancelled','draft') AND (i.total_amount - i.amount_paid) > 0.009 ORDER BY i.due_date ASC`, cid);
+  let outstanding = 0;
+  let overdue = 0;
+  const overdueRows: any[] = [];
+  for (const i of open) {
+    const bal = r2(i.total_amount - i.amount_paid);
+    outstanding += bal;
+    const late = dayNum(today) - dayNum(i.due_date);
+    if (late > 0) { overdue += bal; overdueRows.push({ id: i.id, invoice_number: i.invoice_number, client_name: i.client_name ?? '-', due_date: i.due_date, balance: bal, days_late: late }); }
+  }
+  overdueRows.sort((a, b) => b.balance - a.balance);
+
+  // lost and delayed
+  const cancelled = (await safeRows<any>(env, `SELECT c.id, c.name, c.start_date, c.end_date, c.total_budget, cl.name client_name
+      FROM campaigns c LEFT JOIN clients cl ON cl.id=c.client_id
+     WHERE c.company_id=? AND c.status='cancelled' AND c.start_date <= ? AND c.end_date >= ? ORDER BY c.total_budget DESC LIMIT 50`, cid, to, from))
+    .map((c) => ({ id: c.id, name: c.name, client_name: c.client_name ?? '-', start_date: c.start_date, end_date: c.end_date, value: r2(c.total_budget) }));
+  const delayed = (await safeRows<any>(env, `SELECT c.id, c.name, c.status, c.start_date, c.end_date, c.total_budget, cl.name client_name
+      FROM campaigns c LEFT JOIN clients cl ON cl.id=c.client_id
+     WHERE c.company_id=? AND c.status IN ('draft','booked') AND c.start_date < ? AND c.end_date >= ? AND c.start_date <= ? AND c.end_date >= ?
+     ORDER BY c.start_date ASC LIMIT 50`, cid, today, today, to, from))
+    .map((c) => ({ id: c.id, name: c.name, client_name: c.client_name ?? '-', status: c.status, start_date: c.start_date, days_late: dayNum(today) - dayNum(c.start_date), value: r2(c.total_budget) }));
+  const incidents = await safeRows<any>(env, `SELECT i.id, i.title, i.severity, i.status, i.created_at, i.campaign_id, c.name campaign_name, c.total_budget, inv.name screen_name
+      FROM ops_incidents i LEFT JOIN campaigns c ON c.id=i.campaign_id LEFT JOIN inventory inv ON inv.id=i.inventory_id
+     WHERE i.company_id=? AND substr(i.created_at,1,10) BETWEEN ? AND ? ORDER BY i.created_at DESC LIMIT 100`, cid, from, to);
+  const openInc = incidents.filter((i) => i.status !== 'resolved' && i.status !== 'closed');
+  const atRiskIds = new Set(openInc.filter((i) => i.campaign_id).map((i) => i.campaign_id));
+  const atRiskValue = r2([...atRiskIds].reduce((a, id) => a + (Number(incidents.find((i) => i.campaign_id === id)?.total_budget) || 0), 0));
+  const incidentRows = incidents.slice(0, 20).map((i) => ({
+    id: i.id, title: i.title, severity: i.severity, status: i.status, created: String(i.created_at).slice(0, 10),
+    campaign_name: i.campaign_name ?? '-', screen_name: i.screen_name ?? '-', value: r2(i.total_budget),
+  }));
+
+  // delivery shortfall: booked days (up to yesterday) with no play logged, on screens that have a player
+  const tracked = await safeRows<{ inventory_id: string; first_day: string }>(env, `SELECT inventory_id, MIN(day) first_day FROM play_stats WHERE company_id=? GROUP BY inventory_id`, cid);
+  const firstDay = new Map(tracked.map((t) => [t.inventory_id, t.first_day]));
+  const playedRows = await safeRows<{ inventory_id: string; campaign_id: string; day: string }>(env, `SELECT DISTINCT inventory_id, campaign_id, day FROM play_stats WHERE company_id=? AND day BETWEEN ? AND ?`, cid, from, to);
+  const played = new Set(playedRows.map((r) => `${r.inventory_id}|${r.campaign_id}|${r.day}`));
+  const lastDay = isoOf(dayNum(today) - 1);
+  const dMap = new Map<string, any>();
+  let bookedDays = 0;
+  let missedDays = 0;
+  let missedValue = 0;
+  for (const b of bookings) {
+    if (b.cstatus === 'draft') continue;
+    const fd = firstDay.get(b.inventory_id);
+    if (!fd) continue;
+    const a = Math.max(dayNum(b.start_date), dayNum(from), dayNum(fd));
+    const z = Math.min(dayNum(b.end_date), dayNum(to), dayNum(lastDay));
+    if (z < a) continue;
+    const perDay = (Number(b.rate_applied) || 0) * b.slots;
+    let missed = 0;
+    for (let n = a; n <= z; n += 1) if (!played.has(`${b.inventory_id}|${b.cid}|${isoOf(n)}`)) missed += 1;
+    const total = z - a + 1;
+    bookedDays += total;
+    missedDays += missed;
+    missedValue += missed * perDay;
+    if (missed > 0) {
+      const e = dMap.get(b.cid) ?? { id: b.cid, name: b.cname, client_name: b.client_name ?? '-', screens: 0, booked_days: 0, missed_days: 0, value: 0 };
+      e.screens += 1; e.booked_days += total; e.missed_days += missed; e.value += missed * perDay;
+      dMap.set(b.cid, e);
+    }
+  }
+  const delivery = {
+    tracked_screens: tracked.length,
+    booked_days: bookedDays,
+    missed_days: missedDays,
+    missed_value: r2(missedValue),
+    rows: [...dMap.values()].map((e) => ({ ...e, value: r2(e.value) })).sort((x, y) => y.value - x.value).slice(0, 15),
+  };
+
+  return json({
+    ok: true,
+    currency,
+    period: { from, to, days: len },
+    unsold: { value: r2(unsoldValue), slot_days: unsoldSlotDays, not_sellable_screens: notSellable, rows: screens.slice(0, 15), missing_rate: screens.filter((x) => x.no_rate).length },
+    discount: { value: r2(discountTotal), rows: discounts },
+    not_invoiced: { value: notInvoicedTotal, rows: notInvoicedRows.slice(0, 15) },
+    uncollected: { outstanding: r2(outstanding), overdue: r2(overdue), rows: overdueRows.slice(0, 15) },
+    delivery,
+    lost: {
+      cancelled: { count: cancelled.length, value: r2(cancelled.reduce((a, c) => a + c.value, 0)), rows: cancelled.slice(0, 15) },
+      delayed: { count: delayed.length, value: r2(delayed.reduce((a, c) => a + c.value, 0)), rows: delayed.slice(0, 15) },
+      incidents: { count: incidents.length, open: openInc.length, at_risk_value: atRiskValue, rows: incidentRows },
+    },
+  });
+}
+
+/* ---------------- forecast (next 3 months) ---------------- */
+
+/**
+ * Looking ahead from this month, for three months:
+ * - booked revenue: campaign value spread over the days it runs (screen rates are used when a campaign has no budget)
+ * - collections due: open invoice balances by due month (anything already overdue counts in this month)
+ * Plus the weighted pipeline of open leads (estimated value x stage weight), which has no date so is shown on its own.
+ */
+const STAGE_W: Record<string, number> = { lead: 0.1, qualified: 0.25, proposal: 0.5, negotiation: 0.75 };
+
+async function forecast(request: Request, env: Env): Promise<Response> {
+  const s = await guard(request, env);
+  if (s instanceof Response) return s;
+  await ensure(env.DB);
+  const cid = s.companyId;
+  const today = todayIso();
+  const currency = await companyCurrency(env, cid);
+  const y = Number(today.slice(0, 4));
+  const mo = Number(today.slice(5, 7));
+  const months = [0, 1, 2].map((i) => {
+    const a = new Date(Date.UTC(y, mo - 1 + i, 1));
+    const z = new Date(Date.UTC(y, mo + i, 0));
+    return { key: a.toISOString().slice(0, 7), from: a.toISOString().slice(0, 10), to: z.toISOString().slice(0, 10) };
+  });
+  const last = months[2].to;
+
+  const camps = await safeRows<any>(env, `SELECT c.id, c.name, c.status, c.start_date, c.end_date, c.total_budget, cl.name client_name
+      FROM campaigns c LEFT JOIN clients cl ON cl.id=c.client_id
+     WHERE c.company_id=? AND c.status IN ('booked','live') AND c.start_date <= ? AND c.end_date >= ?`, cid, last, months[0].from);
+  const scr = await safeRows<any>(env, `SELECT cs.campaign_id, SUM(COALESCE(cs.rate_applied,0) * COALESCE(cs.slots,1)) per_day
+      FROM campaign_screens cs INNER JOIN campaigns c ON c.id=cs.campaign_id WHERE c.company_id=? GROUP BY cs.campaign_id`, cid);
+  const booked = months.map(() => 0);
+  const bookedCamps: any[] = [];
+  for (const c of camps) {
+    const span = dayNum(c.end_date) - dayNum(c.start_date) + 1;
+    if (span <= 0) continue;
+    const budget = Number(c.total_budget) || 0;
+    const perDay = budget > 0 ? budget / span : Number(scr.find((x) => x.campaign_id === c.id)?.per_day) || 0;
+    if (perDay <= 0) continue;
+    const per = months.map((m) => perDay * overlapDays(c.start_date, c.end_date, m.from, m.to));
+    per.forEach((v, i) => { booked[i] += v; });
+    bookedCamps.push({ id: c.id, name: c.name, client_name: c.client_name ?? '-', status: c.status, end_date: c.end_date, m1: r2(per[0]), m2: r2(per[1]), m3: r2(per[2]), total: r2(per[0] + per[1] + per[2]) });
+  }
+  bookedCamps.sort((a, b) => b.total - a.total);
+
+  const open = await safeRows<any>(env, `SELECT due_date, total_amount, amount_paid FROM invoices
+     WHERE company_id=? AND status NOT IN ('paid','cancelled','draft') AND (total_amount - amount_paid) > 0.009`, cid);
+  const collect = months.map(() => 0);
+  let later = 0;
+  for (const i of open) {
+    const bal = r2(i.total_amount - i.amount_paid);
+    const due = String(i.due_date).slice(0, 10);
+    const idx = due <= months[0].to ? 0 : due <= months[1].to ? 1 : due <= months[2].to ? 2 : -1;
+    if (idx >= 0) collect[idx] += bal; else later += bal;
+  }
+
+  const leads = await safeRows<any>(env, `SELECT stage, estimated_value FROM leads WHERE company_id=?`, cid);
+  let pipeValue = 0;
+  let pipeWeighted = 0;
+  let pipeCount = 0;
+  for (const l of leads) {
+    const w = STAGE_W[String(l.stage)];
+    if (w === undefined) continue;
+    const v = Number(l.estimated_value) || 0;
+    pipeCount += 1; pipeValue += v; pipeWeighted += v * w;
+  }
+
+  return json({
+    ok: true,
+    currency,
+    months: months.map((m, i) => ({ key: m.key, booked: r2(booked[i]), collections: r2(collect[i]) })),
+    later_collections: r2(later),
+    pipeline: { open_leads: pipeCount, value: r2(pipeValue), weighted: r2(pipeWeighted) },
+    campaigns: bookedCamps.slice(0, 15),
+  });
+}
+
 /* ---------------- router ---------------- */
 
 export async function handleReportRoutes(request: Request, env: Env, url: URL): Promise<Response | null> {
@@ -353,6 +615,8 @@ export async function handleReportRoutes(request: Request, env: Env, url: URL): 
   const m = request.method;
   try {
     if (path === '/api/reports/summary' && m === 'GET') return await summary(request, env, url);
+    if (path === '/api/reports/leakage' && m === 'GET') return await leakage(request, env, url);
+    if (path === '/api/reports/forecast' && m === 'GET') return await forecast(request, env);
     if (path === '/api/reports/clients' && m === 'GET') return await clientList(request, env);
     const st = path.match(/^\/api\/reports\/statement\/([0-9a-fA-F-]{36})$/);
     if (st && m === 'GET') return await statement(request, env, url, st[1]);

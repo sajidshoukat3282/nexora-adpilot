@@ -6,6 +6,12 @@ interface Manifest { ok: boolean; screen: string; version: string; refresh_secon
 
 const CACHE = "adpilot-player-v1";
 
+interface PlayStat { id: string; day: string; plays: number; seconds: number }
+const localDay = (): string => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
 /** Round-robin order: an item with repeat 3 appears three times per cycle, spread out. */
 function buildQueue(items: PItem[]): PItem[] {
   const q: PItem[] = [];
@@ -55,6 +61,41 @@ export const PlayerPage: React.FC = () => {
   const nextManRef = useRef<Manifest | null>(null);
   const versionRef = useRef("");
   const storeKey = `adpilot-player-${key.slice(0, 10)}`;
+  const playsKey = `adpilot-plays-${key.slice(0, 10)}`;
+  const playedRef = useRef("");
+
+  /** Count a play (kept as small daily totals, saved on this device until it can be sent). */
+  const recordPlay = useCallback((it: PItem) => {
+    try {
+      const raw = localStorage.getItem(playsKey);
+      const all: PlayStat[] = raw ? JSON.parse(raw) : [];
+      const day = localDay();
+      const hit = all.find((x) => x.id === it.id && x.day === day);
+      if (hit) { hit.plays += 1; hit.seconds += it.seconds; } else all.push({ id: it.id, day, plays: 1, seconds: it.seconds });
+      localStorage.setItem(playsKey, JSON.stringify(all.slice(-300)));
+    } catch { /* counting is best effort */ }
+  }, [playsKey]);
+
+  const flushPlays = useCallback(async () => {
+    try {
+      const raw = localStorage.getItem(playsKey);
+      const sent: PlayStat[] = raw ? JSON.parse(raw) : [];
+      if (!sent.length) return;
+      const res = await fetch(`/api/player/plays?key=${encodeURIComponent(key)}`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ plays: sent.slice(0, 200) }), keepalive: true,
+      });
+      if (!res.ok) return;
+      // keep anything counted while the request was in flight
+      const now: PlayStat[] = JSON.parse(localStorage.getItem(playsKey) || "[]");
+      const left: PlayStat[] = [];
+      for (const n of now) {
+        const s0 = sent.slice(0, 200).find((x) => x.id === n.id && x.day === n.day);
+        const plays = n.plays - (s0?.plays ?? 0);
+        if (plays > 0) left.push({ ...n, plays, seconds: Math.max(0, n.seconds - (s0?.seconds ?? 0)) });
+      }
+      localStorage.setItem(playsKey, JSON.stringify(left));
+    } catch { /* will try again at the next sync */ }
+  }, [key, playsKey]);
 
   const apply = useCallback((m: Manifest) => {
     nextManRef.current = null;
@@ -72,6 +113,7 @@ export const PlayerPage: React.FC = () => {
       if (!m.ok) { setState("invalid"); return; }
       try { localStorage.setItem(storeKey, JSON.stringify(m)); } catch { /* ignore */ }
       setOffline(false); setState("ok"); setSynced(new Date().toLocaleTimeString());
+      flushPlays();
       warmCache(m.items);
       if (!versionRef.current) apply(m);
       else if (m.version !== versionRef.current) nextManRef.current = m; // swap at the end of the current item
@@ -81,7 +123,7 @@ export const PlayerPage: React.FC = () => {
         try { const raw = localStorage.getItem(storeKey); if (raw) { setState("ok"); apply(JSON.parse(raw) as Manifest); } } catch { /* ignore */ }
       }
     }
-  }, [key, storeKey, apply]);
+  }, [key, storeKey, apply, flushPlays]);
 
   useEffect(() => {
     if (!key) { setState("invalid"); return; }
@@ -120,6 +162,23 @@ export const PlayerPage: React.FC = () => {
     const t = window.setTimeout(next, Math.max(3, current.seconds) * 1000);
     return () => window.clearTimeout(t);
   }, [current, src, q.length, next]);
+
+  useEffect(() => {
+    if (!current || !src) return;
+    const mark = `${idx}|${current.id}`;
+    if (playedRef.current !== mark) { playedRef.current = mark; recordPlay(current); }
+    if (q.length >= 2) return;
+    const t = window.setInterval(() => recordPlay(current), Math.max(3, current.seconds) * 1000);
+    return () => window.clearInterval(t);
+  }, [current, src, idx, q.length, recordPlay]);
+
+  useEffect(() => {
+    const send = () => { flushPlays(); };
+    const vis = () => { if (document.visibilityState === "hidden") send(); };
+    window.addEventListener("pagehide", send);
+    document.addEventListener("visibilitychange", vis);
+    return () => { window.removeEventListener("pagehide", send); document.removeEventListener("visibilitychange", vis); };
+  }, [flushPlays]);
 
   useEffect(() => {
     if (!info) return;
