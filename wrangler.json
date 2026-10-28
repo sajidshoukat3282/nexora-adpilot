@@ -14,6 +14,9 @@
   "vars": {
     "PLATFORM_ADMINS": "sajid.shoukat3282@gmail.com"
   },
+  "ai": {
+    "binding": "AI"
+  },
   "d1_databases": [
     {
       "binding": "DB",
@@ -28,6 +31,6 @@
     }
   ],
   "triggers": {
-  "crons": ["0 0 * * *"]
-}
+    "crons": ["0 0 * * *"]
+  }
 }
