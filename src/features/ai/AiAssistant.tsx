@@ -202,7 +202,7 @@ export default function AiAssistant() {
       const ids = action.invoiceIds ?? [];
       if (!confirming) { setConfirming(true); return; }
       setConfirming(false);
-      setNote('Sending…');
+      setNote('Sendingâ€¦');
       let sent = 0;
       for (const id of ids) {
         try {
@@ -310,7 +310,7 @@ function ScreenBody(props: {
     return (
       <>
         <div className="abb-q">{screen.question}</div>
-        <div className="abb-ans"><p className="abb-wait">Working on it…</p></div>
+        <div className="abb-ans"><p className="abb-wait">Working on itâ€¦</p></div>
       </>
     );
   }
