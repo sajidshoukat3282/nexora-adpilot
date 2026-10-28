@@ -9,6 +9,7 @@ import {
   loadMembershipPermissions,
 } from './auth/session';
 import { handleTeamRoutes } from './team/teamRoutes';
+import { handleAiRoutes } from './ai/aiRoutes';
 import { startTrial, trialGate } from './trial/trial';
 import { logAudit } from './admin/adminRoutes';
 import { MIN_PASSWORD_LENGTH, hashPassword, verifyPassword } from './auth/password';
@@ -640,6 +641,9 @@ export default {
 
     const teamResponse = await handleTeamRoutes(request, env, url);
     if (teamResponse) return teamResponse;
+
+    const aiResponse = await handleAiRoutes(request, env, url);
+    if (aiResponse) return aiResponse;
 
   // ==========================================
 // CRM ROUTES
