@@ -1,0 +1,142 @@
+.abb-trigger {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: 500 13px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #d9a84a; background: transparent; border: 1px solid #8a6a2c;
+  border-radius: 8px; padding: 8px 12px; cursor: pointer;
+}
+.abb-trigger:hover { border-color: #d9a84a; }
+.abb-trigger:focus-visible, .abb-chip:focus-visible, .abb-send:focus-visible,
+.abb-close:focus-visible, .abb-act:focus-visible, .abb-input:focus-visible { outline: 2px solid #d9a84a; outline-offset: 2px; }
+
+.abb-overlay {
+  position: fixed; inset: 0; z-index: 1000; overflow: auto;
+  background: rgba(5, 5, 4, .8);
+  display: flex; padding: max(16px, env(safe-area-inset-top, 0px)) 16px 24px;
+}
+.abb-modal {
+  --abb-ink: #0c0b09; --abb-panel: #15130f; --abb-steel: #2a2721; --abb-steel-hi: #4a463c;
+  --abb-gold: #d9a84a; --abb-gold-dim: #8a6a2c; --abb-silver: #b9b6ad; --abb-text: #ece8de; --abb-live: #5ed08a;
+  width: min(880px, 100%); margin: auto; display: flex; flex-direction: column; gap: 14px;
+  color: var(--abb-text); font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+.abb-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.abb-title { margin: 0; font-size: 13px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--abb-gold); }
+.abb-left { margin: 0; font-size: 12px; color: var(--abb-silver); }
+.abb-close {
+  font: inherit; font-size: 13px; color: var(--abb-text); background: var(--abb-panel);
+  border: 1px solid var(--abb-steel-hi); border-radius: 8px; padding: 6px 12px; cursor: pointer;
+}
+
+/* rig */
+.abb-rig { position: relative; width: 100%; aspect-ratio: 800 / 560; }
+.abb-rig svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.abb-ground { stroke: var(--abb-steel-hi); stroke-width: 2; stroke-dasharray: 1; stroke-dashoffset: 0; }
+.abb-catwalk { stroke: var(--abb-gold-dim); stroke-width: 3; stroke-dasharray: 1; stroke-dashoffset: 0; }
+.abb-hanger { stroke: var(--abb-steel-hi); stroke-width: 2; stroke-dasharray: 1; stroke-dashoffset: 0; }
+.abb-post { transform-box: fill-box; transform-origin: 50% 100%; }
+.abb-post rect { fill: var(--abb-steel); stroke: var(--abb-steel-hi); stroke-width: 1.5; }
+.abb-frame-o { fill: none; stroke: var(--abb-gold); stroke-width: 4; stroke-dasharray: 1; stroke-dashoffset: 0; }
+.abb-frame-i { fill: none; stroke: var(--abb-gold-dim); stroke-width: 1.5; stroke-dasharray: 1; stroke-dashoffset: 0; }
+.abb-bolt { fill: var(--abb-gold-dim); }
+.abb-lamp-head { fill: var(--abb-gold); }
+.abb-lamp line { stroke: var(--abb-steel-hi); stroke-width: 2; }
+
+.abb-run .abb-ground  { animation: abb-draw .8s ease-out both; }
+.abb-run .abb-post    { animation: abb-rise .7s cubic-bezier(.2, .8, .2, 1) .45s both; }
+.abb-run .abb-catwalk { animation: abb-draw .7s ease-out 1s both; }
+.abb-run .abb-hanger  { animation: abb-draw .5s ease-out 1.1s both; }
+.abb-run .abb-frame-o { animation: abb-draw 1.1s ease-in-out 1.2s both; }
+.abb-run .abb-frame-i { animation: abb-draw .9s ease-in-out 1.7s both; }
+.abb-run .abb-bolt    { animation: abb-fade .3s ease-out 2.3s both; }
+.abb-run .abb-lamp    { animation: abb-lamp .8s linear 2.3s both; }
+@keyframes abb-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes abb-rise { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes abb-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes abb-lamp { 0% { opacity: 0; } 15% { opacity: .9; } 25% { opacity: .15; } 45% { opacity: 1; } 55% { opacity: .4; } 100% { opacity: 1; } }
+
+/* screen */
+.abb-screen {
+  position: absolute; left: 6.5%; top: 8.214%; width: 87%; height: 61.786%;
+  background: #050504; overflow: hidden; container-type: inline-size;
+}
+.abb-screen::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, .2) 0 1px, transparent 1px 3px);
+}
+.abb-screen-inner {
+  --u: clamp(10px, 2.15cqw, 17px);
+  position: absolute; inset: 0; overflow: hidden;
+  display: flex; flex-direction: column; gap: calc(var(--u) * .5);
+  padding: calc(var(--u) * 1.2) calc(var(--u) * 1.6);
+  background-color: #0e0d0a; clip-path: inset(50% 0 50% 0);
+}
+.abb-screen-inner.abb-on { animation: abb-power .7s ease-out both; }
+@keyframes abb-power {
+  0% { clip-path: inset(50% 0 50% 0); background-color: #f6e9c3; }
+  35% { clip-path: inset(49.2% 0 49.2% 0); background-color: #f6e9c3; }
+  100% { clip-path: inset(0); background-color: #0e0d0a; }
+}
+.abb-bar {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  font-weight: 500; font-size: calc(var(--u) * .95); letter-spacing: .16em; text-transform: uppercase; color: var(--abb-gold);
+}
+.abb-live { display: inline-flex; align-items: center; gap: .5em; }
+.abb-live::before { content: ""; width: .55em; height: .55em; border-radius: 50%; background: var(--abb-live); box-shadow: 0 0 .6em var(--abb-live); }
+.abb-tag { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 400; font-size: calc(var(--u) * .8); letter-spacing: .06em; color: var(--abb-silver); white-space: nowrap; }
+.abb-q { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: var(--u); color: var(--abb-silver); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 1.3em; }
+.abb-q::before { content: "\203A  "; color: var(--abb-gold); }
+.abb-ans { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.abb-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-weight: 500; font-size: calc(var(--u) * 1.7); line-height: 1.2; color: var(--abb-text); padding-bottom: calc(var(--u) * .3); }
+.abb-sub { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 400; font-size: calc(var(--u) * .9); color: var(--abb-silver); text-align: right; }
+.abb-row { display: grid; grid-template-columns: 1.4fr 1fr auto; gap: calc(var(--u) * 1.2); align-items: baseline; padding: calc(var(--u) * .35) 0; border-top: 1px dashed rgba(217, 168, 74, .28); font-size: var(--u); }
+.abb-row span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.abb-row span:nth-child(2) { color: var(--abb-silver); }
+.abb-v { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--abb-gold); text-align: right; font-variant-numeric: tabular-nums; }
+.abb-sum { margin: calc(var(--u) * .4) 0 0; font-size: var(--u); line-height: 1.35; color: var(--abb-text); }
+.abb-msg { font-size: calc(var(--u) * 1.15); line-height: 1.4; color: var(--abb-text); }
+.abb-wait { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: var(--u); color: var(--abb-silver); animation: abb-blink 1s steps(1) infinite; }
+@keyframes abb-blink { 50% { opacity: .25; } }
+.abb-acts { display: flex; flex-wrap: wrap; align-items: center; gap: calc(var(--u) * .7); margin-top: auto; padding-top: calc(var(--u) * .4); }
+.abb-act {
+  font: inherit; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: calc(var(--u) * .8);
+  letter-spacing: .08em; text-transform: uppercase; color: var(--abb-gold);
+  background: transparent; border: 1px solid var(--abb-gold-dim); padding: .25em .8em; cursor: pointer; position: relative; z-index: 2;
+}
+.abb-act:hover { border-color: var(--abb-gold); }
+.abb-act[data-confirm="true"] { background: var(--abb-gold); color: #15130f; }
+.abb-note { font-size: calc(var(--u) * .85); color: var(--abb-silver); }
+.abb-led { animation: abb-led .5s steps(14, end) both; }
+@keyframes abb-led { 0% { clip-path: inset(0 100% 0 0); opacity: .45; } 100% { clip-path: inset(0 0 0 0); opacity: 1; } }
+
+@container (max-width: 430px) {
+  .abb-acts, .abb-tag, .abb-sub { display: none; }
+  .abb-screen-inner { gap: calc(var(--u) * .35); padding: calc(var(--u) * .9) calc(var(--u) * 1.1); }
+  .abb-row:nth-of-type(n + 4) { display: none; }
+}
+
+/* controls */
+.abb-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.abb-chip {
+  font: inherit; font-size: 14px; color: var(--abb-text); background: var(--abb-panel);
+  border: 1px solid var(--abb-steel-hi); border-radius: 8px; padding: 8px 12px; cursor: pointer;
+}
+.abb-chip:hover { border-color: var(--abb-gold); }
+.abb-form { display: flex; gap: 8px; }
+.abb-input {
+  flex: 1; min-width: 0; font: inherit; font-size: 15px; color: var(--abb-text); background: var(--abb-panel);
+  border: 1px solid var(--abb-steel-hi); border-radius: 8px; padding: 10px 12px;
+}
+.abb-input::placeholder { color: var(--abb-silver); }
+.abb-send {
+  font: inherit; font-size: 14px; font-weight: 500; color: #15130f; background: var(--abb-gold);
+  border: 1px solid var(--abb-gold); border-radius: 8px; padding: 10px 16px; cursor: pointer;
+}
+.abb-send:disabled { opacity: .5; cursor: default; }
+.abb-hint { margin: 0; font-size: 12px; color: var(--abb-silver); }
+
+@media (prefers-reduced-motion: reduce) {
+  .abb-run .abb-ground, .abb-run .abb-post, .abb-run .abb-catwalk, .abb-run .abb-hanger, .abb-run .abb-frame-o,
+  .abb-run .abb-frame-i, .abb-run .abb-bolt, .abb-run .abb-lamp, .abb-led, .abb-wait { animation: none; }
+  .abb-screen-inner { clip-path: inset(0); }
+  .abb-screen-inner.abb-on { animation: none; }
+}
