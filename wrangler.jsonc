@@ -1,0 +1,36 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "nexora-adpilot",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-09-30",
+  "assets": {
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": [
+      "/api/*"
+    ]
+  },
+  "keep_vars": true,
+  "vars": {
+    "PLATFORM_ADMINS": "sajid.shoukat3282@gmail.com"
+  },
+  "ai": {
+    "binding": "AI"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "nexora-adpilot",
+      "database_id": "414619f0-93fc-4d9b-9a78-211a970e8647"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "FILES_BUCKET",
+      "bucket_name": "nexora-adpilot-files"
+    }
+  ],
+  "triggers": {
+    "crons": ["0 0 * * *"]
+  }
+}
