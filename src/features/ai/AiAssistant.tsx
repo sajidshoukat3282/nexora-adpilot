@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type MouseEvent,
+} from 'react';
 import './aiAssistant.css';
 
 /**
@@ -230,7 +238,7 @@ export default function AiAssistant() {
       </button>
 
       {open && (
-        <div className="abb-overlay" onClick={(event) => { if (event.target === event.currentTarget) close(); }}>
+        <div className="abb-overlay" onClick={(event: MouseEvent<HTMLDivElement>) => { if (event.target === event.currentTarget) close(); }}>
           <div className="abb-modal" role="dialog" aria-modal="true" aria-label="AdPilot AI assistant">
             <div className="abb-top">
               <div>
@@ -272,7 +280,7 @@ export default function AiAssistant() {
                 maxLength={300}
                 placeholder="Which invoices are overdue?"
                 aria-label="Ask the assistant"
-                onChange={(event) => setText(event.target.value)}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => setText(event.target.value)}
               />
               <button type="submit" className="abb-send" disabled={busy || !text.trim()}>Ask</button>
             </form>
