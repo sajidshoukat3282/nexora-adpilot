@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/api/client";
+import { usePaddle } from "@/hooks/usePaddle";
 
 interface TrialStatus {
   ok: boolean; trial: boolean; days_left?: number; expired?: boolean; days_total?: number;
@@ -9,6 +10,7 @@ interface TrialStatus {
 /** Slim bar at the top of the app for companies on the free trial. Nothing is shown for paid and older companies. */
 export const TrialBanner: React.FC = () => {
   const [t, setT] = useState<TrialStatus | null>(null);
+  const { ready, openCheckout } = usePaddle();
   useEffect(() => {
     let live = true;
     apiRequest<TrialStatus>("/api/trial/status").then((r) => { if (live) setT(r); }).catch(() => undefined);
@@ -21,7 +23,15 @@ export const TrialBanner: React.FC = () => {
       <div className="mb-4 rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-[12px] text-rose-200">
         <b>Your free trial has ended.</b> Your data is safe and you can still view everything. New work is paused until you subscribe.
         You can download all your data any time from Admin, Export all my data.
-      </div>
+      
+      <button
+        disabled={!ready}
+        onClick={() => openCheckout()}
+        className="ml-3 rounded-lg bg-[#c99b3b] px-3 py-1 text-[12px] font-semibold text-black disabled:opacity-50"
+      >
+        Upgrade
+      </button>
+    </div>
     );
   }
   return (
@@ -32,6 +42,14 @@ export const TrialBanner: React.FC = () => {
           Includes up to {l.screens} screens, {l.campaigns} campaigns, {l.clients} clients, {l.proposals} proposals, {l.invoices} invoices and {l.storage_mb} MB of files.
         </span>
       )}
+    
+      <button
+        disabled={!ready}
+        onClick={() => openCheckout()}
+        className="ml-3 rounded-lg bg-[#c99b3b] px-3 py-1 text-[12px] font-semibold text-black disabled:opacity-50"
+      >
+        Upgrade
+      </button>
     </div>
   );
 };
