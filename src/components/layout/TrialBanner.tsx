@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/api/client";
 import { usePaddle } from "@/hooks/usePaddle";
+import { useSession } from "@/hooks/useSession";
 
 interface TrialStatus {
   ok: boolean; trial: boolean; days_left?: number; expired?: boolean; days_total?: number;
@@ -11,6 +12,7 @@ interface TrialStatus {
 export const TrialBanner: React.FC = () => {
   const [t, setT] = useState<TrialStatus | null>(null);
   const { ready, openCheckout } = usePaddle();
+  const { session } = useSession();
   useEffect(() => {
     let live = true;
     apiRequest<TrialStatus>("/api/trial/status").then((r) => { if (live) setT(r); }).catch(() => undefined);
@@ -26,7 +28,7 @@ export const TrialBanner: React.FC = () => {
       
       <button
         disabled={!ready}
-        onClick={() => openCheckout()}
+        onClick={() => openCheckout({ customData: session?.companyId ? { company_id: session.companyId } : undefined })}
         className="ml-3 rounded-lg bg-[#c99b3b] px-3 py-1 text-[12px] font-semibold text-black disabled:opacity-50"
       >
         Upgrade
@@ -45,7 +47,7 @@ export const TrialBanner: React.FC = () => {
     
       <button
         disabled={!ready}
-        onClick={() => openCheckout()}
+        onClick={() => openCheckout({ customData: session?.companyId ? { company_id: session.companyId } : undefined })}
         className="ml-3 rounded-lg bg-[#c99b3b] px-3 py-1 text-[12px] font-semibold text-black disabled:opacity-50"
       >
         Upgrade
