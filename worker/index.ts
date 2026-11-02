@@ -11,6 +11,7 @@ import {
 import { handleTeamRoutes } from './team/teamRoutes';
 import { handleAiRoutes } from './ai/aiRoutes';
 import { startTrial, trialGate } from './trial/trial';
+import { handlePaddleWebhook } from './billing/paddle';
 import { logAudit } from './admin/adminRoutes';
 import { MIN_PASSWORD_LENGTH, hashPassword, verifyPassword } from './auth/password';
 import {
@@ -421,6 +422,10 @@ async function requestMagicLink(request: Request, env: Env): Promise<Response> {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+
+    // Paddle webhook (signed by Paddle, no login)
+    const paddleResponse = await handlePaddleWebhook(request, env, url);
+    if (paddleResponse) return paddleResponse;
 
     // Free trial: read-only after it ends, and a few limits while it runs (new sign-ups only)
     const trialBlock = await trialGate(request, env, url);
