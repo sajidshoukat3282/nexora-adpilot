@@ -12,6 +12,7 @@ import { handleTeamRoutes } from './team/teamRoutes';
 import { handleAiRoutes } from './ai/aiRoutes';
 import { startTrial, trialGate } from './trial/trial';
 import { handlePaddleWebhook } from './billing/paddle';
+import { planGate } from './billing/plans';
 import { logAudit } from './admin/adminRoutes';
 import { MIN_PASSWORD_LENGTH, hashPassword, verifyPassword } from './auth/password';
 import {
@@ -430,6 +431,8 @@ export default {
     // Free trial: read-only after it ends, and a few limits while it runs (new sign-ups only)
     const trialBlock = await trialGate(request, env, url);
     if (trialBlock) return trialBlock;
+    const planBlock = await planGate(request, env, url);
+    if (planBlock) return planBlock;
 
     // AUTH ROUTES
     if (url.pathname === '/api/auth/register' && request.method === 'POST') {
