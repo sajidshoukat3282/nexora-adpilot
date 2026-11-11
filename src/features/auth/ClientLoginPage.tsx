@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "@/lib/router";
 import { useSession } from "@/hooks/useSession";
 import { resendVerificationEmail } from "@/lib/api/auth";
+import { LegalLinks } from "@/components/LegalLinks";
 
 export const ClientLoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -149,6 +150,7 @@ export const ClientLoginPage: React.FC = () => {
             </button>
           </p>
         </div>
+        <LegalLinks />
       </section>
     </main>
   );

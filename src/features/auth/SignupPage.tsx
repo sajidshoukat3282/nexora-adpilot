@@ -3,6 +3,7 @@ import { useNavigate } from "@/lib/router";
 import { useSession } from "@/hooks/useSession";
 import { resendVerificationEmail } from "@/lib/api/auth";
 import { CURRENCY_CODES } from "@/domain";
+import { LegalLinks } from "@/components/LegalLinks";
 
 const CURRENCY_NAMES: Record<string, string> = {
   PKR: "Pakistani Rupee", USD: "US Dollar", GBP: "British Pound", EUR: "Euro", AED: "UAE Dirham",
@@ -317,6 +318,7 @@ export const SignupPage: React.FC = () => {
             </button>
           </p>
         </div>
+        <LegalLinks />
       </section>
     </main>
   );
