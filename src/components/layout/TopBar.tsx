@@ -28,6 +28,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/client-portal": "Client Portal",
   "/marketplace": "Marketplace",
   "/notifications": "Notifications",
+  "/billing": "Billing & Plan",
   "/admin": "Admin & Roles",
 };
 

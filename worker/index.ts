@@ -13,6 +13,7 @@ import { handleAiRoutes } from './ai/aiRoutes';
 import { startTrial, trialGate } from './trial/trial';
 import { handlePaddleWebhook } from './billing/paddle';
 import { planGate } from './billing/plans';
+import { handleBillingRoutes } from './billing/manage';
 import { logAudit } from './admin/adminRoutes';
 import { MIN_PASSWORD_LENGTH, hashPassword, verifyPassword } from './auth/password';
 import {
@@ -647,6 +648,8 @@ export default {
       } catch (error) { return json(errorPayload(error), errorStatus(error)); }
     }
 
+    const billingResponse = await handleBillingRoutes(request, env, url);
+    if (billingResponse) return billingResponse;
     const teamResponse = await handleTeamRoutes(request, env, url);
     if (teamResponse) return teamResponse;
 

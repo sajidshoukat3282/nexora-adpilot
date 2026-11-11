@@ -12,8 +12,7 @@ import {
   FiBell,
   FiShield,
   FiShoppingBag,
-  FiChevronRight,
-} from "react-icons/fi";
+  FiChevronRight, FiCreditCard } from "react-icons/fi";
 import { Link, useCurrentPath } from "@/lib/router";
 import { useSession } from "@/hooks/useSession";
 import { CompanyMark } from "./CompanyMark";
@@ -117,6 +116,13 @@ const NAV_ITEMS: NavItem[] = [
     label: "Notifications",
     icon: <FiBell size={16} />,
     group: "System",
+  },
+  {
+    path: "/billing",
+    label: "Billing & Plan",
+    icon: <FiCreditCard size={16} />,
+    group: "System",
+    permission: "company.manage",
   },
   {
     path: "/admin",

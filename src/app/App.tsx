@@ -23,6 +23,7 @@ import { ReportsPage } from "@/features/reports/ReportsPage";
 import { ClientPortalPage } from "@/features/client-portal/ClientPortalPage";
 import { NotificationsPage } from "@/features/notifications/NotificationsPage";
 import { AdminPage } from "@/features/admin/AdminPage";
+import BillingPage from "@/features/billing/BillingPage";
 import { PlatformPage } from "@/features/platform/PlatformPage";
 import { FieldPage } from "@/features/field/FieldPage";
 import { PlayerPage } from "@/features/player/PlayerPage";
@@ -126,6 +127,7 @@ const AppRoutes: React.FC = () => {
         { path: "/reports", element: <AppShell><ReportsPage /></AppShell> },
         { path: "/client-portal", element: <AppShell><ClientPortalPage /></AppShell> },
         { path: "/notifications", element: <AppShell><NotificationsPage /></AppShell> },
+        { path: "/billing", element: <AppShell><BillingPage /></AppShell> },
         { path: "/admin", element: <AppShell><AdminPage /></AppShell> },
         { path: "/marketplace", element: <AppShell><MarketplacePage /></AppShell> },
         { path: "/clients/credit-risk", element: <AppShell><CreditRiskDashboard /></AppShell> },
