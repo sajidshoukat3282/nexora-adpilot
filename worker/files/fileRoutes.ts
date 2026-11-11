@@ -1,6 +1,7 @@
 import type { Env } from '../index';
 import { logAudit } from '../admin/adminRoutes';
 import { resolveSession } from '../auth/session';
+import { PLAN_LIMITS } from '../../src/domain/subscription';
 import { clientIdOf } from '../notifications/notificationRoutes';
 import { TRIAL_LIMITS, trialInfo } from '../trial/trial';
 
@@ -19,6 +20,15 @@ const r2Key = (companyId: string, id: string) => `${companyId}/${id}`;
 
 /** Per-company storage allowance in bytes (default 1 GB, change with the FILE_QUOTA_MB variable). */
 const quotaBytes = (env: Env) => (Number(env.FILE_QUOTA_MB) > 0 ? Number(env.FILE_QUOTA_MB) : 1024) * 1024 * 1024;
+
+/** Storage allowance of a PAID plan in bytes, or null when the company has no active paid subscription. */
+async function planStorageBytes(env: Env, companyId: string): Promise<number | null> {
+  try {
+    const sub = await env.DB.prepare("SELECT plan_id FROM subscriptions WHERE company_id = ? AND status IN ('active', 'past_due') LIMIT 1").bind(companyId).first<{ plan_id: string }>();
+    const lim = sub ? (PLAN_LIMITS as Record<string, { storageMb: number }>)[sub.plan_id] : null;
+    return lim ? lim.storageMb * 1024 * 1024 : null;
+  } catch { return null; }
+}
 
 export async function companyStorageBytes(env: Env, companyId: string): Promise<number> {
   const r = await env.DB.prepare('SELECT COALESCE(SUM(size),0) AS b FROM uploaded_files WHERE company_id = ?').bind(companyId).first<{ b: number }>();
@@ -167,7 +177,7 @@ export async function handleFileRoutes(request: Request, env: Env, url: URL): Pr
       if (buf.length === 0) return fail(400, 'The file is empty.');
       if (buf.length > limit) return fail(413, `The file is too large. The limit is ${limitMb} MB. For bigger files, paste a link instead.`, 'TOO_LARGE');
       const onTrial = (await trialInfo(env.DB, s.companyId)) !== null;
-      const allowance = onTrial ? TRIAL_LIMITS.storage_mb * 1024 * 1024 : quotaBytes(env);
+      const allowance = onTrial ? TRIAL_LIMITS.storage_mb * 1024 * 1024 : ((await planStorageBytes(env, s.companyId)) ?? quotaBytes(env));
       if ((env.FILES_BUCKET || onTrial) && (await companyStorageBytes(env, s.companyId)) + buf.length > allowance) return fail(413, onTrial ? `The free trial includes ${TRIAL_LIMITS.storage_mb} MB of file storage. Subscribe to add more.` : 'Your storage allowance is full. Delete old files or contact support to increase it.', 'QUOTA_FULL');
       if (!looksRight(ext, buf)) return fail(400, 'The file content does not match its type. Please choose a real image, PDF or video.');
       const id = await saveUploadedFile(env, s.companyId, s.accountId, name, ext, buf, campaignId || null);
