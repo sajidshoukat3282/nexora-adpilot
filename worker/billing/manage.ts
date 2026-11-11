@@ -76,7 +76,11 @@ export async function handleBillingRoutes(request: Request, env: Env, url: URL):
     });
     const body = (await res.json().catch(() => null)) as { data?: { urls?: { general?: { overview?: string } } } } | null;
     const link = body?.data?.urls?.general?.overview;
-    if (!res.ok || !link) return fail(502, 'PADDLE_ERROR', 'Could not open the billing portal. Please try again.');
+    if (!res.ok || !link) {
+      const pe = body as { error?: { code?: string; detail?: string } } | null;
+      console.error('paddle portal failed', res.status, JSON.stringify(pe?.error || body));
+      return fail(502, 'PADDLE_ERROR', 'Could not open the billing portal (' + res.status + (pe?.error?.code ? ', ' + pe.error.code : '') + '). ' + (pe?.error?.detail || 'Please try again.'));
+    }
     return json({ ok: true, url: link });
   }
 
