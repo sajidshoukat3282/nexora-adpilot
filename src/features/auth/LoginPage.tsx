@@ -6,7 +6,7 @@ import {
 } from "react-icons/fi";
 import { useNavigate, useSearchParams } from "@/lib/router";
 import { useSession } from "@/hooks/useSession";
-import { LegalLinks } from "@/components/LegalLinks";
+import { PublicInfo } from "@/components/PublicInfo";
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -188,7 +188,7 @@ export const LoginPage: React.FC = () => {
         <p className="mt-6 text-center text-xs text-ink-500">
           Passwordless authentication • Nexora Technologies
         </p>
-        <LegalLinks />
+        <PublicInfo />
       </div>
     </div>
   );
