@@ -1,4 +1,5 @@
 import { TrialBanner } from "./TrialBanner";
+import { PlanLockModal } from "@/components/billing/PlanLockModal";
 import React, { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
@@ -73,6 +74,7 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({
 
             <div className="relative mx-auto w-full max-w-[1440px] px-4 py-4 sm:px-5 md:px-6 md:py-5 lg:px-8">
               <TrialBanner />
+              <PlanLockModal />
               <ProfileBanner />
               {children}
             </div>

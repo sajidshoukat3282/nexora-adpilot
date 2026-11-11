@@ -25,7 +25,8 @@ export default function AddExpenseForm({ onClose, campaignId, campaignName }: { 
         alert('Expense Added Successfully!');
         onClose();
       } else {
-        alert('Error adding expense.');
+        const j = await res.json().catch(() => null);
+        if (!j || !j.upgrade) alert('Error adding expense.');
       }
     } catch (error) {
       console.error(error);
