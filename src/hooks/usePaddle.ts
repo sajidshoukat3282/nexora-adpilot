@@ -7,14 +7,15 @@ export function usePaddle() {
   useEffect(() => {
     const token = import.meta.env.VITE_PADDLE_CLIENT_TOKEN;
     if (!token) return;
-    initializePaddle({ environment: "sandbox", token }).then(setPaddle);
+    const environment = import.meta.env.VITE_PADDLE_ENV === "production" ? "production" : "sandbox";
+    initializePaddle({ environment, token }).then(setPaddle);
   }, []);
 
-  const openCheckout = (opts?: { email?: string; customData?: Record<string, string> }) => {
+  const openCheckout = (opts: { priceId: string; email?: string; customData?: Record<string, string> }) => {
     paddle?.Checkout.open({
-      items: [{ priceId: import.meta.env.VITE_PADDLE_PRICE_ID, quantity: 1 }],
-      customer: opts?.email ? { email: opts.email } : undefined,
-      customData: opts?.customData,
+      items: [{ priceId: opts.priceId, quantity: 1 }],
+      customer: opts.email ? { email: opts.email } : undefined,
+      customData: opts.customData,
     });
   };
 

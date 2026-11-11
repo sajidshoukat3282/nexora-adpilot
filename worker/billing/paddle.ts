@@ -6,10 +6,11 @@ const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
 
 /** Paddle SANDBOX product ids -> AdPilot plan. The live Paddle account will have different ids. */
-const PRODUCT_PLAN: Record<string, 'starter' | 'professional' | 'business'> = {
+const PRODUCT_PLAN: Record<string, 'starter' | 'professional' | 'business' | 'enterprise'> = {
   pro_01m5tfz1yk13xb8v4pnh4d65y2: 'starter',
   pro_01m5th3d18qyad9n1gz1yagx92: 'professional',
   pro_01m5thj72d31n14ssnjsprbqmw: 'business',
+  pro_01m73ys30nxwdmavqxzb64x0se: 'enterprise',
 };
 
 function safeEqual(a: string, b: string): boolean {
