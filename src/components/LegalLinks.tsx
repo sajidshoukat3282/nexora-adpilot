@@ -1,4 +1,4 @@
-const SITE = "https://nexoratechnologies.pk/";
+const SITE = "/";
 const EMAIL = "hello@nexoratechnologies.pk";
 const linkClass = "text-ink-400 hover:text-ink-200 hover:underline";
 
