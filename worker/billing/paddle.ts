@@ -11,6 +11,11 @@ const PRODUCT_PLAN: Record<string, 'starter' | 'professional' | 'business' | 'en
   pro_01m5th3d18qyad9n1gz1yagx92: 'professional',
   pro_01m5thj72d31n14ssnjsprbqmw: 'business',
   pro_01m73ys30nxwdmavqxzb64x0se: 'enterprise',
+  // LIVE account products
+  pro_01m76a057sm4rbrmdh9q20vbzt: 'starter',
+  pro_01m78jcaz2m08kwp214cpyyjjb: 'professional',
+  pro_01m78jsvg3b0e3kd76686x9kc8: 'business',
+  pro_01m78k5j4dsw2b8byb056xkbxy: 'enterprise',
 };
 
 function safeEqual(a: string, b: string): boolean {
