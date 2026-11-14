@@ -1,3 +1,4 @@
+import LandingPage from "@/features/landing/LandingPage";
 import React from "react";
 import { RouterProvider, Routes, useNavigate } from "@/lib/router";
 import { SessionProvider, useSession } from "@/hooks/useSession";
@@ -170,6 +171,7 @@ const PublicRoutes: React.FC = () => (
   <Routes
     notFound={<ClientLoginPage />}
     routes={[
+      { path: "/", element: <LandingPage /> },
       { path: "/login", element: <ClientLoginPage /> },
       { path: "/owner-login", element: <LoginPage /> },
       { path: "/auth/magic-link", element: <MagicLinkPage /> },
