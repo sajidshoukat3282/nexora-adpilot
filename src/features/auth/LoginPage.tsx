@@ -1,3 +1,4 @@
+import { Billboard } from "@/components/Billboard";
 import { AuthBackdrop } from "@/components/AuthBackdrop";
 import React, { FormEvent, useEffect, useState } from "react";
 import {
@@ -68,6 +69,7 @@ export const LoginPage: React.FC = () => {
     <div className="min-h-screen bg-ink-950 flex items-center justify-center px-4 py-8">
       <AuthBackdrop />
       <div className="relative z-10 w-full max-w-md">
+        <Billboard />
 
         <div className="text-center mb-8">
           <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary-500/20 bg-primary-500/10">

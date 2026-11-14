@@ -1,3 +1,4 @@
+import { Billboard } from "@/components/Billboard";
 import { AuthBackdrop } from "@/components/AuthBackdrop";
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "@/lib/router";
@@ -70,6 +71,7 @@ export const ClientLoginPage: React.FC = () => {
     <main className="min-h-screen bg-ink-950 flex items-center justify-center px-4 py-8">
       <AuthBackdrop />
       <section className="relative z-10 w-full max-w-md">
+        <Billboard />
         <header className="text-center mb-8">
           <h1 className="text-3xl font-bold text-ink-50">Nexora AdPilot</h1>
           <p className="mt-2 text-sm text-ink-400">Workspace sign in</p>
